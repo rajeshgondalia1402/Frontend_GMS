@@ -32,3 +32,7 @@ _shot.mjs
 *.tsbuildinfo
 vite.config.js
 vite.config.d.ts
+
+# local env overrides
+.env.local
+.env.*.local

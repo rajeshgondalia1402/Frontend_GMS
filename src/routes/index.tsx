@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { AuthLayout } from '@/layouts/AuthLayout'
 import { OwnerLayout } from '@/layouts/OwnerLayout'
 import { AdminLayout } from '@/layouts/AdminLayout'
+import { ProtectedRoute, PublicOnlyRoute } from './ProtectedRoute'
 
 import { Login } from '@/pages/auth/Login'
 import { Register } from '@/pages/auth/Register'
@@ -37,38 +38,50 @@ import { NotFound } from '@/pages/NotFound'
 export const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/login" replace /> },
 
+  // Auth screens — redirected to /app when already signed in.
   {
-    element: <AuthLayout />,
+    element: <PublicOnlyRoute />,
     children: [
-      { path: '/login', element: <Login /> },
-      { path: '/register', element: <Register /> },
-      { path: '/verify-otp', element: <VerifyOtp /> },
-      { path: '/forgot-password', element: <ForgotPassword /> },
-      { path: '/reset-password', element: <ResetPassword /> },
+      {
+        element: <AuthLayout />,
+        children: [
+          { path: '/login', element: <Login /> },
+          { path: '/register', element: <Register /> },
+          { path: '/verify-otp', element: <VerifyOtp /> },
+          { path: '/forgot-password', element: <ForgotPassword /> },
+          { path: '/reset-password', element: <ResetPassword /> },
+        ],
+      },
     ],
   },
 
+  // Garage owner panel — requires a valid, non-expired token.
   {
-    path: '/app',
-    element: <OwnerLayout />,
+    element: <ProtectedRoute />,
     children: [
-      { index: true, element: <Dashboard /> },
-      { path: 'customers', element: <Customers /> },
-      { path: 'customers/new', element: <CustomerForm /> },
-      { path: 'customers/:id', element: <CustomerForm /> },
-      { path: 'vehicles', element: <Vehicles /> },
-      { path: 'vehicles/new', element: <VehicleForm /> },
-      { path: 'vehicles/:id', element: <VehicleForm /> },
-      { path: 'job-cards', element: <JobCards /> },
-      { path: 'job-cards/new', element: <JobCardForm /> },
-      { path: 'job-cards/:id', element: <JobCardDetails /> },
-      { path: 'billing', element: <Billing /> },
-      { path: 'staff', element: <Staff /> },
-      { path: 'salary', element: <Salary /> },
-      { path: 'reports', element: <Reports /> },
-      { path: 'profile', element: <GarageProfile /> },
-      { path: 'settings', element: <Settings /> },
-      { path: 'subscription', element: <Subscription /> },
+      {
+        path: '/app',
+        element: <OwnerLayout />,
+        children: [
+          { index: true, element: <Dashboard /> },
+          { path: 'customers', element: <Customers /> },
+          { path: 'customers/new', element: <CustomerForm /> },
+          { path: 'customers/:id', element: <CustomerForm /> },
+          { path: 'vehicles', element: <Vehicles /> },
+          { path: 'vehicles/new', element: <VehicleForm /> },
+          { path: 'vehicles/:id', element: <VehicleForm /> },
+          { path: 'job-cards', element: <JobCards /> },
+          { path: 'job-cards/new', element: <JobCardForm /> },
+          { path: 'job-cards/:id', element: <JobCardDetails /> },
+          { path: 'billing', element: <Billing /> },
+          { path: 'staff', element: <Staff /> },
+          { path: 'salary', element: <Salary /> },
+          { path: 'reports', element: <Reports /> },
+          { path: 'profile', element: <GarageProfile /> },
+          { path: 'settings', element: <Settings /> },
+          { path: 'subscription', element: <Subscription /> },
+        ],
+      },
     ],
   },
 

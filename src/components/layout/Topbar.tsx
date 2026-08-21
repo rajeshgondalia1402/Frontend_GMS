@@ -1,6 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Menu, Bell, Search, LogOut, User } from 'lucide-react'
+import { Menu, Search, KeyRound, LogOut, User } from 'lucide-react'
+import { useAuth } from '@/context/AuthContext'
+import { SubscriptionPill } from './SubscriptionPill'
+import { ChangePasswordModal } from './ChangePasswordModal'
+import { useToast } from '@/components/ui'
+import { getFirstName, getInitial } from '@/lib/utils'
 
 interface TopbarProps {
   title: string
@@ -10,7 +15,17 @@ interface TopbarProps {
 
 export function Topbar({ title, onMenuClick, showSearch = true }: TopbarProps) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [passwordOpen, setPasswordOpen] = useState(false)
   const navigate = useNavigate()
+  const { user, logout } = useAuth()
+  const { toast } = useToast()
+
+  const handleLogout = () => {
+    setMenuOpen(false)
+    logout('manual')
+    toast('You have been logged out.', 'info')
+    navigate('/login', { replace: true })
+  }
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-slate-200 bg-white px-4 lg:px-6">
@@ -34,14 +49,8 @@ export function Topbar({ title, onMenuClick, showSearch = true }: TopbarProps) {
         </div>
       )}
 
-      <div className="ml-auto flex items-center gap-1">
-        <button
-          className="relative flex h-10 w-10 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
-          aria-label="Notifications"
-        >
-          <Bell className="h-5 w-5" />
-          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
-        </button>
+      <div className="ml-auto flex items-center gap-2">
+        <SubscriptionPill />
 
         <div className="relative">
           <button
@@ -50,18 +59,26 @@ export function Topbar({ title, onMenuClick, showSearch = true }: TopbarProps) {
             aria-label="Account"
           >
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700">
-              R
+              {getInitial(user?.ownerName)}
             </span>
-            <span className="hidden text-sm font-medium text-slate-700 lg:block">Rajesh</span>
+            <span className="hidden text-sm font-medium text-slate-700 lg:block">
+              {getFirstName(user?.ownerName) || 'Account'}
+            </span>
           </button>
           {menuOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-              <div className="absolute right-0 z-20 mt-1 w-48 animate-scale-in rounded-lg border border-slate-200 bg-white py-1 shadow-soft">
+              <div className="absolute right-0 z-20 mt-1 w-56 animate-scale-in rounded-lg border border-slate-200 bg-white py-1 shadow-soft">
+                {user && (
+                  <div className="border-b border-slate-100 px-3 py-2">
+                    <p className="truncate text-sm font-semibold text-slate-900">{user.ownerName}</p>
+                    <p className="truncate text-xs text-slate-500">{user.garageName}</p>
+                  </div>
+                )}
                 <button
                   onClick={() => {
                     setMenuOpen(false)
-                    navigate('/app/settings')
+                    navigate('/app/profile')
                   }}
                   className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                 >
@@ -70,8 +87,14 @@ export function Topbar({ title, onMenuClick, showSearch = true }: TopbarProps) {
                 <button
                   onClick={() => {
                     setMenuOpen(false)
-                    navigate('/login')
+                    setPasswordOpen(true)
                   }}
+                  className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  <KeyRound className="h-4 w-4 text-slate-400" /> Change Password
+                </button>
+                <button
+                  onClick={handleLogout}
                   className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
                 >
                   <LogOut className="h-4 w-4" /> Logout
@@ -81,6 +104,7 @@ export function Topbar({ title, onMenuClick, showSearch = true }: TopbarProps) {
           )}
         </div>
       </div>
+      <ChangePasswordModal open={passwordOpen} onClose={() => setPasswordOpen(false)} />
     </header>
   )
 }
