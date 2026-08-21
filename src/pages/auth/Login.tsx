@@ -1,27 +1,71 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
-import { Phone } from 'lucide-react'
+import { AlertCircle, Phone } from 'lucide-react'
 import { Button, Input, PasswordInput, useToast } from '@/components/ui'
+import { useAuth } from '@/context/AuthContext'
+import { ApiError } from '@/services/httpClient'
+import {
+  PASSWORD_MAX_LENGTH,
+  mobileNumberRules,
+  normalizeMobileInput,
+  passwordRules,
+} from '@/lib/validation'
 
 interface LoginForm {
-  mobile: string
+  mobileNumber: string
   password: string
 }
 
 export function Login() {
-  const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>()
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginForm>({
+    mode: 'onTouched',
+    defaultValues: { mobileNumber: '', password: '' },
+  })
   const [loading, setLoading] = useState(false)
-  const navigate = useNavigate()
-  const { toast } = useToast()
+  const [formError, setFormError] = useState<string | null>(null)
 
-  const onSubmit = () => {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { toast } = useToast()
+  const { login, logoutReason, clearLogoutReason } = useAuth()
+
+  // Where the user was headed before the guard bounced them here.
+  const redirectTo = (location.state as { from?: string } | null)?.from ?? '/app'
+
+  // Explain an automatic sign-out (token expired) instead of silently landing here.
+  useEffect(() => {
+    if (logoutReason === 'expired') {
+      setFormError('Your session has expired. Please sign in again.')
+      clearLogoutReason()
+    }
+  }, [logoutReason, clearLogoutReason])
+
+  const mobileField = register('mobileNumber', mobileNumberRules)
+
+  const onSubmit = async ({ mobileNumber, password }: LoginForm) => {
     setLoading(true)
-    setTimeout(() => {
+    setFormError(null)
+
+    try {
+      const session = await login({ mobileNumber: mobileNumber.trim(), password })
+      toast(`Welcome back, ${session.user.ownerName}!`, 'success')
+      navigate(redirectTo, { replace: true })
+    } catch (error) {
+      // 401 carries the API's deliberately vague "Invalid mobile number or password."
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : 'Something went wrong. Please try again.'
+      setFormError(message)
+      toast(message, 'error')
+    } finally {
       setLoading(false)
-      toast('Welcome back!', 'success')
-      navigate('/app')
-    }, 900)
+    }
   }
 
   return (
@@ -31,25 +75,40 @@ export function Login() {
         <p className="mt-1 text-sm text-slate-500">Sign in to continue</p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      {formError && (
+        <div
+          role="alert"
+          className="mb-4 flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3"
+        >
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+          <p className="text-sm font-medium text-red-700">{formError}</p>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
         <Input
           label="Mobile Number"
           type="tel"
           inputMode="numeric"
-          placeholder="+91 9876543210"
+          autoComplete="tel"
+          placeholder="9876543210"
           leftIcon={<Phone className="h-4 w-4" />}
-          error={errors.mobile?.message}
-          {...register('mobile', {
-            required: 'Mobile number is required',
-            pattern: { value: /^(\+91)?\s?\d{10}$/, message: 'Enter a valid 10-digit number' },
-          })}
+          error={errors.mobileNumber?.message}
+          {...mobileField}
+          onChange={(e) => {
+            // Block letters and symbols as the user types (typing and pasting).
+            e.target.value = normalizeMobileInput(e.target.value)
+            void mobileField.onChange(e)
+          }}
         />
 
         <PasswordInput
           label="Password"
           placeholder="Enter your password"
+          autoComplete="current-password"
+          maxLength={PASSWORD_MAX_LENGTH}
           error={errors.password?.message}
-          {...register('password', { required: 'Password is required' })}
+          {...register('password', passwordRules)}
         />
 
         <div className="flex justify-end">

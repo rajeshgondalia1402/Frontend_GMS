@@ -3,8 +3,10 @@ import { Users, Car, Wrench, Wallet, Plus, ChevronRight } from 'lucide-react'
 import { StatCard } from '@/components/common'
 import { SubscriptionBanner } from '@/components/common/SubscriptionBanner'
 import { StatusBadge } from '@/components/ui'
+import { useAuth } from '@/context/AuthContext'
 import { jobCards } from '@/mock/jobcards'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, getGreeting, getInitial } from '@/lib/utils'
+import { getSubscriptionView } from '@/lib/subscription'
 
 const quickActions = [
   { label: 'Customer', to: '/app/customers/new', icon: Users },
@@ -13,18 +15,28 @@ const quickActions = [
 ]
 
 export function Dashboard() {
-  const greeting = 'Good Morning'
+  const { user, session } = useAuth()
   const recent = jobCards.slice(0, 4)
+  const subscriptionView = getSubscriptionView(session?.subscription ?? null)
 
   return (
     <div className="space-y-6">
-      {/* Greeting */}
-      <div>
-        <p className="text-sm text-slate-500">{greeting} 👋</p>
-        <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">ABC Auto Garage</h1>
+      {/* Greeting — owner name, garage name and avatar initial come from the login response */}
+      <div className="flex items-center gap-3">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-100 text-lg font-bold text-primary-700">
+          {getInitial(user?.ownerName)}
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-sm text-slate-500">
+            {getGreeting()}, {user?.ownerName ?? 'there'} 👋
+          </p>
+          <h1 className="truncate text-xl font-bold text-slate-900 sm:text-2xl">
+            {user?.garageName ?? 'Your Garage'}
+          </h1>
+        </div>
       </div>
 
-      <SubscriptionBanner status="trial" daysRemaining={23} />
+      <SubscriptionBanner view={subscriptionView} />
 
       {/* Stats */}
       <div>
