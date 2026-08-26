@@ -1,42 +1,60 @@
 import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
-import { ArrowLeft } from 'lucide-react'
-import { Button, Input, Textarea, useToast } from '@/components/ui'
+import { AlertCircle, ArrowLeft } from 'lucide-react'
+import { Button, useToast } from '@/components/ui'
 import { PageHeader } from '@/components/common'
-import { customers } from '@/mock/customers'
+import { CustomerFields } from '@/components/customers'
+import { customerService } from '@/services/customerService'
+import { ApiError } from '@/services/httpClient'
+import { saveActiveCustomer } from '@/lib/activeCustomer'
+import {
+  EMPTY_CUSTOMER_FORM,
+  applyCustomerApiError,
+  toCreateCustomerPayload,
+} from '@/lib/customerForm'
+import type { CustomerFormValues } from '@/lib/customerForm'
 
-interface CustomerFormValues {
-  name: string
-  mobile: string
-  email: string
-  address: string
-}
-
+/**
+ * Adds a customer. Editing one happens in the dialog on their details page,
+ * where the saved record is on hand to diff against.
+ */
 export function CustomerForm() {
-  const { id } = useParams()
   const navigate = useNavigate()
   const { toast } = useToast()
-  const [loading, setLoading] = useState(false)
-  const existing = id ? customers.find((c) => c.id === id) : undefined
-  const isEdit = Boolean(existing)
 
-  const { register, handleSubmit, formState: { errors } } = useForm<CustomerFormValues>({
-    defaultValues: {
-      name: existing?.name ?? '',
-      mobile: existing?.mobile ?? '',
-      email: existing?.email ?? '',
-      address: existing?.address ?? '',
-    },
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const form = useForm<CustomerFormValues>({
+    mode: 'onTouched',
+    defaultValues: EMPTY_CUSTOMER_FORM,
   })
+  const { handleSubmit, setError: setFieldError, setFocus } = form
 
-  const onSubmit = () => {
-    setLoading(true)
-    setTimeout(() => {
-      setLoading(false)
-      toast(isEdit ? 'Customer updated' : 'Customer added', 'success')
-      navigate('/app/customers')
-    }, 800)
+  const onSubmit = async (values: CustomerFormValues) => {
+    setSaving(true)
+    setError(null)
+
+    try {
+      const customer = await customerService.createCustomer(toCreateCustomerPayload(values))
+
+      // Straight on to the vehicle step, with the created customer in hand:
+      // its `id` is what `POST /auth/vehicle` needs as `customerId`.
+      saveActiveCustomer(customer)
+      toast(`${customer.fullName} added`, 'success')
+      navigate(`/app/customers/${customer.id}`, { state: { customer } })
+    } catch (err) {
+      setSaving(false)
+
+      if (!(err instanceof ApiError)) {
+        setError('Could not save the customer. Please try again.')
+        return
+      }
+
+      setError(err.message)
+      applyCustomerApiError(err, setFieldError, setFocus)
+    }
   }
 
   return (
@@ -48,34 +66,21 @@ export function CustomerForm() {
         <ArrowLeft className="h-4 w-4" /> Back to Customers
       </button>
 
-      <PageHeader title={isEdit ? 'Edit Customer' : 'Add Customer'} />
+      <PageHeader title="Add Customer" />
 
-      <form onSubmit={handleSubmit(onSubmit)} className="max-w-2xl">
+      {error && (
+        <div
+          role="alert"
+          className="mb-4 flex max-w-2xl items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3"
+        >
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+          <p className="text-sm font-medium text-red-700">{error}</p>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit(onSubmit)} noValidate className="max-w-2xl">
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-card sm:p-6">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="md:col-span-2">
-              <Input
-                label="Customer Name *"
-                placeholder="Rajesh Patel"
-                error={errors.name?.message}
-                {...register('name', { required: 'Customer name is required' })}
-              />
-            </div>
-            <Input
-              label="Mobile Number"
-              type="tel"
-              inputMode="numeric"
-              placeholder="9876543210"
-              error={errors.mobile?.message}
-              {...register('mobile', {
-                pattern: { value: /^\d{10}$/, message: 'Enter a valid 10-digit number' },
-              })}
-            />
-            <Input label="Email" type="email" placeholder="name@example.com" {...register('email')} />
-            <div className="md:col-span-2">
-              <Textarea label="Address" placeholder="Street, area, city" {...register('address')} />
-            </div>
-          </div>
+          <CustomerFields form={form} />
         </div>
 
         <div className="mt-5 flex gap-3">
@@ -84,12 +89,13 @@ export function CustomerForm() {
             variant="outline"
             fullWidth
             className="lg:w-auto lg:flex-none"
+            disabled={saving}
             onClick={() => navigate('/app/customers')}
           >
             Cancel
           </Button>
-          <Button type="submit" fullWidth className="lg:w-auto lg:flex-none" loading={loading}>
-            Save Customer
+          <Button type="submit" fullWidth className="lg:w-auto lg:flex-none" loading={saving}>
+            Save &amp; Add Vehicle
           </Button>
         </div>
       </form>

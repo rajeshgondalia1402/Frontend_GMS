@@ -14,6 +14,7 @@ import { ResetPassword } from '@/pages/auth/ResetPassword'
 import { Dashboard } from '@/pages/owner/Dashboard'
 import { Customers } from '@/pages/owner/Customers'
 import { CustomerForm } from '@/pages/owner/CustomerForm'
+import { CustomerDetails } from '@/pages/owner/CustomerDetails'
 import { Vehicles } from '@/pages/owner/Vehicles'
 import { VehicleForm } from '@/pages/owner/VehicleForm'
 import { JobCards } from '@/pages/owner/JobCards'
@@ -66,7 +67,7 @@ export const router = createBrowserRouter([
           { index: true, element: <Dashboard /> },
           { path: 'customers', element: <Customers /> },
           { path: 'customers/new', element: <CustomerForm /> },
-          { path: 'customers/:id', element: <CustomerForm /> },
+          { path: 'customers/:id', element: <CustomerDetails /> },
           { path: 'vehicles', element: <Vehicles /> },
           { path: 'vehicles/new', element: <VehicleForm /> },
           { path: 'vehicles/:id', element: <VehicleForm /> },

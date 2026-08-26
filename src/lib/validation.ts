@@ -125,3 +125,116 @@ export function confirmPasswordRules(getNewPassword: () => string) {
     validate: (value: string) => (value === getNewPassword() ? true : 'Passwords do not match'),
   }
 }
+
+/**
+ * Customer form rules — mirror the schema behind `POST /api/auth/customer`.
+ * Both numbers are the same 10-digit rule, but each names its own field so the
+ * message points at the input the user is looking at.
+ */
+export const FULL_NAME_MAX_LENGTH = 100
+export const ADDRESS_MAX_LENGTH = 255
+
+export const fullNameRules = requiredTextRules('Full name', FULL_NAME_MAX_LENGTH)
+
+export function validateWhatsappNumber(value: string): string | undefined {
+  const whatsapp = (value ?? '').trim()
+  if (!whatsapp) return 'WhatsApp number is required'
+  if (!/^\d+$/.test(whatsapp)) return 'Only digits are allowed'
+  if (whatsapp.length !== MOBILE_LENGTH) {
+    return `WhatsApp number must be exactly ${MOBILE_LENGTH} digits`
+  }
+  return undefined
+}
+
+export const whatsappNumberRules = {
+  required: 'WhatsApp number is required',
+  validate: (value: string) => validateWhatsappNumber(value) ?? true,
+}
+
+/** Optional free text — blank is fine, only the max length is enforced. */
+function optionalTextRules(label: string, maxLength: number) {
+  return {
+    validate: (value: string) => {
+      const text = (value ?? '').trim()
+      if (text.length > maxLength) return `${label} must be at most ${maxLength} characters`
+      return true
+    },
+  }
+}
+
+export const optionalCityRules = optionalTextRules('City', CITY_MAX_LENGTH)
+export const optionalAddressRules = optionalTextRules('Address', ADDRESS_MAX_LENGTH)
+
+/**
+ * Vehicle form rules — mirror the schema behind `POST /api/auth/vehicle`.
+ */
+export const VEHICLE_NUMBER_MIN_LENGTH = 5
+export const VEHICLE_NUMBER_MAX_LENGTH = 15
+export const DESCRIPTION_MAX_LENGTH = 255
+export const BRAND_MAX_LENGTH = 60
+export const MODEL_MAX_LENGTH = 60
+export const VARIANT_MAX_LENGTH = 60
+export const COLOR_MAX_LENGTH = 40
+export const CURRENT_KM_MAX = 9999999
+
+/**
+ * The API stores the number normalised — uppercased with spaces and hyphens
+ * removed — so the field shows exactly what will be saved while it is typed.
+ */
+export function normalizeVehicleNumber(raw: string): string {
+  return (raw ?? '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, VEHICLE_NUMBER_MAX_LENGTH)
+}
+
+export function validateVehicleNumber(value: string): string | undefined {
+  const number = normalizeVehicleNumber(value)
+  if (!number) return 'Vehicle number is required'
+  if (number.length < VEHICLE_NUMBER_MIN_LENGTH) {
+    return `Vehicle number must be at least ${VEHICLE_NUMBER_MIN_LENGTH} characters`
+  }
+  return undefined
+}
+
+export const vehicleNumberRules = {
+  required: 'Vehicle number is required',
+  validate: (value: string) => validateVehicleNumber(value) ?? true,
+}
+
+export const vehicleTypeRules = {
+  required: 'Vehicle type is required',
+  validate: (value: string) => ((value ?? '').trim() ? true : 'Vehicle type is required'),
+}
+
+export const vehicleDescriptionRules = requiredTextRules('Description', DESCRIPTION_MAX_LENGTH)
+
+/** Whole kilometres — the API stores an integer. */
+export const currentKmRules = {
+  required: 'Current km is required',
+  validate: (value: string) => {
+    const km = String(value ?? '').trim()
+    if (!km) return 'Current km is required'
+    if (!/^\d+$/.test(km)) return 'Enter whole kilometres, digits only'
+    if (Number(km) > CURRENT_KM_MAX) {
+      return `Current km must be at most ${CURRENT_KM_MAX.toLocaleString('en-IN')}`
+    }
+    return true
+  },
+}
+
+export const optionalBrandRules = optionalTextRules('Brand', BRAND_MAX_LENGTH)
+export const optionalModelRules = optionalTextRules('Model', MODEL_MAX_LENGTH)
+export const optionalVariantRules = optionalTextRules('Variant', VARIANT_MAX_LENGTH)
+export const optionalColorRules = optionalTextRules('Colour', COLOR_MAX_LENGTH)
+
+/** Optional `YYYY-MM-DD`, as produced by an `<input type="date">`. */
+export const insuranceExpiryRules = {
+  validate: (value: string) => {
+    const date = (value ?? '').trim()
+    if (!date) return true
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return 'Enter a valid date'
+    if (Number.isNaN(new Date(`${date}T00:00:00`).getTime())) return 'Enter a valid date'
+    return true
+  },
+}
