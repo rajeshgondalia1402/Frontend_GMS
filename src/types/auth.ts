@@ -125,3 +125,13 @@ export interface ResetPasswordData {
   mobileNumber: string
   passwordChangedAt: string
 }
+
+/** Page envelope returned by the paginated collection endpoints. */
+export interface Pagination {
+  page: number
+  limit: number
+  total: number
+  totalPages: number
+  hasNextPage: boolean
+  hasPreviousPage: boolean
+}
