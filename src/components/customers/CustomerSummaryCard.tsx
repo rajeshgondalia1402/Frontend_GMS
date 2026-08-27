@@ -58,13 +58,13 @@ export function CustomerSummaryCard({ customer, onEdit, footer }: CustomerSummar
         </Button>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-4 border-t border-slate-100 pt-4 sm:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 gap-4 border-t border-slate-100 pt-4 sm:grid-cols-2 xl:grid-cols-3">
         <Detail icon={Phone} label="Mobile Number" value={customer.mobileNumber} />
         <Detail icon={MessageCircle} label="WhatsApp Number" value={customer.whatsappNumber} />
         <Detail icon={Mail} label="Email" value={customer.email} />
         <Detail icon={Building2} label="City" value={customer.city} />
-        <Detail icon={MapPin} label="Address" value={customer.address} className="sm:col-span-2" />
-        <Detail icon={StickyNote} label="Notes" value={customer.notes} className="sm:col-span-2" />
+        <Detail icon={MapPin} label="Address" value={customer.address} />
+        <Detail icon={StickyNote} label="Notes" value={customer.notes} />
       </div>
 
       {footer && <div className="mt-4 border-t border-slate-100 pt-4">{footer}</div>}

@@ -1,21 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Minus, Phone, Car, Users, Eye } from 'lucide-react'
-import { PageHeader, SearchInput, StatCard } from '@/components/common'
+import { Plus, Minus, Phone, Car, Users, Eye, Download } from 'lucide-react'
+import { DEFAULT_PAGE_SIZE, PageHeader, PaginationBar, SearchInput, StatCard } from '@/components/common'
 import type { Column } from '@/components/common'
 import { ResponsiveList } from '@/components/common'
-import { Button, EmptyState, ErrorState, LoadingState } from '@/components/ui'
+import { Button, EmptyState, ErrorState, LoadingState, Select } from '@/components/ui'
 import { CustomerVehicleList } from '@/components/customers'
+import { useAuth } from '@/context/AuthContext'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { customerService } from '@/services/customerService'
 import { ApiError } from '@/services/httpClient'
+import { datedFileName, downloadExcel } from '@/lib/excel'
+import type { ExportColumn } from '@/lib/excel'
+import { formatDate } from '@/lib/utils'
 import type { Pagination } from '@/types/auth'
-import type { CustomerWithVehicles } from '@/types/customer'
+import type { CustomerListParams, CustomerWithVehicles } from '@/types/customer'
 
-const PAGE_SIZE = 20
-
-/** The API caps `limit` at 100; the stat cards read one page of that size. */
-const STATS_LIMIT = 100
+/** The API caps `limit` at 100 — both for a page of the list and for the stats. */
+const MAX_LIMIT = 100
+const STATS_LIMIT = MAX_LIMIT
 
 /** How many vehicles the customer has, e.g. "3 vehicles". */
 function vehicleLabel(customer: CustomerWithVehicles): string {
@@ -35,6 +38,51 @@ function countCreatedThisMonth(customers: CustomerWithVehicles[], now: Date = ne
   }).length
 }
 
+/** Every field the API returns for a customer, bar the ids. */
+const EXPORT_COLUMNS: ExportColumn<CustomerWithVehicles>[] = [
+  { header: 'Customer Name', value: (c) => c.fullName, width: 24 },
+  { header: 'Mobile Number', value: (c) => c.mobileNumber, align: 'left', width: 16 },
+  { header: 'WhatsApp Number', value: (c) => c.whatsappNumber, align: 'left', width: 18 },
+  { header: 'Email', value: (c) => c.email, width: 26 },
+  { header: 'City', value: (c) => c.city, width: 16 },
+  { header: 'Address', value: (c) => c.address, wrap: true, width: 34 },
+  { header: 'Notes', value: (c) => c.notes, wrap: true, width: 30 },
+  { header: 'Total Vehicles', value: (c) => (c.vehicles ?? []).length, align: 'center', width: 14 },
+  {
+    header: 'Vehicle Numbers',
+    value: (c) => (c.vehicles ?? []).map((v) => v.vehicleNumber).join(', '),
+    wrap: true,
+    width: 28,
+  },
+  {
+    header: 'Added On',
+    value: (c) => (c.createdAt ? formatDate(c.createdAt) : ''),
+    align: 'center',
+    width: 14,
+  },
+  {
+    header: 'Last Updated',
+    value: (c) => (c.updatedAt ? formatDate(c.updatedAt) : ''),
+    align: 'center',
+    width: 14,
+  },
+]
+
+type SortKey = 'newest' | 'name-asc' | 'name-desc'
+
+const SORT_OPTIONS = [
+  { value: 'newest', label: 'Newest first' },
+  { value: 'name-asc', label: 'Name (A–Z)' },
+  { value: 'name-desc', label: 'Name (Z–A)' },
+]
+
+/** The API sorts the whole list, so the order holds across every page. */
+const SORT_PARAMS: Record<SortKey, Pick<CustomerListParams, 'sortBy' | 'sortOrder'>> = {
+  newest: { sortBy: 'createdAt', sortOrder: 'desc' },
+  'name-asc': { sortBy: 'fullName', sortOrder: 'asc' },
+  'name-desc': { sortBy: 'fullName', sortOrder: 'desc' },
+}
+
 interface CustomerStats {
   total: number
   newThisMonth: number
@@ -44,6 +92,7 @@ interface CustomerStats {
 
 export function Customers() {
   const navigate = useNavigate()
+  const { user } = useAuth()
 
   const [query, setQuery] = useState('')
   // One request per pause in typing, not one per keystroke.
@@ -51,59 +100,64 @@ export function Customers() {
 
   const [customers, setCustomers] = useState<CustomerWithVehicles[]>([])
   const [pagination, setPagination] = useState<Pagination | null>(null)
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE)
+  const [sort, setSort] = useState<SortKey>('newest')
   const [stats, setStats] = useState<CustomerStats | null>(null)
   /** Ids of the customers whose vehicles are shown under their row. */
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
   const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Only the newest request may write to state: a slow response for an earlier
   // search term must not overwrite the results of the one being typed now.
   const latestRequest = useRef(0)
 
-  const fetchPage = useCallback(
-    async (page: number) => {
-      const requestId = ++latestRequest.current
+  // A new search term, a different page size or a different order always
+  // starts from page one:
+  // page 4 of the old result set says nothing about the new one. Resetting
+  // during the render that changes them keeps the stale page from being asked
+  // for at all, rather than fetching it and then correcting.
+  const queryKey = `${search}|${limit}|${sort}`
+  const [lastQueryKey, setLastQueryKey] = useState(queryKey)
+  if (lastQueryKey !== queryKey) {
+    setLastQueryKey(queryKey)
+    setPage(1)
+  }
 
-      if (page === 1) setLoading(true)
-      else setLoadingMore(true)
-      setError(null)
+  const fetchPage = useCallback(async () => {
+    const requestId = ++latestRequest.current
 
-      try {
-        // One endpoint for both: `search` is simply left off to list everyone.
-        const data = await customerService.listCustomers({
-          page,
-          limit: PAGE_SIZE,
-          ...(search ? { search } : {}),
-        })
+    setLoading(true)
+    setError(null)
 
-        if (requestId !== latestRequest.current) return
+    try {
+      // One endpoint for both: `search` is simply left off to list everyone.
+      const data = await customerService.listCustomers({
+        page,
+        limit,
+        ...SORT_PARAMS[sort],
+        ...(search ? { search } : {}),
+      })
 
-        const found = data.customers ?? []
-        setCustomers((current) => (page === 1 ? found : [...current, ...found]))
-        setPagination(data.pagination ?? null)
-      } catch (err) {
-        if (requestId !== latestRequest.current) return
+      if (requestId !== latestRequest.current) return
 
-        setError(err instanceof ApiError ? err.message : 'Could not load customers.')
-        if (page === 1) {
-          setCustomers([])
-          setPagination(null)
-        }
-      } finally {
-        if (requestId === latestRequest.current) {
-          setLoading(false)
-          setLoadingMore(false)
-        }
-      }
-    },
-    [search],
-  )
+      setCustomers(data.customers ?? [])
+      setPagination(data.pagination ?? null)
+    } catch (err) {
+      if (requestId !== latestRequest.current) return
 
-  // Re-runs whenever the debounced search term changes.
+      setError(err instanceof ApiError ? err.message : 'Could not load customers.')
+      setCustomers([])
+      setPagination(null)
+    } finally {
+      if (requestId === latestRequest.current) setLoading(false)
+    }
+  }, [search, page, limit, sort])
+
+  // Re-runs whenever the search term, page, page size or order changes.
   useEffect(() => {
-    void fetchPage(1)
+    void fetchPage()
   }, [fetchPage])
 
   /**
@@ -194,6 +248,32 @@ export function Customers() {
     },
   ]
 
+  /**
+   * Downloads exactly what the list is showing — this page of it, under the
+   * search term in the box. Asking for "All" rows first is what downloads
+   * everything.
+   */
+  const exportExcel = () =>
+    downloadExcel(
+      datedFileName('customers'),
+      {
+        title: 'Customer List',
+        subtitle: user?.garageName ?? 'Garage Management System',
+        sheetName: 'Customers',
+        includeIndex: true,
+        // What the sheet is a snapshot of, so a saved file explains itself.
+        meta: [
+          { label: 'Search', value: search || 'All customers' },
+          {
+            label: 'Sorted By',
+            value: SORT_OPTIONS.find((option) => option.value === sort)?.label,
+          },
+        ],
+      },
+      EXPORT_COLUMNS,
+      customers,
+    )
+
   const addButton = (
     <Button leftIcon={<Plus className="h-4 w-4" />} onClick={() => navigate('/app/customers/new')}>
       <span className="hidden sm:inline">Add Customer</span>
@@ -224,12 +304,29 @@ export function Customers() {
         />
       </div>
 
-      <div className="mb-4">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row">
         <SearchInput
           value={query}
           onChange={setQuery}
           placeholder="Search name or mobile number..."
+          className="sm:flex-1"
         />
+        <div className="sm:w-48">
+          <Select
+            aria-label="Sort customers"
+            options={SORT_OPTIONS}
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortKey)}
+          />
+        </div>
+        <Button
+          variant="outline"
+          leftIcon={<Download className="h-4 w-4" />}
+          disabled={customers.length === 0}
+          onClick={exportExcel}
+        >
+          Download Excel
+        </Button>
       </div>
 
       {loading ? (
@@ -238,7 +335,7 @@ export function Customers() {
         <ErrorState
           title="Could not load customers"
           description={error}
-          onRetry={() => void fetchPage(1)}
+          onRetry={() => void fetchPage()}
         />
       ) : customers.length === 0 ? (
         <EmptyState
@@ -301,20 +398,13 @@ export function Customers() {
           />
 
           {pagination && (
-            <div className="mt-4 flex flex-col items-center gap-2">
-              {pagination.hasNextPage && (
-                <Button
-                  variant="outline"
-                  loading={loadingMore}
-                  onClick={() => void fetchPage(pagination.page + 1)}
-                >
-                  Load more
-                </Button>
-              )}
-              <p className="text-xs text-slate-400">
-                Showing {customers.length} of {pagination.total}
-              </p>
-            </div>
+            <PaginationBar
+              pagination={pagination}
+              count={customers.length}
+              maxLimit={MAX_LIMIT}
+              onPageChange={setPage}
+              onLimitChange={setLimit}
+            />
           )}
         </>
       )}

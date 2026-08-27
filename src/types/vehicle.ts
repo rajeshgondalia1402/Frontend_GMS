@@ -1,4 +1,6 @@
-/** Types mirroring the Node.js API contract for `POST /api/auth/vehicle`. */
+/** Types mirroring the Node.js API contract for `/api/auth/vehicle`. */
+
+import type { Pagination } from './auth'
 
 /** The API defaults a vehicle to `PENDING` when no status is sent. */
 export type VehicleStatus = 'PENDING' | 'ACTIVE' | 'IN_SERVICE' | 'COMPLETED' | 'INACTIVE'
@@ -51,4 +53,38 @@ export interface VehicleSummary {
 export interface VehicleRecord extends VehicleSummary {
   customerId?: string
   garageId?: string
+}
+
+/** The trimmed customer object `GET /api/auth/vehicle` embeds in every row. */
+export interface VehicleCustomer {
+  id: string
+  fullName: string
+  mobileNumber: string
+  whatsappNumber?: string
+}
+
+/** A listed vehicle: the full row plus the customer it belongs to. */
+export interface VehicleWithCustomer extends VehicleRecord {
+  customer?: VehicleCustomer
+}
+
+/** Query for `GET /api/auth/vehicle`; every field falls back to an API default. */
+export interface VehicleListParams {
+  /** 1-based. Default `1`. */
+  page?: number
+  /** Default `10`. No fixed maximum. */
+  limit?: number
+  /** Vehicle number, brand, model, customer name or customer mobile number. */
+  search?: string
+  status?: VehicleStatus
+  /** Default `createdAt`. */
+  sortBy?: 'createdAt' | 'updatedAt' | 'vehicleNumber' | 'status'
+  /** Default `desc`. */
+  sortOrder?: 'asc' | 'desc'
+}
+
+/** A page of this garage's vehicles. */
+export interface VehicleListData {
+  vehicles: VehicleWithCustomer[]
+  pagination: Pagination
 }

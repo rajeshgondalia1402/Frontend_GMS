@@ -30,9 +30,11 @@ export function DataTable<T>({
       <div className="scrollbar-thin overflow-x-auto">
         <table className="w-full min-w-[640px] text-left text-sm">
           <thead>
-            <tr className="border-b border-slate-200 bg-slate-50">
+            {/* A touch bolder and wider than the rows, on a slightly deeper
+                band, so the header reads as a header without going dark. */}
+            <tr className="border-b border-slate-200 bg-slate-100/80">
               {columns.map((col, i) => (
-                <th key={i} className={`whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 ${col.className ?? ''}`}>
+                <th key={i} className={`whitespace-nowrap px-4 py-3.5 text-[11px] font-bold uppercase tracking-wider text-slate-600 ${col.className ?? ''}`}>
                   {col.header}
                 </th>
               ))}

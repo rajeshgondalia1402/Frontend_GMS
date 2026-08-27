@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { AlertTriangle, ArrowLeft, Car, Plus } from 'lucide-react'
 import { Button, Card, ErrorState, Skeleton } from '@/components/ui'
 import { PageHeader } from '@/components/common'
@@ -13,7 +13,7 @@ import type { VehicleSummary } from '@/types/vehicle'
 
 function CustomerDetailsSkeleton() {
   return (
-    <div className="max-w-2xl space-y-4">
+    <div className="space-y-4">
       <Card>
         <div className="flex items-center gap-3">
           <Skeleton className="h-12 w-12 rounded-xl" />
@@ -22,8 +22,8 @@ function CustomerDetailsSkeleton() {
             <Skeleton className="h-3 w-20" />
           </div>
         </div>
-        <div className="mt-4 grid grid-cols-1 gap-4 border-t border-slate-100 pt-4 sm:grid-cols-2">
-          {Array.from({ length: 4 }).map((_, i) => (
+        <div className="mt-4 grid grid-cols-1 gap-4 border-t border-slate-100 pt-4 sm:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="space-y-2">
               <Skeleton className="h-3 w-20" />
               <Skeleton className="h-4 w-32" />
@@ -48,8 +48,22 @@ export function CustomerDetails() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
 
-  const handedOver = (location.state as { customer?: CustomerWithVehicles } | null)?.customer
+  /**
+   * Reached from the Vehicles tab, which lists the vehicle rather than the
+   * customer. The page then opens straight into the form for that vehicle's
+   * next visit instead of offering to add a new one.
+   */
+  const fromVehicles = searchParams.get('from') === 'vehicles'
+  const listPath = fromVehicles ? '/app/vehicles' : '/app/customers'
+  const seedVehicleId = searchParams.get('vehicleId')
+
+  const handed = location.state as {
+    customer?: CustomerWithVehicles
+    vehicle?: VehicleSummary
+  } | null
+  const handedOver = handed?.customer
 
   const [seed] = useState<CustomerRecord | null>(
     () => loadActiveCustomer(id) ?? handedOver ?? null,
@@ -65,7 +79,15 @@ export function CustomerDetails() {
   const [stale, setStale] = useState(false)
 
   const [editing, setEditing] = useState(false)
-  const [formOpen, setFormOpen] = useState(false)
+  const [formOpen, setFormOpen] = useState(fromVehicles)
+
+  /**
+   * The vehicle the visit is being recorded for. What the Vehicles tab handed
+   * over is the full row; on a reload it falls back to the trimmed copy the
+   * customer fetch embeds, which is enough to fill the form in.
+   */
+  const seedVehicle =
+    handed?.vehicle ?? (seedVehicleId ? vehicles.find((v) => v.id === seedVehicleId) : undefined)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -99,15 +121,15 @@ export function CustomerDetails() {
 
   const finish = () => {
     clearActiveCustomer()
-    navigate('/app/customers')
+    navigate(listPath)
   }
 
   const backLink = (
     <button
-      onClick={() => navigate('/app/customers')}
+      onClick={() => navigate(listPath)}
       className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-700"
     >
-      <ArrowLeft className="h-4 w-4" /> Back to Customers
+      <ArrowLeft className="h-4 w-4" /> Back to {fromVehicles ? 'Vehicles' : 'Customers'}
     </button>
   )
 
@@ -116,17 +138,15 @@ export function CustomerDetails() {
       <div>
         {backLink}
         <PageHeader title="Customer Details" />
-        <div className="max-w-2xl">
-          {loading ? (
-            <CustomerDetailsSkeleton />
-          ) : (
-            <ErrorState
-              title="Customer details are not available"
-              description={error ?? 'Open the customer again from the list to add a vehicle.'}
-              onRetry={() => void load()}
-            />
-          )}
-        </div>
+        {loading ? (
+          <CustomerDetailsSkeleton />
+        ) : (
+          <ErrorState
+            title="Customer details are not available"
+            description={error ?? 'Open the customer again from the list to add a vehicle.'}
+            onRetry={() => void load()}
+          />
+        )}
       </div>
     )
   }
@@ -137,7 +157,9 @@ export function CustomerDetails() {
 
       <PageHeader title="Customer Details" subtitle="Their details and the vehicles they bring in." />
 
-      <div className="max-w-2xl space-y-4">
+      {/* Full width: the details, the vehicles and the vehicle form all lay
+          out in columns on a desktop instead of a single narrow stack. */}
+      <div className="space-y-4">
         {stale && (
           <div
             role="alert"
@@ -158,6 +180,7 @@ export function CustomerDetails() {
           customer={customer}
           onEdit={() => setEditing(true)}
           footer={
+            !fromVehicles &&
             !formOpen && (
               <Button
                 fullWidth
@@ -171,27 +194,39 @@ export function CustomerDetails() {
           }
         />
 
+        {/* The form opens straight under the customer, where the button that
+            opened it is — the vehicles already saved stay below it. */}
+        {formOpen && (
+          <AddVehicleForm
+            // Remounts once the seed vehicle arrives, so the form is filled in.
+            key={seedVehicle?.id ?? 'new'}
+            customerId={customer.id}
+            seed={seedVehicle}
+            onCreated={(vehicle) => {
+              setVehicles((current) => [...current, vehicle])
+              if (fromVehicles) navigate('/app/vehicles')
+              else setFormOpen(false)
+            }}
+            onCancel={() => {
+              if (fromVehicles) navigate('/app/vehicles')
+              else setFormOpen(false)
+            }}
+          />
+        )}
+
         {vehicles.length > 0 && (
           <div className="space-y-3">
-            <h2 className="text-sm font-semibold text-slate-700">
-              Vehicles ({vehicles.length})
-            </h2>
-            {vehicles.map((vehicle) => (
-              <VehicleSummaryCard key={vehicle.id} vehicle={vehicle} />
-            ))}
+            <h2 className="text-sm font-semibold text-slate-700">Vehicles ({vehicles.length})</h2>
+            <div className="space-y-3">
+              {vehicles.map((vehicle) => (
+                <VehicleSummaryCard key={vehicle.id} vehicle={vehicle} detailed />
+              ))}
+            </div>
           </div>
         )}
 
-        {formOpen ? (
-          <AddVehicleForm
-            customerId={customer.id}
-            onCreated={(vehicle) => {
-              setVehicles((current) => [...current, vehicle])
-              setFormOpen(false)
-            }}
-            onCancel={() => setFormOpen(false)}
-          />
-        ) : (
+        {!fromVehicles &&
+          !formOpen &&
           vehicles.length === 0 &&
           !loading && (
             <Card className="flex items-start gap-3 border-dashed bg-white/60">
@@ -206,11 +241,10 @@ export function CustomerDetails() {
                 </p>
               </div>
             </Card>
-          )
-        )}
+          )}
 
-        <div className="flex gap-3 pt-1">
-          <Button variant="outline" fullWidth className="lg:w-auto lg:flex-none" onClick={finish}>
+        <div className="flex pt-1">
+          <Button variant="outline" fullWidth className="sm:w-auto sm:flex-none" onClick={finish}>
             Done
           </Button>
         </div>

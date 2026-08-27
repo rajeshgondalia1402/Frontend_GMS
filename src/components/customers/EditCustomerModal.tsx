@@ -84,7 +84,7 @@ export function EditCustomerModal({ open, customer, onClose, onUpdated }: EditCu
       open={open}
       onClose={close}
       title="Edit Customer"
-      size="lg"
+      size="xl"
       footer={
         <div className="flex gap-3">
           <Button variant="outline" fullWidth onClick={close} disabled={saving}>
@@ -107,7 +107,7 @@ export function EditCustomerModal({ open, customer, onClose, onUpdated }: EditCu
       )}
 
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
-        <CustomerFields form={form} columns={1} />
+        <CustomerFields form={form} columns={2} />
 
         {/* Lets Enter submit the form without a visible duplicate button */}
         <button type="submit" className="hidden" tabIndex={-1} aria-hidden="true" />

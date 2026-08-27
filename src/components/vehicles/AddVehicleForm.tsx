@@ -25,7 +25,12 @@ import {
   vehicleNumberRules,
   vehicleTypeRules,
 } from '@/lib/validation'
-import type { CreateVehiclePayload, VehicleRecord, VehicleStatus } from '@/types/vehicle'
+import type {
+  CreateVehiclePayload,
+  VehicleRecord,
+  VehicleStatus,
+  VehicleSummary,
+} from '@/types/vehicle'
 
 interface VehicleFormValues {
   vehicleNumber: string
@@ -88,14 +93,42 @@ const FORM_FIELDS: string[] = [
   'status',
 ]
 
+/**
+ * Copies what stays the same about a vehicle from one visit to the next.
+ * The reading and the description are deliberately left blank: those are what
+ * the visit being recorded is for, and the API keeps a row per visit.
+ */
+function seedFormValues(seed?: VehicleSummary): VehicleFormValues {
+  if (!seed) return EMPTY
+
+  return {
+    ...EMPTY,
+    vehicleNumber: seed.vehicleNumber ?? '',
+    vehicleType: seed.vehicleType ?? '',
+    brand: seed.brand ?? '',
+    model: seed.model ?? '',
+    variant: seed.variant ?? '',
+    fuelType: seed.fuelType ?? '',
+    color: seed.color ?? '',
+    // The date input only takes `YYYY-MM-DD`, however the API sends it.
+    insuranceExpiry: seed.insuranceExpiry ? seed.insuranceExpiry.slice(0, 10) : '',
+    status: seed.status ?? EMPTY.status,
+  }
+}
+
 interface AddVehicleFormProps {
   customerId: string
+  /**
+   * Fills the form in from a vehicle already on file, so a returning one is
+   * not retyped. Remount the form (key on the vehicle id) to seed it again.
+   */
+  seed?: VehicleSummary
   /** Hands the created row back so the page can list it. */
   onCreated: (vehicle: VehicleRecord) => void
   onCancel: () => void
 }
 
-export function AddVehicleForm({ customerId, onCreated, onCancel }: AddVehicleFormProps) {
+export function AddVehicleForm({ customerId, seed, onCreated, onCancel }: AddVehicleFormProps) {
   const { toast } = useToast()
 
   const [saving, setSaving] = useState(false)
@@ -108,7 +141,7 @@ export function AddVehicleForm({ customerId, onCreated, onCancel }: AddVehicleFo
     setError: setFieldError,
     setFocus,
     formState: { errors },
-  } = useForm<VehicleFormValues>({ mode: 'onTouched', defaultValues: EMPTY })
+  } = useForm<VehicleFormValues>({ mode: 'onTouched', defaultValues: seedFormValues(seed) })
 
   const numberField = register('vehicleNumber', vehicleNumberRules)
   const kmField = register('currentKm', currentKmRules)
@@ -155,7 +188,7 @@ export function AddVehicleForm({ customerId, onCreated, onCancel }: AddVehicleFo
 
     try {
       const vehicle = await vehicleService.createVehicle(payload)
-      reset(EMPTY)
+      reset(seedFormValues(seed))
       toast(`${vehicle.vehicleNumber || payload.vehicleNumber} added`, 'success')
       onCreated(vehicle)
     } catch (err) {
@@ -202,7 +235,7 @@ export function AddVehicleForm({ customerId, onCreated, onCancel }: AddVehicleFo
       )}
 
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-4">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <Input
             label="Vehicle Number *"
             placeholder="GJ01AB1234"
@@ -300,18 +333,18 @@ export function AddVehicleForm({ customerId, onCreated, onCancel }: AddVehicleFo
           </div>
         </div>
 
-        <div className="mt-5 flex gap-3">
+        <div className="mt-5 flex gap-3 sm:justify-end">
           <Button
             type="button"
             variant="outline"
             fullWidth
-            className="lg:w-auto lg:flex-none"
+            className="sm:w-auto sm:flex-none"
             disabled={saving}
             onClick={onCancel}
           >
             Cancel
           </Button>
-          <Button type="submit" fullWidth className="lg:w-auto lg:flex-none" loading={saving}>
+          <Button type="submit" fullWidth className="sm:w-auto sm:flex-none" loading={saving}>
             Save Vehicle
           </Button>
         </div>
