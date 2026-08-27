@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Topbar } from '@/components/layout/Topbar'
+import type { ShellVariant } from '@/components/layout/Topbar'
 import { BottomNav } from '@/components/layout/BottomNav'
 import { Drawer, Modal } from '@/components/ui'
 import { InstallPrompt, NetworkBanner } from '@/components/common/PwaUI'
@@ -11,9 +12,11 @@ import { cn } from '@/lib/utils'
 interface AppShellProps {
   nav: NavItem[]
   brand: string
+  /** Which account the shell is signed in as (default: the garage owner). */
+  variant?: ShellVariant
 }
 
-export function AppShell({ nav, brand }: AppShellProps) {
+export function AppShell({ nav, brand, variant = 'owner' }: AppShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   const location = useLocation()
@@ -42,7 +45,7 @@ export function AppShell({ nav, brand }: AppShellProps) {
 
       {/* Content column */}
       <div className="lg:pl-60">
-        <Topbar title={current} onMenuClick={() => setDrawerOpen(true)} />
+        <Topbar title={current} variant={variant} onMenuClick={() => setDrawerOpen(true)} />
         <main className="mx-auto max-w-6xl px-4 pb-24 pt-5 sm:px-6 lg:pb-10">
           <Outlet />
         </main>

@@ -26,7 +26,7 @@ export function millisecondsUntilExpiry(expiresAt: string): number {
   return Math.max(0, expiry - Date.now())
 }
 
-export function isSessionExpired(session: AuthSession): boolean {
+export function isSessionExpired(session: { expiresAt: string }): boolean {
   return millisecondsUntilExpiry(session.expiresAt) <= 0
 }
 
