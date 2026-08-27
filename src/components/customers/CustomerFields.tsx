@@ -21,15 +21,15 @@ import {
 
 interface CustomerFieldsProps {
   form: UseFormReturn<CustomerFormValues>
-  /** Single column inside the edit dialog, two on the full page. */
-  columns?: 1 | 2
+  /** Single column inside the edit dialog, three across the full page. */
+  columns?: 1 | 2 | 3
 }
 
 /**
  * The customer fields shared by the add page and the edit dialog, including
  * the "same as mobile" mirroring, so both collect exactly what the API takes.
  */
-export function CustomerFields({ form, columns = 2 }: CustomerFieldsProps) {
+export function CustomerFields({ form, columns = 3 }: CustomerFieldsProps) {
   const {
     register,
     setValue,
@@ -71,11 +71,22 @@ export function CustomerFields({ form, columns = 2 }: CustomerFieldsProps) {
     if (e.target.checked) mirrorToWhatsapp(getValues('mobileNumber'))
   }
 
-  const wide = columns === 2 ? 'md:col-span-2' : undefined
+  const three = columns === 3
+
+  /** Takes the whole row at every width the grid is more than one column wide. */
+  const fullRow = three ? 'md:col-span-2 xl:col-span-3' : 'md:col-span-2'
+  /** Takes the whole row only until a third column exists to sit in. */
+  const untilThird = three ? 'md:col-span-2 xl:col-span-1' : undefined
 
   return (
-    <div className={cn('grid grid-cols-1 gap-4', columns === 2 && 'md:grid-cols-2')}>
-      <div className={wide}>
+    <div
+      className={cn(
+        'grid grid-cols-1 gap-4',
+        columns === 2 && 'md:grid-cols-2',
+        columns === 3 && 'md:grid-cols-2 xl:grid-cols-3',
+      )}
+    >
+      <div className={untilThird ?? fullRow}>
         <Input
           label="Customer Name *"
           placeholder="Rahul Patel"
@@ -113,7 +124,7 @@ export function CustomerFields({ form, columns = 2 }: CustomerFieldsProps) {
         onChange={onWhatsappChange}
       />
 
-      <div className={cn('-mt-1', wide)}>
+      <div className={cn('-mt-1', fullRow)}>
         <Checkbox
           label="WhatsApp number is the same as the mobile number"
           {...sameAsMobileField}
@@ -142,7 +153,7 @@ export function CustomerFields({ form, columns = 2 }: CustomerFieldsProps) {
         {...register('city', optionalCityRules)}
       />
 
-      <div className={wide}>
+      <div className={untilThird}>
         <Textarea
           label="Address"
           placeholder="Street, area, city"
@@ -152,7 +163,7 @@ export function CustomerFields({ form, columns = 2 }: CustomerFieldsProps) {
         />
       </div>
 
-      <div className={wide}>
+      <div className={three ? fullRow : undefined}>
         <Textarea
           label="Notes"
           placeholder="Regular customer, prefers weekend service..."

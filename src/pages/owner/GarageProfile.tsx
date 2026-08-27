@@ -50,7 +50,7 @@ function toFormValues(user: ProfileUser): ProfileValues {
 
 function ProfileSkeleton() {
   return (
-    <div className="max-w-2xl space-y-4">
+    <div className="space-y-4">
       <Card>
         <div className="flex items-center gap-4">
           <Skeleton className="h-16 w-16 rounded-xl" />
@@ -60,16 +60,28 @@ function ProfileSkeleton() {
           </div>
         </div>
       </Card>
-      <Card>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {Array.from({ length: 7 }).map((_, i) => (
-            <div key={i} className={i === 0 ? 'md:col-span-2' : undefined}>
-              <Skeleton className="mb-2 h-3 w-24" />
-              <Skeleton className="h-11 w-full rounded-lg" />
-            </div>
-          ))}
-        </div>
-      </Card>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-start">
+        <Card className="lg:col-span-2">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i}>
+                <Skeleton className="mb-2 h-3 w-24" />
+                <Skeleton className="h-11 w-full rounded-lg" />
+              </div>
+            ))}
+          </div>
+        </Card>
+        <Card>
+          <div className="space-y-4">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <div key={i}>
+                <Skeleton className="mb-2 h-3 w-24" />
+                <Skeleton className="h-11 w-full rounded-lg" />
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
     </div>
   )
 }
@@ -126,11 +138,11 @@ export function GarageProfile() {
       {loading ? (
         <ProfileSkeleton />
       ) : error ? (
-        <div className="max-w-2xl">
-          <ErrorState title="Could not load your profile" description={error} onRetry={() => void loadProfile()} />
-        </div>
+        <ErrorState title="Could not load your profile" description={error} onRetry={() => void loadProfile()} />
       ) : (
-        <form onSubmit={handleSubmit(onSubmit)} className="max-w-2xl space-y-4">
+        // Full width: the fields spread across the container rather than
+        // stacking down the left half and pushing the page into a scroll.
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {/* Logo */}
           <Card>
             <div className="flex items-center gap-4">
@@ -159,40 +171,42 @@ export function GarageProfile() {
             </div>
           </Card>
 
-          <Card>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="md:col-span-2">
-                <Input label="Garage Name" {...register('garageName')} />
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-start">
+            <Card className="lg:col-span-2">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <div className="md:col-span-2 xl:col-span-1">
+                  <Input label="Garage Name" {...register('garageName')} />
+                </div>
+                <Input label="Owner Name" {...register('ownerName')} />
+                <Input
+                  label="Mobile Number"
+                  type="tel"
+                  inputMode="numeric"
+                  readOnly
+                  hint="Used to sign in — cannot be changed here."
+                  className="bg-slate-50 text-slate-600"
+                  {...register('mobileNumber')}
+                />
+                <Input label="Email" type="email" {...register('email')} />
+                <Input label="City" {...register('city')} />
+                <Input label="GST Number" {...register('gstNo')} />
+                <div className="md:col-span-2 xl:col-span-3">
+                  <Textarea label="Address" rows={2} {...register('address')} />
+                </div>
               </div>
-              <Input label="Owner Name" {...register('ownerName')} />
-              <Input
-                label="Mobile Number"
-                type="tel"
-                inputMode="numeric"
-                readOnly
-                hint="Used to sign in — cannot be changed here."
-                className="bg-slate-50 text-slate-600"
-                {...register('mobileNumber')}
-              />
-              <Input label="Email" type="email" {...register('email')} />
-              <Input label="City" {...register('city')} />
-              <Input label="GST Number" {...register('gstNo')} />
-              <div className="md:col-span-2">
-                <Textarea label="Address" {...register('address')} />
+            </Card>
+
+            <Card>
+              <h2 className="mb-3 text-sm font-semibold text-slate-700">Working Hours</h2>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-1">
+                <Input label="Working Days" {...register('workingDays')} />
+                <Input label="Hours" {...register('workingHours')} />
               </div>
-            </div>
-          </Card>
+            </Card>
+          </div>
 
-          <Card>
-            <h2 className="mb-3 text-sm font-semibold text-slate-700">Working Hours</h2>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Input label="Working Days" {...register('workingDays')} />
-              <Input label="Hours" {...register('workingHours')} />
-            </div>
-          </Card>
-
-          <div className="flex gap-3">
-            <Button type="submit" fullWidth className="lg:w-auto lg:flex-none" loading={saving}>
+          <div className="flex gap-3 sm:justify-end">
+            <Button type="submit" fullWidth className="sm:w-auto sm:flex-none" loading={saving}>
               Save Changes
             </Button>
           </div>

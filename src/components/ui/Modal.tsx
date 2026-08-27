@@ -12,10 +12,10 @@ interface ModalProps {
   footer?: ReactNode
   /** On mobile render as a bottom sheet (default true) */
   sheetOnMobile?: boolean
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg' | 'xl'
 }
 
-const sizes = { sm: 'sm:max-w-sm', md: 'sm:max-w-md', lg: 'sm:max-w-lg' }
+const sizes = { sm: 'sm:max-w-sm', md: 'sm:max-w-md', lg: 'sm:max-w-lg', xl: 'sm:max-w-2xl' }
 
 export function Modal({ open, onClose, title, children, footer, sheetOnMobile = true, size = 'md' }: ModalProps) {
   useEffect(() => {

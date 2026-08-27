@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { AlertCircle, ArrowLeft } from 'lucide-react'
-import { Button, useToast } from '@/components/ui'
+import { Button, Card, useToast } from '@/components/ui'
 import { PageHeader } from '@/components/common'
 import { CustomerFields } from '@/components/customers'
 import { customerService } from '@/services/customerService'
@@ -71,30 +71,32 @@ export function CustomerForm() {
       {error && (
         <div
           role="alert"
-          className="mb-4 flex max-w-2xl items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3"
+          className="mb-4 flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3"
         >
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
           <p className="text-sm font-medium text-red-700">{error}</p>
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} noValidate className="max-w-2xl">
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-card sm:p-6">
+      {/* Full width: the fields spread to three columns on a desktop rather
+          than leaving the right half of the container empty. */}
+      <form onSubmit={handleSubmit(onSubmit)} noValidate>
+        <Card>
           <CustomerFields form={form} />
-        </div>
+        </Card>
 
-        <div className="mt-5 flex gap-3">
+        <div className="mt-5 flex gap-3 sm:justify-end">
           <Button
             type="button"
             variant="outline"
             fullWidth
-            className="lg:w-auto lg:flex-none"
+            className="sm:w-auto sm:flex-none"
             disabled={saving}
             onClick={() => navigate('/app/customers')}
           >
             Cancel
           </Button>
-          <Button type="submit" fullWidth className="lg:w-auto lg:flex-none" loading={saving}>
+          <Button type="submit" fullWidth className="sm:w-auto sm:flex-none" loading={saving}>
             Save &amp; Add Vehicle
           </Button>
         </div>
