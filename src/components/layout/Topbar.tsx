@@ -2,29 +2,45 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Menu, Search, KeyRound, LogOut, User } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
+import { useAdminAuth } from '@/context/AdminAuthContext'
 import { SubscriptionPill } from './SubscriptionPill'
 import { ChangePasswordModal } from './ChangePasswordModal'
 import { useToast } from '@/components/ui'
 import { getFirstName, getInitial } from '@/lib/utils'
 
+/** Which account the shell is signed in as. */
+export type ShellVariant = 'owner' | 'admin'
+
 interface TopbarProps {
   title: string
   onMenuClick: () => void
   showSearch?: boolean
+  variant?: ShellVariant
 }
 
-export function Topbar({ title, onMenuClick, showSearch = true }: TopbarProps) {
+export function Topbar({ title, onMenuClick, showSearch = true, variant = 'owner' }: TopbarProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [passwordOpen, setPasswordOpen] = useState(false)
   const navigate = useNavigate()
   const { user, logout } = useAuth()
+  const { admin, logout: adminLogout } = useAdminAuth()
   const { toast } = useToast()
+
+  const isAdmin = variant === 'admin'
+
+  // The two accounts differ in everything the menu shows and does: whose name
+  // is on it, where signing out lands, and whether there is a profile at all.
+  const displayName = isAdmin ? admin?.name : user?.ownerName
+  const subtitle = isAdmin ? admin?.mobileNumber : user?.garageName
+  const signedIn = isAdmin ? Boolean(admin) : Boolean(user)
+  const loginPath = isAdmin ? '/admin/login' : '/login'
 
   const handleLogout = () => {
     setMenuOpen(false)
-    logout('manual')
+    if (isAdmin) adminLogout('manual')
+    else logout('manual')
     toast('You have been logged out.', 'info')
-    navigate('/login', { replace: true })
+    navigate(loginPath, { replace: true })
   }
 
   return (
@@ -50,7 +66,8 @@ export function Topbar({ title, onMenuClick, showSearch = true }: TopbarProps) {
       )}
 
       <div className="ml-auto flex items-center gap-2">
-        <SubscriptionPill />
+        {/* The platform admin has no subscription of its own. */}
+        {!isAdmin && <SubscriptionPill />}
 
         <div className="relative">
           <button
@@ -59,31 +76,33 @@ export function Topbar({ title, onMenuClick, showSearch = true }: TopbarProps) {
             aria-label="Account"
           >
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700">
-              {getInitial(user?.ownerName)}
+              {getInitial(displayName)}
             </span>
             <span className="hidden text-sm font-medium text-slate-700 lg:block">
-              {getFirstName(user?.ownerName) || 'Account'}
+              {getFirstName(displayName) || 'Account'}
             </span>
           </button>
           {menuOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
               <div className="absolute right-0 z-20 mt-1 w-56 animate-scale-in rounded-lg border border-slate-200 bg-white py-1 shadow-soft">
-                {user && (
+                {signedIn && (
                   <div className="border-b border-slate-100 px-3 py-2">
-                    <p className="truncate text-sm font-semibold text-slate-900">{user.ownerName}</p>
-                    <p className="truncate text-xs text-slate-500">{user.garageName}</p>
+                    <p className="truncate text-sm font-semibold text-slate-900">{displayName}</p>
+                    <p className="truncate text-xs text-slate-500">{subtitle}</p>
                   </div>
                 )}
-                <button
-                  onClick={() => {
-                    setMenuOpen(false)
-                    navigate('/app/profile')
-                  }}
-                  className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  <User className="h-4 w-4 text-slate-400" /> Profile
-                </button>
+                {!isAdmin && (
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false)
+                      navigate('/app/profile')
+                    }}
+                    className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    <User className="h-4 w-4 text-slate-400" /> Profile
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setMenuOpen(false)
@@ -104,7 +123,11 @@ export function Topbar({ title, onMenuClick, showSearch = true }: TopbarProps) {
           )}
         </div>
       </div>
-      <ChangePasswordModal open={passwordOpen} onClose={() => setPasswordOpen(false)} />
+      <ChangePasswordModal
+        open={passwordOpen}
+        variant={variant}
+        onClose={() => setPasswordOpen(false)}
+      />
     </header>
   )
 }

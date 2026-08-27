@@ -238,3 +238,87 @@ export const insuranceExpiryRules = {
     return true
   },
 }
+
+/**
+ * Staff form rules — mirror the schema behind `POST /api/auth/staff`.
+ * Only the name, the category and the mobile number are required; the job
+ * title and the pay may both be left for later.
+ */
+export const STAFF_NAME_MAX_LENGTH = 100
+export const STAFF_ROLE_MAX_LENGTH = 100
+/** The API rejects anything above this, or with more than 2 decimal places. */
+export const MONTHLY_SALARY_MAX = 99999999.99
+
+export const staffNameRules = requiredTextRules('Name', STAFF_NAME_MAX_LENGTH)
+export const optionalStaffRoleRules = optionalTextRules('Role', STAFF_ROLE_MAX_LENGTH)
+
+export const staffCategoryRules = {
+  required: 'Category is required',
+  validate: (value: string) => ((value ?? '').trim() ? true : 'Category is required'),
+}
+
+/** Optional: blank means the pay has not been agreed yet and is not sent. */
+export const monthlySalaryRules = {
+  validate: (value: string) => {
+    const salary = String(value ?? '').trim()
+    if (!salary) return true
+    // One test for all three API rules: not negative, digits, at most 2 decimals.
+    if (!/^\d+(\.\d{1,2})?$/.test(salary)) {
+      return 'Enter a positive amount with at most 2 decimal places'
+    }
+    if (Number(salary) > MONTHLY_SALARY_MAX) {
+      return `Monthly salary must be at most ${MONTHLY_SALARY_MAX.toLocaleString('en-IN')}`
+    }
+    return true
+  },
+}
+
+/**
+ * Admin password rules — the platform admin is a different account type with a
+ * different limit: `POST /api/admin/change-password` takes 6 to 72 characters,
+ * where a garage owner's password stops at 24.
+ */
+export const ADMIN_PASSWORD_MIN_LENGTH = 6
+export const ADMIN_PASSWORD_MAX_LENGTH = 72
+
+export function validateAdminPassword(value: string): string | undefined {
+  const password = value ?? ''
+  if (!password) return 'Password is required'
+  if (password.length < ADMIN_PASSWORD_MIN_LENGTH) {
+    return `Password must be at least ${ADMIN_PASSWORD_MIN_LENGTH} characters`
+  }
+  if (password.length > ADMIN_PASSWORD_MAX_LENGTH) {
+    return `Password must be at most ${ADMIN_PASSWORD_MAX_LENGTH} characters`
+  }
+  return undefined
+}
+
+/**
+ * Sign-in only checks that something was typed: the stored password was set
+ * under whatever rules applied then, and only the API can say whether it fits.
+ */
+export const enteredPasswordRules = {
+  required: 'Password is required',
+  validate: (value: string) => ((value ?? '').length > 0 ? true : 'Password is required'),
+}
+
+/** Same reasoning for the current password on the admin change-password form. */
+export const adminCurrentPasswordRules = {
+  required: 'Current password is required',
+  validate: (value: string) =>
+    (value ?? '').length > 0 ? true : 'Current password is required',
+}
+
+export function adminNewPasswordRules(getCurrentPassword: () => string) {
+  return {
+    required: 'New password is required',
+    validate: (value: string) => {
+      const invalid = validateAdminPassword(value)
+      if (invalid) return invalid
+      if (value === getCurrentPassword()) {
+        return 'New password must be different from the current password'
+      }
+      return true
+    },
+  }
+}

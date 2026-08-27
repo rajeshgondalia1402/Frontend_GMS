@@ -4,6 +4,7 @@ import { AuthLayout } from '@/layouts/AuthLayout'
 import { OwnerLayout } from '@/layouts/OwnerLayout'
 import { AdminLayout } from '@/layouts/AdminLayout'
 import { ProtectedRoute, PublicOnlyRoute } from './ProtectedRoute'
+import { AdminProtectedRoute, AdminPublicOnlyRoute } from './AdminRoute'
 
 import { Login } from '@/pages/auth/Login'
 import { Register } from '@/pages/auth/Register'
@@ -28,6 +29,7 @@ import { GarageProfile } from '@/pages/owner/GarageProfile'
 import { Settings } from '@/pages/owner/Settings'
 import { Subscription } from '@/pages/owner/Subscription'
 
+import { AdminLogin } from '@/pages/admin/AdminLogin'
 import { AdminDashboard } from '@/pages/admin/AdminDashboard'
 import { AdminGarages } from '@/pages/admin/AdminGarages'
 import { AdminPlans } from '@/pages/admin/AdminPlans'
@@ -86,15 +88,28 @@ export const router = createBrowserRouter([
     ],
   },
 
+  // The admin sign-in. Nothing links here — an admin types the address — and a
+  // signed-in admin is sent straight on to the dashboard.
   {
-    path: '/admin',
-    element: <AdminLayout />,
+    element: <AdminPublicOnlyRoute />,
+    children: [{ path: '/admin/login', element: <AdminLogin /> }],
+  },
+
+  // Platform admin panel — requires a valid, non-expired **admin** token.
+  {
+    element: <AdminProtectedRoute />,
     children: [
-      { index: true, element: <AdminDashboard /> },
-      { path: 'garages', element: <AdminGarages /> },
-      { path: 'plans', element: <AdminPlans /> },
-      { path: 'payments', element: <AdminPayments /> },
-      { path: 'reports', element: <AdminReports /> },
+      {
+        path: '/admin',
+        element: <AdminLayout />,
+        children: [
+          { index: true, element: <AdminDashboard /> },
+          { path: 'garages', element: <AdminGarages /> },
+          { path: 'plans', element: <AdminPlans /> },
+          { path: 'payments', element: <AdminPayments /> },
+          { path: 'reports', element: <AdminReports /> },
+        ],
+      },
     ],
   },
 

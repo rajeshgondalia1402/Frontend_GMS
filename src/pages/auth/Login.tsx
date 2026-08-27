@@ -130,13 +130,6 @@ export function Login() {
           Create Garage Account
         </Link>
       </p>
-
-      <p className="mt-4 text-center text-xs text-slate-400">
-        Platform admin?{' '}
-        <Link to="/admin" className="font-medium text-slate-500 hover:text-slate-700">
-          Admin login
-        </Link>
-      </p>
     </div>
   )
 }
