@@ -53,7 +53,34 @@ export function listStaff(params: StaffListParams = {}): Promise<StaffListData> 
   return apiRequest<StaffListData>(`/auth/staff${staffQuery(params)}`)
 }
 
+/** One request per page while collecting the whole book. */
+const ALL_STAFF_PAGE_SIZE = 100
+
+/**
+ * Every staff member of the garage, not just the first page — the job card's
+ * "Assigned Staff" list has to hold all of them.
+ *
+ * The API pages whatever it is asked for, so this follows `hasNextPage` rather
+ * than trusting one oversized `limit` to cover a garage of any size. The page
+ * cap is a stop against a server that always answers `hasNextPage: true`.
+ */
+export async function listAllStaff(
+  params: Omit<StaffListParams, 'page' | 'limit'> = {},
+): Promise<StaffRecord[]> {
+  const MAX_PAGES = 50
+  const rows: StaffRecord[] = []
+
+  for (let page = 1; page <= MAX_PAGES; page += 1) {
+    const data = await listStaff({ ...params, page, limit: ALL_STAFF_PAGE_SIZE })
+    rows.push(...data.staff)
+    if (!data.pagination?.hasNextPage) break
+  }
+
+  return rows
+}
+
 export const staffService = {
   createStaff,
   listStaff,
+  listAllStaff,
 }

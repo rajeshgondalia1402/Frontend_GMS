@@ -1,227 +1,132 @@
 import { useState } from 'react'
-import type { ChangeEvent } from 'react'
 import { useForm } from 'react-hook-form'
 import { AlertCircle } from 'lucide-react'
-import { Button, Card, Input, Select, Textarea, useToast } from '@/components/ui'
+import { Button, Card, useToast } from '@/components/ui'
 import { vehicleService } from '@/services/vehicleService'
 import { ApiError } from '@/services/httpClient'
-import { VEHICLE_STATUS_OPTIONS } from '@/lib/vehicleStatus'
 import {
-  BRAND_MAX_LENGTH,
-  COLOR_MAX_LENGTH,
-  DESCRIPTION_MAX_LENGTH,
-  MODEL_MAX_LENGTH,
-  VARIANT_MAX_LENGTH,
-  VEHICLE_NUMBER_MAX_LENGTH,
-  currentKmRules,
-  digitsOnly,
-  insuranceExpiryRules,
-  normalizeVehicleNumber,
-  optionalBrandRules,
-  optionalColorRules,
-  optionalModelRules,
-  optionalVariantRules,
-  vehicleDescriptionRules,
-  vehicleNumberRules,
-  vehicleTypeRules,
-} from '@/lib/validation'
-import type {
-  CreateVehiclePayload,
-  VehicleRecord,
-  VehicleStatus,
-  VehicleSummary,
-} from '@/types/vehicle'
+  applyVehicleApiError,
+  applyVehicleUpdate,
+  nextVisitFormValues,
+  toCreateVehiclePayload,
+  toUpdateVehiclePayload,
+  vehicleToFormValues,
+} from '@/lib/vehicleForm'
+import type { VehicleFormValues } from '@/lib/vehicleForm'
+import type { VehicleRecord, VehicleSummary } from '@/types/vehicle'
+import { VehicleFields } from './VehicleFields'
 
-interface VehicleFormValues {
-  vehicleNumber: string
-  vehicleType: string
-  description: string
-  /** Kept as text so the field can be empty and digits-only while typing. */
-  currentKm: string
-  brand: string
-  model: string
-  variant: string
-  fuelType: string
-  color: string
-  insuranceExpiry: string
-  status: VehicleStatus
-}
-
-const EMPTY: VehicleFormValues = {
-  vehicleNumber: '',
-  vehicleType: '',
-  description: '',
-  currentKm: '',
-  brand: '',
-  model: '',
-  variant: '',
-  fuelType: '',
-  color: '',
-  insuranceExpiry: '',
-  // The API defaults to PENDING when no status is sent.
-  status: 'PENDING',
-}
-
-const VEHICLE_TYPE_OPTIONS = [
-  'Car',
-  'Bike',
-  'Scooter',
-  'Auto Rickshaw',
-  'Truck',
-  'Bus',
-  'Tractor',
-  'Other',
-].map((t) => ({ label: t, value: t }))
-
-const FUEL_TYPE_OPTIONS = ['Petrol', 'Diesel', 'CNG', 'LPG', 'Electric', 'Hybrid'].map((f) => ({
-  label: f,
-  value: f,
-}))
-
-/** Fields the API can report a validation error against. */
-const FORM_FIELDS: string[] = [
-  'vehicleNumber',
-  'vehicleType',
-  'description',
-  'currentKm',
-  'brand',
-  'model',
-  'variant',
-  'fuelType',
-  'color',
-  'insuranceExpiry',
-  'status',
-]
-
-/**
- * Copies what stays the same about a vehicle from one visit to the next.
- * The reading and the description are deliberately left blank: those are what
- * the visit being recorded is for, and the API keeps a row per visit.
- */
-function seedFormValues(seed?: VehicleSummary): VehicleFormValues {
-  if (!seed) return EMPTY
-
-  return {
-    ...EMPTY,
-    vehicleNumber: seed.vehicleNumber ?? '',
-    vehicleType: seed.vehicleType ?? '',
-    brand: seed.brand ?? '',
-    model: seed.model ?? '',
-    variant: seed.variant ?? '',
-    fuelType: seed.fuelType ?? '',
-    color: seed.color ?? '',
-    // The date input only takes `YYYY-MM-DD`, however the API sends it.
-    insuranceExpiry: seed.insuranceExpiry ? seed.insuranceExpiry.slice(0, 10) : '',
-    status: seed.status ?? EMPTY.status,
-  }
-}
-
-interface AddVehicleFormProps {
+interface VehicleFormCardProps {
   customerId: string
   /**
    * Fills the form in from a vehicle already on file, so a returning one is
    * not retyped. Remount the form (key on the vehicle id) to seed it again.
    */
   seed?: VehicleSummary
-  /** Hands the created row back so the page can list it. */
-  onCreated: (vehicle: VehicleRecord) => void
+  /**
+   * The vehicle being edited. Set it and the form saves over that row with
+   * `PUT` instead of creating a new one — same fields, same page, only the
+   * button and the request change.
+   */
+  editing?: VehicleRecord
+  /** Hands the saved row back so the page can list it. */
+  onSaved: (vehicle: VehicleRecord) => void
   onCancel: () => void
 }
 
-export function AddVehicleForm({ customerId, seed, onCreated, onCancel }: AddVehicleFormProps) {
+export function VehicleFormCard({
+  customerId,
+  seed,
+  editing,
+  onSaved,
+  onCancel,
+}: VehicleFormCardProps) {
   const { toast } = useToast()
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    setError: setFieldError,
-    setFocus,
-    formState: { errors },
-  } = useForm<VehicleFormValues>({ mode: 'onTouched', defaultValues: seedFormValues(seed) })
+  const form = useForm<VehicleFormValues>({
+    mode: 'onTouched',
+    // Editing shows the row as it stands, including the reading and the
+    // description; a new visit starts those two blank.
+    defaultValues: editing ? vehicleToFormValues(editing) : nextVisitFormValues(seed),
+  })
+  const { handleSubmit, reset, setError: setFieldError, setFocus } = form
 
-  const numberField = register('vehicleNumber', vehicleNumberRules)
-  const kmField = register('currentKm', currentKmRules)
+  /** Both requests fail the same way, so they report it the same way. */
+  const reportFailure = (err: unknown, fallback: string) => {
+    setSaving(false)
 
-  // Show exactly what the API will store: uppercase, no spaces or hyphens.
-  const onNumberChange = (e: ChangeEvent<HTMLInputElement>) => {
-    e.target.value = normalizeVehicleNumber(e.target.value)
-    void numberField.onChange(e)
-  }
-
-  const onKmChange = (e: ChangeEvent<HTMLInputElement>) => {
-    e.target.value = digitsOnly(e.target.value)
-    void kmField.onChange(e)
-  }
-
-  const onSubmit = async (values: VehicleFormValues) => {
-    const payload: CreateVehiclePayload = {
-      customerId,
-      vehicleNumber: normalizeVehicleNumber(values.vehicleNumber),
-      vehicleType: values.vehicleType.trim(),
-      description: values.description.trim(),
-      currentKm: Number(values.currentKm.trim()),
-      status: values.status,
+    if (!(err instanceof ApiError)) {
+      setError(fallback)
+      return
     }
 
-    // Optional fields are left out entirely rather than sent empty.
-    const optional: Pick<
-      CreateVehiclePayload,
-      'brand' | 'model' | 'variant' | 'fuelType' | 'color' | 'insuranceExpiry'
-    > = {
-      brand: values.brand.trim(),
-      model: values.model.trim(),
-      variant: values.variant.trim(),
-      fuelType: values.fuelType.trim(),
-      color: values.color.trim(),
-      insuranceExpiry: values.insuranceExpiry.trim(),
-    }
-    for (const [key, value] of Object.entries(optional)) {
-      if (value) payload[key as keyof typeof optional] = value
+    // A 404 is the customer or the vehicle not belonging to this garage —
+    // nothing the form can fix, so it stays in the banner.
+    setError(err.message)
+    applyVehicleApiError(err, setFieldError, setFocus)
+  }
+
+  const update = async (values: VehicleFormValues, vehicle: VehicleRecord) => {
+    const patch = toUpdateVehiclePayload(values, vehicle)
+
+    // "Send at least one field to update" — nothing was touched, so nothing
+    // is sent.
+    if (Object.keys(patch).length === 0) {
+      toast('No changes to save', 'info')
+      onCancel()
+      return
     }
 
     setSaving(true)
     setError(null)
 
     try {
-      const vehicle = await vehicleService.createVehicle(payload)
-      reset(seedFormValues(seed))
-      toast(`${vehicle.vehicleNumber || payload.vehicleNumber} added`, 'success')
-      onCreated(vehicle)
+      const updated = await vehicleService.updateVehicle(vehicle.id, patch)
+      const saved = applyVehicleUpdate(vehicle, patch, updated)
+      toast(`${saved.vehicleNumber || vehicle.vehicleNumber} updated`, 'success')
+      onSaved(saved)
     } catch (err) {
-      setSaving(false)
-
-      if (!(err instanceof ApiError)) {
-        setError('Could not save the vehicle. Please try again.')
-        return
-      }
-
-      // 404 means the customer does not belong to this garage — nothing the
-      // form can fix, so it stays in the banner.
-      setError(err.message)
-
-      for (const { field, message } of err.fieldErrors) {
-        if (FORM_FIELDS.includes(field)) {
-          setFieldError(field as keyof VehicleFormValues, { type: 'server', message })
-        }
-      }
-
-      const firstRejected = err.fieldErrors.find((e) => FORM_FIELDS.includes(e.field))
-      if (firstRejected) setFocus(firstRejected.field as keyof VehicleFormValues)
+      reportFailure(err, 'Could not update the vehicle. Please try again.')
       return
     }
 
     setSaving(false)
   }
 
+  const create = async (values: VehicleFormValues) => {
+    const payload = toCreateVehiclePayload(values, customerId)
+
+    setSaving(true)
+    setError(null)
+
+    try {
+      const vehicle = await vehicleService.createVehicle(payload)
+      reset(nextVisitFormValues(seed))
+      toast(`${vehicle.vehicleNumber || payload.vehicleNumber} added`, 'success')
+      onSaved(vehicle)
+    } catch (err) {
+      reportFailure(err, 'Could not save the vehicle. Please try again.')
+      return
+    }
+
+    setSaving(false)
+  }
+
+  const onSubmit = (values: VehicleFormValues) =>
+    editing ? update(values, editing) : create(values)
+
   return (
     <Card>
-      <h2 className="text-base font-semibold text-slate-900">Vehicle Details</h2>
+      <h2 className="text-base font-semibold text-slate-900">
+        {editing ? 'Edit Vehicle' : 'Vehicle Details'}
+      </h2>
       <p className="mt-0.5 text-sm text-slate-500">
-        Add the vehicle this customer is bringing in.
+        {editing
+          ? 'Change what is on file for this vehicle.'
+          : 'Add the vehicle this customer is bringing in.'}
       </p>
 
       {error && (
@@ -235,103 +140,7 @@ export function AddVehicleForm({ customerId, seed, onCreated, onCancel }: AddVeh
       )}
 
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-4">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <Input
-            label="Vehicle Number *"
-            placeholder="GJ01AB1234"
-            className="uppercase"
-            autoCapitalize="characters"
-            autoCorrect="off"
-            spellCheck={false}
-            maxLength={VEHICLE_NUMBER_MAX_LENGTH}
-            hint="Spaces and hyphens are removed"
-            error={errors.vehicleNumber?.message}
-            {...numberField}
-            onChange={onNumberChange}
-          />
-
-          <Select
-            label="Vehicle Type *"
-            placeholder="Select type"
-            options={VEHICLE_TYPE_OPTIONS}
-            error={errors.vehicleType?.message}
-            {...register('vehicleType', vehicleTypeRules)}
-          />
-
-          <Input
-            label="Brand"
-            placeholder="Hyundai"
-            maxLength={BRAND_MAX_LENGTH}
-            error={errors.brand?.message}
-            {...register('brand', optionalBrandRules)}
-          />
-
-          <Input
-            label="Model"
-            placeholder="Creta"
-            maxLength={MODEL_MAX_LENGTH}
-            error={errors.model?.message}
-            {...register('model', optionalModelRules)}
-          />
-
-          <Input
-            label="Variant"
-            placeholder="SX"
-            maxLength={VARIANT_MAX_LENGTH}
-            error={errors.variant?.message}
-            {...register('variant', optionalVariantRules)}
-          />
-
-          <Select
-            label="Fuel Type"
-            placeholder="Select fuel"
-            options={FUEL_TYPE_OPTIONS}
-            {...register('fuelType')}
-          />
-
-          <Input
-            label="Colour"
-            placeholder="White"
-            maxLength={COLOR_MAX_LENGTH}
-            error={errors.color?.message}
-            {...register('color', optionalColorRules)}
-          />
-
-          <Input
-            label="Current KM *"
-            type="text"
-            inputMode="numeric"
-            placeholder="25000"
-            error={errors.currentKm?.message}
-            {...kmField}
-            onChange={onKmChange}
-          />
-
-          <Input
-            label="Insurance Expiry"
-            type="date"
-            hint="Optional"
-            error={errors.insuranceExpiry?.message}
-            {...register('insuranceExpiry', insuranceExpiryRules)}
-          />
-
-          <Select
-            label="Status"
-            options={VEHICLE_STATUS_OPTIONS}
-            error={errors.status?.message}
-            {...register('status')}
-          />
-
-          <div className="md:col-span-2">
-            <Textarea
-              label="Description *"
-              placeholder="White Hyundai Creta"
-              maxLength={DESCRIPTION_MAX_LENGTH}
-              error={errors.description?.message}
-              {...register('description', vehicleDescriptionRules)}
-            />
-          </div>
-        </div>
+        <VehicleFields form={form} columns={3} />
 
         <div className="mt-5 flex gap-3 sm:justify-end">
           <Button
@@ -345,7 +154,7 @@ export function AddVehicleForm({ customerId, seed, onCreated, onCancel }: AddVeh
             Cancel
           </Button>
           <Button type="submit" fullWidth className="sm:w-auto sm:flex-none" loading={saving}>
-            Save Vehicle
+            {editing ? 'Edit Vehicle' : 'Save Vehicle'}
           </Button>
         </div>
       </form>

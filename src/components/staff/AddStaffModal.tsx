@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import type { ChangeEvent } from 'react'
-import { AlertCircle, IndianRupee, Phone } from 'lucide-react'
+import { AlertCircle, BadgeCheck, Briefcase, IndianRupee, Phone, User } from 'lucide-react'
 import { Button, Input, Modal, Select, useToast } from '@/components/ui'
 import { staffService } from '@/services/staffService'
 import { ApiError } from '@/services/httpClient'
@@ -126,6 +126,7 @@ export function AddStaffModal({ open, onClose, onCreated }: AddStaffModalProps) 
           placeholder="Rahul Patel"
           autoComplete="name"
           maxLength={STAFF_NAME_MAX_LENGTH}
+          leftIcon={<User className="h-4 w-4" />}
           error={errors.name?.message}
           {...register('name', staffNameRules)}
         />
@@ -134,6 +135,7 @@ export function AddStaffModal({ open, onClose, onCreated }: AddStaffModalProps) 
           label="Category *"
           placeholder="Select category"
           options={STAFF_CATEGORY_OPTIONS}
+          leftIcon={<Briefcase className="h-4 w-4" />}
           error={errors.category?.message}
           {...register('category', staffCategoryRules)}
         />
@@ -143,6 +145,7 @@ export function AddStaffModal({ open, onClose, onCreated }: AddStaffModalProps) 
           placeholder="Senior Mechanic"
           maxLength={STAFF_ROLE_MAX_LENGTH}
           hint="Optional — the job title printed on the card"
+          leftIcon={<BadgeCheck className="h-4 w-4" />}
           error={errors.role?.message}
           {...register('role', optionalStaffRoleRules)}
         />

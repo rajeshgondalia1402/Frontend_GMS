@@ -36,6 +36,14 @@ export interface JobPart {
   price: number
 }
 
+/** One billable row on a job card — a service, a part, or labour. */
+export interface JobLineItem {
+  id: string
+  description: string
+  qty: number
+  rate: number
+}
+
 export interface JobCard {
   id: string
   code: string

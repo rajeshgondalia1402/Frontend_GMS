@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
-import { Phone, ShieldCheck } from 'lucide-react'
+import { Mail, MapPin, Phone, ShieldCheck, Store, User } from 'lucide-react'
 import { Button, Input, PasswordInput } from '@/components/ui'
 import { savePendingRegistration } from '@/lib/pendingRegistration'
 import {
@@ -101,6 +101,7 @@ export function Register() {
           label="Owner Name"
           placeholder="Rajesh Patel"
           autoComplete="name"
+          leftIcon={<User className="h-4 w-4" />}
           error={errors.ownerName?.message}
           {...register('ownerName', ownerNameRules)}
         />
@@ -125,6 +126,7 @@ export function Register() {
           label="Garage Name"
           placeholder="ABC Auto Garage"
           autoComplete="organization"
+          leftIcon={<Store className="h-4 w-4" />}
           error={errors.garageName?.message}
           {...register('garageName', garageNameRules)}
         />
@@ -133,6 +135,7 @@ export function Register() {
           label="City"
           placeholder="Ahmedabad"
           autoComplete="address-level2"
+          leftIcon={<MapPin className="h-4 w-4" />}
           error={errors.city?.message}
           {...register('city', cityRules)}
         />
@@ -142,6 +145,7 @@ export function Register() {
           type="email"
           placeholder="you@example.com"
           autoComplete="email"
+          leftIcon={<Mail className="h-4 w-4" />}
           hint="Optional"
           error={errors.email?.message}
           {...register('email', optionalEmailRules)}

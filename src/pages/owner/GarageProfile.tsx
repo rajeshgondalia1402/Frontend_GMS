@@ -1,6 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Wrench, Camera } from 'lucide-react'
+import {
+  Wrench,
+  Camera,
+  CalendarDays,
+  Clock,
+  Mail,
+  MapPin,
+  Phone,
+  Receipt,
+  Store,
+  User,
+} from 'lucide-react'
 import { PageHeader } from '@/components/common'
 import { Button, Input, Textarea, Card, ErrorState, Skeleton, useToast } from '@/components/ui'
 import { useAuth } from '@/context/AuthContext'
@@ -175,23 +186,24 @@ export function GarageProfile() {
             <Card className="lg:col-span-2">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                 <div className="md:col-span-2 xl:col-span-1">
-                  <Input label="Garage Name" {...register('garageName')} />
+                  <Input label="Garage Name" leftIcon={<Store className="h-4 w-4" />} {...register('garageName')} />
                 </div>
-                <Input label="Owner Name" {...register('ownerName')} />
+                <Input label="Owner Name" leftIcon={<User className="h-4 w-4" />} {...register('ownerName')} />
                 <Input
                   label="Mobile Number"
                   type="tel"
                   inputMode="numeric"
                   readOnly
+                  leftIcon={<Phone className="h-4 w-4" />}
                   hint="Used to sign in — cannot be changed here."
                   className="bg-slate-50 text-slate-600"
                   {...register('mobileNumber')}
                 />
-                <Input label="Email" type="email" {...register('email')} />
-                <Input label="City" {...register('city')} />
-                <Input label="GST Number" {...register('gstNo')} />
+                <Input label="Email" type="email" leftIcon={<Mail className="h-4 w-4" />} {...register('email')} />
+                <Input label="City" leftIcon={<MapPin className="h-4 w-4" />} {...register('city')} />
+                <Input label="GST Number" leftIcon={<Receipt className="h-4 w-4" />} {...register('gstNo')} />
                 <div className="md:col-span-2 xl:col-span-3">
-                  <Textarea label="Address" rows={2} {...register('address')} />
+                  <Textarea label="Address" rows={2} leftIcon={<MapPin className="h-4 w-4" />} {...register('address')} />
                 </div>
               </div>
             </Card>
@@ -199,8 +211,8 @@ export function GarageProfile() {
             <Card>
               <h2 className="mb-3 text-sm font-semibold text-slate-700">Working Hours</h2>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-1">
-                <Input label="Working Days" {...register('workingDays')} />
-                <Input label="Hours" {...register('workingHours')} />
+                <Input label="Working Days" leftIcon={<CalendarDays className="h-4 w-4" />} {...register('workingDays')} />
+                <Input label="Hours" leftIcon={<Clock className="h-4 w-4" />} {...register('workingHours')} />
               </div>
             </Card>
           </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Pencil, Package } from 'lucide-react'
+import { Plus, Pencil, Package, CalendarClock, IndianRupee } from 'lucide-react'
 import { PageHeader } from '@/components/common'
 import { Button, Badge, Modal, Input, useToast } from '@/components/ui'
 import { useForm } from 'react-hook-form'
@@ -83,8 +83,8 @@ export function AdminPlans() {
       >
         <form className="space-y-4">
           <Input label="Plan Name" placeholder="Monthly" leftIcon={<Package className="h-4 w-4" />} {...register('name')} />
-          <Input label="Price (₹)" type="number" placeholder="149" {...register('price')} />
-          <Input label="Duration" placeholder="1 Month" {...register('duration')} />
+          <Input label="Price (₹)" type="number" placeholder="149" leftIcon={<IndianRupee className="h-4 w-4" />} {...register('price')} />
+          <Input label="Duration" placeholder="1 Month" leftIcon={<CalendarClock className="h-4 w-4" />} {...register('duration')} />
         </form>
       </Modal>
     </div>

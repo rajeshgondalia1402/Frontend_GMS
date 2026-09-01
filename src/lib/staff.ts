@@ -62,13 +62,13 @@ export function staffStatusTone(status: StaffStatus): Tone {
 }
 
 /**
- * "All" leaves `?status=` off entirely, which is how the API returns the
- * active and the inactive staff together — the garage's whole book in one call.
+ * "Active & Inactive" leaves `?status=` off entirely, which is how the API
+ * returns both together — the garage's whole book in one call.
  */
-export const STAFF_STATUS_OPTIONS = [
+export const STAFF_STATUS_FILTERS = [
   { label: 'Active & Inactive', value: 'all' },
   ...(['ACTIVE', 'INACTIVE'] as StaffStatus[]).map((status) => ({
-    label: `${staffStatusLabel(status)} only`,
+    label: staffStatusLabel(status),
     value: status as string,
   })),
 ]

@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Minus, Phone, Car, Users, Eye, Download } from 'lucide-react'
 import { DEFAULT_PAGE_SIZE, PageHeader, PaginationBar, SearchInput, StatCard } from '@/components/common'
-import type { Column } from '@/components/common'
-import { ResponsiveList } from '@/components/common'
-import { Button, EmptyState, ErrorState, LoadingState, Select } from '@/components/ui'
+import type { Column, SortBarField, SortOrder } from '@/components/common'
+import { ResponsiveList, SortBar } from '@/components/common'
+import { Button, EmptyState, ErrorState, LoadingState } from '@/components/ui'
 import { CustomerVehicleList } from '@/components/customers'
 import { useAuth } from '@/context/AuthContext'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
@@ -68,21 +68,31 @@ const EXPORT_COLUMNS: ExportColumn<CustomerWithVehicles>[] = [
   },
 ]
 
-type SortKey = 'newest' | 'name-asc' | 'name-desc'
+/** Only these are sortable — the API rejects any other `sortBy`. */
+type SortField = NonNullable<CustomerListParams['sortBy']>
 
-const SORT_OPTIONS = [
-  { value: 'newest', label: 'Newest first' },
-  { value: 'name-asc', label: 'Name (A–Z)' },
-  { value: 'name-desc', label: 'Name (Z–A)' },
-]
-
-/** The API sorts the whole list, so the order holds across every page. */
-const SORT_PARAMS: Record<SortKey, Pick<CustomerListParams, 'sortBy' | 'sortOrder'>> = {
-  newest: { sortBy: 'createdAt', sortOrder: 'desc' },
-  'name-asc': { sortBy: 'fullName', sortOrder: 'asc' },
-  'name-desc': { sortBy: 'fullName', sortOrder: 'desc' },
+interface SortState {
+  field: SortField
+  order: SortOrder
 }
 
+/** The API sorts the whole list, so the order holds across every page. */
+const DEFAULT_SORT: SortState = { field: 'createdAt', order: 'desc' }
+
+const sortValue = (sort: SortState) => `${sort.field}:${sort.order}`
+
+/** The same fields the sortable table headers offer, for the card list. */
+const SORT_FIELDS: SortBarField[] = [
+  { key: 'fullName', label: 'Name' },
+  { key: 'city', label: 'City' },
+  { key: 'createdAt', label: 'Added' },
+]
+
+/** What the current order is called, for the exported sheet's header. */
+const sortLabel = (sort: SortState) =>
+  `${SORT_FIELDS.find((f) => f.key === sort.field)?.label ?? sort.field} (${
+    sort.order === 'asc' ? 'ascending' : 'descending'
+  })`
 interface CustomerStats {
   total: number
   newThisMonth: number
@@ -102,7 +112,7 @@ export function Customers() {
   const [pagination, setPagination] = useState<Pagination | null>(null)
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE)
-  const [sort, setSort] = useState<SortKey>('newest')
+  const [sort, setSort] = useState<SortState>(DEFAULT_SORT)
   const [stats, setStats] = useState<CustomerStats | null>(null)
   /** Ids of the customers whose vehicles are shown under their row. */
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
@@ -118,7 +128,7 @@ export function Customers() {
   // page 4 of the old result set says nothing about the new one. Resetting
   // during the render that changes them keeps the stale page from being asked
   // for at all, rather than fetching it and then correcting.
-  const queryKey = `${search}|${limit}|${sort}`
+  const queryKey = `${search}|${limit}|${sortValue(sort)}`
   const [lastQueryKey, setLastQueryKey] = useState(queryKey)
   if (lastQueryKey !== queryKey) {
     setLastQueryKey(queryKey)
@@ -136,7 +146,8 @@ export function Customers() {
       const data = await customerService.listCustomers({
         page,
         limit,
-        ...SORT_PARAMS[sort],
+        sortBy: sort.field,
+        sortOrder: sort.order,
         ...(search ? { search } : {}),
       })
 
@@ -196,6 +207,17 @@ export function Customers() {
   const openCustomer = (customer: CustomerWithVehicles) =>
     navigate(`/app/customers/${customer.id}`, { state: { customer } })
 
+  /**
+   * Clicking a header sorts by that column: a new column starts ascending, the
+   * one already sorting flips between ascending and descending.
+   */
+  const handleSort = (sortKey: string) =>
+    setSort((current) =>
+      current.field === sortKey
+        ? { ...current, order: current.order === 'asc' ? 'desc' : 'asc' }
+        : { field: sortKey as SortField, order: 'asc' },
+    )
+
   const toggleVehicles = (id: string) =>
     setExpanded((current) => {
       const next = new Set(current)
@@ -227,11 +249,12 @@ export function Customers() {
     { header: '', className: 'w-10 pr-0', accessor: expandToggle },
     {
       header: 'Name',
+      sortKey: 'fullName',
       accessor: (c) => <span className="font-medium text-slate-900">{c.fullName}</span>,
     },
     { header: 'Mobile', accessor: (c) => c.mobileNumber },
     { header: 'Vehicles', accessor: (c) => vehicleLabel(c) },
-    { header: 'City', accessor: (c) => c.city || '—' },
+    { header: 'City', sortKey: 'city', accessor: (c) => c.city || '—' },
     {
       header: '',
       className: 'text-right',
@@ -264,10 +287,7 @@ export function Customers() {
         // What the sheet is a snapshot of, so a saved file explains itself.
         meta: [
           { label: 'Search', value: search || 'All customers' },
-          {
-            label: 'Sorted By',
-            value: SORT_OPTIONS.find((option) => option.value === sort)?.label,
-          },
+          { label: 'Sorted By', value: sortLabel(sort) },
         ],
       },
       EXPORT_COLUMNS,
@@ -311,14 +331,6 @@ export function Customers() {
           placeholder="Search name or mobile number..."
           className="sm:flex-1"
         />
-        <div className="sm:w-48">
-          <Select
-            aria-label="Sort customers"
-            options={SORT_OPTIONS}
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortKey)}
-          />
-        </div>
         <Button
           variant="outline"
           leftIcon={<Download className="h-4 w-4" />}
@@ -328,6 +340,15 @@ export function Customers() {
           Download Excel
         </Button>
       </div>
+
+      {/* The table sorts from its headers; the cards get the same fields here. */}
+      <SortBar
+        className="mb-4 lg:hidden"
+        fields={SORT_FIELDS}
+        sortBy={sort.field}
+        sortOrder={sort.order}
+        onSort={handleSort}
+      />
 
       {loading ? (
         <LoadingState />
@@ -361,6 +382,9 @@ export function Customers() {
             data={customers}
             columns={columns}
             keyField={(c) => c.id}
+            sortBy={sort.field}
+            sortOrder={sort.order}
+            onSort={handleSort}
             isExpanded={isExpanded}
             renderExpanded={(c) => <CustomerVehicleList vehicles={c.vehicles ?? []} />}
             renderCard={(c) => (

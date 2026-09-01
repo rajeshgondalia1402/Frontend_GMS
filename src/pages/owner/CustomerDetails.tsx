@@ -4,7 +4,7 @@ import { AlertTriangle, ArrowLeft, Car, Plus } from 'lucide-react'
 import { Button, Card, ErrorState, Skeleton } from '@/components/ui'
 import { PageHeader } from '@/components/common'
 import { CustomerSummaryCard, EditCustomerModal } from '@/components/customers'
-import { AddVehicleForm, VehicleSummaryCard } from '@/components/vehicles'
+import { VehicleFormCard, VehicleSummaryCard } from '@/components/vehicles'
 import { customerService } from '@/services/customerService'
 import { ApiError } from '@/services/httpClient'
 import { clearActiveCustomer, loadActiveCustomer, saveActiveCustomer } from '@/lib/activeCustomer'
@@ -50,13 +50,20 @@ export function CustomerDetails() {
   const location = useLocation()
   const [searchParams] = useSearchParams()
 
-  /**
-   * Reached from the Vehicles tab, which lists the vehicle rather than the
-   * customer. The page then opens straight into the form for that vehicle's
-   * next visit instead of offering to add a new one.
-   */
+  /** Reached from the Vehicles tab, which lists the vehicle rather than the
+   * customer — the back link then points at that tab. */
   const fromVehicles = searchParams.get('from') === 'vehicles'
   const listPath = fromVehicles ? '/app/vehicles' : '/app/customers'
+
+  /**
+   * Sent by the two buttons on the Vehicles tab, which both land here on the
+   * one form: `add` opens it for that vehicle's next visit, `edit` opens it
+   * over the vehicle itself. Either way, closing it goes back to the list it
+   * was opened from. Without an action the page simply shows the customer.
+   */
+  const action = searchParams.get('action')
+  const addMode = action === 'add'
+  const editMode = action === 'edit'
   const seedVehicleId = searchParams.get('vehicleId')
 
   const handed = location.state as {
@@ -79,15 +86,26 @@ export function CustomerDetails() {
   const [stale, setStale] = useState(false)
 
   const [editing, setEditing] = useState(false)
-  const [formOpen, setFormOpen] = useState(fromVehicles)
+  const [formOpen, setFormOpen] = useState(addMode || editMode)
 
   /**
-   * The vehicle the visit is being recorded for. What the Vehicles tab handed
-   * over is the full row; on a reload it falls back to the trimmed copy the
-   * customer fetch embeds, which is enough to fill the form in.
+   * The vehicle the form is about. What the Vehicles tab handed over is the
+   * full row; on a reload it falls back to the copy the customer fetch embeds,
+   * which is enough to fill the form in.
    */
   const seedVehicle =
     handed?.vehicle ?? (seedVehicleId ? vehicles.find((v) => v.id === seedVehicleId) : undefined)
+
+  /** Editing needs the row itself, so the form waits until it is on hand. */
+  const editTarget = editMode ? seedVehicle : undefined
+
+  /** Puts the saved row in the list: a new one is appended, an edited one replaces. */
+  const applySaved = (saved: VehicleSummary) =>
+    setVehicles((current) =>
+      current.some((v) => v.id === saved.id)
+        ? current.map((v) => (v.id === saved.id ? { ...v, ...saved } : v))
+        : [...current, saved],
+    )
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -180,7 +198,6 @@ export function CustomerDetails() {
           customer={customer}
           onEdit={() => setEditing(true)}
           footer={
-            !fromVehicles &&
             !formOpen && (
               <Button
                 fullWidth
@@ -196,19 +213,20 @@ export function CustomerDetails() {
 
         {/* The form opens straight under the customer, where the button that
             opened it is — the vehicles already saved stay below it. */}
-        {formOpen && (
-          <AddVehicleForm
+        {formOpen && (!editMode || editTarget) && (
+          <VehicleFormCard
             // Remounts once the seed vehicle arrives, so the form is filled in.
             key={seedVehicle?.id ?? 'new'}
             customerId={customer.id}
             seed={seedVehicle}
-            onCreated={(vehicle) => {
-              setVehicles((current) => [...current, vehicle])
-              if (fromVehicles) navigate('/app/vehicles')
+            editing={editTarget}
+            onSaved={(vehicle) => {
+              applySaved(vehicle)
+              if (addMode || editMode) navigate(listPath)
               else setFormOpen(false)
             }}
             onCancel={() => {
-              if (fromVehicles) navigate('/app/vehicles')
+              if (addMode || editMode) navigate(listPath)
               else setFormOpen(false)
             }}
           />
@@ -225,8 +243,7 @@ export function CustomerDetails() {
           </div>
         )}
 
-        {!fromVehicles &&
-          !formOpen &&
+        {!formOpen &&
           vehicles.length === 0 &&
           !loading && (
             <Card className="flex items-start gap-3 border-dashed bg-white/60">

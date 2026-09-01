@@ -4,10 +4,11 @@ A mobile-first Garage Management SaaS frontend built with React, TypeScript and
 Tailwind CSS. It talks to the **Node.js API** in
 `D:\Arti\Project\GarageManagementSystem\NodeJS_API`.
 
-**Authentication is fully wired to the real API** — registration, OTP
-verification, login, the garage profile, change password and forgot password.
-Every other screen still renders mock data and mock form submissions; those
-modules are integrated one at a time.
+**Authentication, Customers, Vehicles, Staff and Job Cards are wired to the
+real API** — registration, OTP verification, login, the garage profile, change
+password and forgot password, plus the four data modules the desk works in all
+day. Billing, Salary, Reports, the dashboard's figures and the whole Platform
+Admin panel still render mock data; those are integrated one at a time.
 
 ## Tech Stack
 
@@ -55,10 +56,10 @@ same-origin. To bypass the proxy and call the API directly instead, set
 ```
 src/config/env.ts             API base URL
 src/services/httpClient.ts    fetch wrapper — envelope unwrapping, bearer token, ApiError
-src/services/authService.ts   endpoint calls (login, register, OTP, profile, password)
+src/services/*Service.ts      endpoint calls, one service per module
 src/context/AuthContext.tsx   session state, persistence, auto-logout
 src/routes/ProtectedRoute.tsx route guards
-src/types/auth.ts             request / response types mirroring the API
+src/types/*.ts                request / response types mirroring the API
 ```
 
 `httpClient` unwraps the API's `{ success, message, data }` envelope: it returns
@@ -93,6 +94,26 @@ during development that usually means the API is not running.
 | `POST /auth/reset-password` | — | `/reset-password` |
 | `POST /auth/change-password` | token | Change Password dialog |
 | `GET /auth/me` | token | `/app/profile` on mount |
+| `POST /auth/customer` | token | `/app/customers/new` |
+| `GET /auth/customer` | token | `/app/customers` — list, search and stat cards |
+| `PUT /auth/customer/:id` | token | Edit Customer dialog |
+| `POST /auth/vehicle` | token | Add Vehicle, on the customer |
+| `GET /auth/vehicle` | token | `/app/vehicles` — list, search and the fleet count |
+| `PUT /auth/vehicle/:id` | token | Edit Vehicle, on the customer |
+| `POST /auth/staff` | token | Add Staff dialog |
+| `GET /auth/staff` | token | `/app/staff` — list, filters and order |
+| `GET /auth/jobcard/job-number` | token | `/app/job-cards/new` as it opens |
+| `GET /auth/jobcard/customer-search` | token | The job card's customer type-ahead |
+| `POST /auth/jobcard` | token | `/app/job-cards/new`, on save |
+| `GET /auth/jobcard` | token | `/app/job-cards` — list, search and order |
+| `GET /auth/jobcard/:id` | token | Job card details, and the edit form |
+| `PUT /auth/jobcard/:id` | token | Job card edit, and Update Status |
+| `POST /admin/login` | — | `/admin/login` |
+| `POST /admin/change-password` | admin token | Admin change-password dialog |
+
+The admin endpoints take a **separate** token: the platform admin signs in at
+`/admin/login` and its bearer is stored apart from the garage owner's, so an
+admin request is never sent the owner's token or the other way round.
 
 ### `POST /api/auth/login`
 
@@ -524,6 +545,95 @@ message appears inline and the dialog stays open, still signed in. Typed values
 are wiped whenever the dialog closes, so reopening never shows a previous
 password.
 
+## The Data Modules
+
+The four integrated modules share the same shape: one endpoint serves both the
+full list and the search box, the API does the paging and the ordering, and the
+newest request is the only one allowed to write to state — so a slow response
+for an earlier search term can never overwrite what is being typed now.
+
+### Sorting
+
+Ordering is driven from the **table headers**: click a header to sort by it
+ascending, click again for descending, and the arrow beside the field says
+which way it is going. A column with no arrow is not sortable, because the API
+cannot order by it.
+
+Below `lg` the tables become cards, which have no header row, so the same
+fields are offered as a row of buttons (`SortBar`) that behave exactly the same
+way. Staff is cards at every width and uses that row on its own.
+
+The order is sent to the API, so it holds across every page rather than
+shuffling the page on screen — with one exception: the Vehicles tab can also
+sort by vehicle type and owner name, which `GET /auth/vehicle` does not accept.
+Those two are ordered in the browser over the page in hand; ask for **All** rows
+to put the whole list in order.
+
+### Customers
+
+Search by name or mobile number, sort by name, city or when they were added,
+and expand any row to see that customer's vehicles. Opening one shows their
+details, their fleet, and the forms to edit them or add another vehicle.
+
+### Vehicles
+
+Every vehicle of the garage, with its owner. What a row offers depends on where
+the vehicle is in its life:
+
+- **Completed** — an **Add** button, which opens the owner with the form filled
+  in for that vehicle's next visit. Saving `POST`s a new vehicle: the API keeps
+  a row per visit, so a returning car is a new row, not an edit.
+- **Anything else** — a **View** button, which opens the same form over the
+  vehicle itself. Saving `PUT`s only the fields that changed.
+
+Both land on the same screen and the same form; only the button — **Save
+Vehicle** or **Edit Vehicle** — and the request differ.
+
+### Staff
+
+Category and status chips narrow the list, the search box matches name, role,
+category or mobile, and the sort row orders by name, category, salary, status
+or when they joined. Status is a filter, not a sort: "Active & Inactive" simply
+leaves `?status=` off, which is how the API returns both.
+
+### Job Cards
+
+A card is opened against a **saved vehicle** — the API takes a `vehicleId` and
+cannot create the vehicle on the way — so the form searches customers as it is
+typed, then their fleet is fetched and picked from.
+
+The job number is asked for as the screen opens. It is a *suggestion*, not a
+reservation: two desks asking at the same moment are told the same number, and
+whichever saves second is turned away with a 409, at which point the next
+number is fetched and the save retried once, on its own.
+
+What a row offers depends on the card's status:
+
+- **Pending** — an **Edit** button, opening the same form filled in from
+  `GET /auth/jobcard/:id` with **Edit Job Card** in place of Save. The `PUT`
+  takes the status, the assigned staff, the reading, the complaint and the
+  billable lines; the customer, the vehicle, the number and the service date are
+  shown read-only because the API does not accept new ones.
+- **Anything else** — a **View** button, opening the card read-only: the
+  vehicle, its owner, the complaint, every billed line and the total, with an
+  **Update Status** action.
+
+Line items go out as the whole set the card should end up with. A line the API
+already holds carries its id, a line added here does not, and a line left out is
+dropped — all in one transaction, so the lines can never be saved against a
+total that no longer adds up to them.
+
+### Excel Export
+
+Customers and Vehicles have a **Download Excel** button. It writes a real
+`.xlsx` — a title block naming the data, the search term and the order it was
+taken in, then a frozen, styled header over the rows — with no dependency:
+`src/lib/excel.ts` builds the handful of XML parts and stores them in a ZIP
+uncompressed, which Excel accepts.
+
+It exports **what the list is showing**: this page of it, under the search term
+in the box. Ask for "All" rows first to download everything.
+
 ## Panels & Routes
 
 ### Authentication (`/`)
@@ -536,16 +646,28 @@ password.
 | `/reset-password` | Code + new password | **API integrated** |
 
 ### Garage Owner (`/app`) — protected
-Dashboard, Customers, Vehicles, Job Cards, Billing, Staff, Salary, Reports,
-Subscription, Garage Profile and Settings — plus add/edit forms and job-card
-details.
-
-`/app/profile` (Garage Profile) reads from `GET /auth/me`; the rest still use
-mock data.
+| Route | Screen | Status |
+| --- | --- | --- |
+| `/app` | Dashboard | Greeting, garage name and subscription banner from the API; the figures are mock |
+| `/app/customers` | Customer list | **API integrated** |
+| `/app/customers/new` | Add customer | **API integrated** |
+| `/app/customers/:id` | Customer details, vehicles, add/edit forms | **API integrated** |
+| `/app/vehicles` | Vehicle list | **API integrated** |
+| `/app/vehicles/new`, `/app/vehicles/:id` | Older standalone vehicle form | Mock — the live add/edit forms live on the customer |
+| `/app/job-cards` | Job card list | **API integrated** |
+| `/app/job-cards/new` | New job card | **API integrated** |
+| `/app/job-cards/:id` | Job card details | **API integrated** |
+| `/app/job-cards/:id/edit` | Edit a pending job card | **API integrated** |
+| `/app/staff` | Staff | **API integrated** |
+| `/app/profile` | Garage Profile | Reads `GET /auth/me`; Save Changes is still mock |
+| `/app/billing`, `/app/salary`, `/app/reports` | Billing, Salary, Reports | Mock |
+| `/app/subscription`, `/app/settings` | Subscription, Settings | Mock |
 
 ### Platform Admin (`/admin`)
-Platform dashboard, Garages, Subscription Plans, Payments and Reports.
-Not behind the owner guard yet.
+Sign-in at `/admin/login` is **API integrated** and holds its own token behind
+its own guard (`AdminProtectedRoute`), separate from the garage owner's. The
+panel behind it — dashboard, Garages, Subscription Plans, Payments and Reports
+— is still mock.
 
 ## Responsive Design
 
@@ -562,32 +684,52 @@ Reusable components live in `src/components/`:
 - **`ui/`** — Button, Input, Select, Textarea, PasswordInput, OtpInput, Card,
   Badge, StatusBadge, Modal (bottom-sheet on mobile), Drawer, ConfirmDialog,
   Skeleton, EmptyState, ErrorState, LoadingState, Toast.
-- **`common/`** — PageHeader, SearchInput, FilterButton, StatCard, DataTable,
-  ResponsiveList, BarChart, SubscriptionBanner, PWA UI (install prompt +
-  offline/online banners).
+  Input, Select and Textarea all take a `leftIcon`, and every field in the app
+  carries the mark of what it holds.
+- **`common/`** — PageHeader, SearchInput, FilterButton, StatCard, DataTable
+  (sortable headers), ResponsiveList, SortBar, PaginationBar, BarChart,
+  SubscriptionBanner, PWA UI (install prompt + offline/online banners).
 - **`layout/`** — Sidebar, Topbar, BottomNav, SubscriptionPill,
   ChangePasswordModal.
+- **`customers/`** — CustomerFields (shared by the add page and the edit
+  dialog), CustomerSummaryCard, CustomerVehicleList, EditCustomerModal.
+- **`vehicles/`** — VehicleFields, VehicleFormCard (adds or edits, depending on
+  what it is given), VehicleSummaryCard, VehicleStatusBadge.
+- **`staff/`** — AddStaffModal.
+- **`jobcards/`** — ComboboxInput, CustomerSearchInput (the type-ahead),
+  RecordPickerModal, SectionCard, JobItemsTable, JobItemModal, JobCardSummary.
 
 ## Project Structure
 
 ```
 src/
 ├── components/
-│   ├── ui/       primitives — Button, Input, Modal, OtpInput, Toast, ...
-│   ├── common/   shared widgets — PageHeader, StatCard, SubscriptionBanner, ...
-│   └── layout/   app chrome — Sidebar, Topbar, BottomNav, SubscriptionPill,
-│                 ChangePasswordModal
+│   ├── ui/         primitives — Button, Input, Modal, OtpInput, Toast, ...
+│   ├── common/     shared widgets — PageHeader, DataTable, SortBar, StatCard, ...
+│   ├── layout/     app chrome — Sidebar, Topbar, BottomNav, SubscriptionPill,
+│   │               ChangePasswordModal
+│   ├── customers/  customer fields, summary, vehicle list, edit dialog
+│   ├── vehicles/   vehicle fields, the add/edit form card, summary, status badge
+│   ├── staff/      add-staff dialog
+│   └── jobcards/   the job card form's own parts — type-ahead, pickers, items
 ├── config/       env.ts — API base URL
 ├── context/      AuthContext — session state, persistence, auto-logout
-├── hooks/        useCountdown — OTP resend / validity timers
+├── hooks/        useCountdown (OTP timers), useDebouncedValue,
+│                 useCustomerSearch, useCustomerVehicles, useAllStaff,
+│                 useJobNumber, useSessionLifecycle
 ├── layouts/      AppShell, OwnerLayout, AdminLayout, AuthLayout, navigation
-├── lib/          utils, validation, subscription,
-│                 authStorage, pendingRegistration, pendingPasswordReset
+├── lib/          utils, validation, subscription, excel,
+│                 customerForm, vehicleForm, staffForm, jobCard,
+│                 vehicleStatus, staff, activeCustomer,
+│                 authStorage, adminAuthStorage,
+│                 pendingRegistration, pendingPasswordReset
 ├── mock/         static mock data (modules not yet integrated)
 ├── pages/        auth/ · owner/ · admin/
-├── routes/       route definitions + ProtectedRoute / PublicOnlyRoute
-├── services/     httpClient, authService — API layer
-└── types/        shared types · auth.ts mirrors the API contract
+├── routes/       route definitions + Protected / PublicOnly / Admin guards
+├── services/     httpClient, authService, customerService, vehicleService,
+│                 staffService, jobCardService, adminService
+└── types/        shared types · auth, customer, vehicle, staff, jobCard
+                  mirror the API contract
 ```
 
 ## Adding the Next Endpoint
@@ -600,13 +742,22 @@ src/
 
 ## Notes
 
-- Everything outside authentication still uses **mock data and mock submission**
-  (simulated latency + toast); nothing is persisted. That includes the
-  dashboard's stat cards and recent job cards — only the greeting, garage name
-  and subscription banner there come from the API.
+- **Billing, Salary and Reports still use mock data and mock submission**
+  (simulated latency + toast); nothing is persisted. So do the dashboard's stat
+  cards and its recent job cards — only the greeting, garage name and
+  subscription banner there come from the API.
 - **Garage Profile reads but does not write.** Save Changes is still a mock
   submission; the API has no profile-update endpoint yet.
+- The standalone vehicle form at `/app/vehicles/new` and `/app/vehicles/:id` is
+  the older mock screen. The live add and edit forms are reached from the
+  Vehicles tab, and open on the customer the vehicle belongs to.
+- The job card's **discount** field is display-only: neither the create nor the
+  update contract carries one, so it changes the summary on screen and nothing
+  else.
 - PWA UI (install prompt, offline / back-online banners) is **UI-only** — no
   service worker or sync is implemented.
-- The Platform Admin panel (`/admin`) is entirely mock and is **not** behind the
-  owner route guard.
+- The Platform Admin panel behind `/admin/login` is still mock, though the
+  sign-in itself is real and guarded by its own token.
+- There is no Prettier or ESLint config in the repo. Match the surrounding
+  style — single quotes, no semicolons — rather than running a formatter with
+  its defaults.
