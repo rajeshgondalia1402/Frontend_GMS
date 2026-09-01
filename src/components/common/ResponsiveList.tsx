@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { Column } from './DataTable'
+import type { Column, SortOrder } from './DataTable'
 import { DataTable } from './DataTable'
 
 interface ResponsiveListProps<T> {
@@ -11,6 +11,10 @@ interface ResponsiveListProps<T> {
   /** Detail block shown under the row (or card) while it is expanded. */
   renderExpanded?: (row: T) => ReactNode
   isExpanded?: (row: T) => boolean
+  /** Header sorting — only the table has headers, so cards ignore these. */
+  sortBy?: string
+  sortOrder?: SortOrder
+  onSort?: (sortKey: string) => void
 }
 
 /** Table on desktop (lg+), stacked cards on mobile. */
@@ -22,6 +26,9 @@ export function ResponsiveList<T>({
   onRowClick,
   renderExpanded,
   isExpanded,
+  sortBy,
+  sortOrder,
+  onSort,
 }: ResponsiveListProps<T>) {
   return (
     <>
@@ -33,6 +40,9 @@ export function ResponsiveList<T>({
           onRowClick={onRowClick}
           renderExpanded={renderExpanded}
           isExpanded={isExpanded}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          onSort={onSort}
         />
       </div>
       <div className="space-y-3 lg:hidden">

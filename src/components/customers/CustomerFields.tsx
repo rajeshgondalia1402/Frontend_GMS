@@ -1,6 +1,6 @@
 import type { ChangeEvent } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
-import { MessageCircle, Phone } from 'lucide-react'
+import { Home, Mail, MapPin, MessageCircle, Phone, StickyNote, User } from 'lucide-react'
 import { Checkbox, Input, Textarea } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import type { CustomerFormValues } from '@/lib/customerForm'
@@ -92,6 +92,7 @@ export function CustomerFields({ form, columns = 3 }: CustomerFieldsProps) {
           placeholder="Rahul Patel"
           autoComplete="name"
           maxLength={FULL_NAME_MAX_LENGTH}
+          leftIcon={<User className="h-4 w-4" />}
           error={errors.fullName?.message}
           {...register('fullName', fullNameRules)}
         />
@@ -139,6 +140,7 @@ export function CustomerFields({ form, columns = 3 }: CustomerFieldsProps) {
         autoComplete="email"
         maxLength={EMAIL_MAX_LENGTH}
         hint="Optional"
+        leftIcon={<Mail className="h-4 w-4" />}
         error={errors.email?.message}
         {...register('email', optionalEmailRules)}
       />
@@ -149,6 +151,7 @@ export function CustomerFields({ form, columns = 3 }: CustomerFieldsProps) {
         autoComplete="address-level2"
         maxLength={CITY_MAX_LENGTH}
         hint="Optional"
+        leftIcon={<MapPin className="h-4 w-4" />}
         error={errors.city?.message}
         {...register('city', optionalCityRules)}
       />
@@ -158,6 +161,7 @@ export function CustomerFields({ form, columns = 3 }: CustomerFieldsProps) {
           label="Address"
           placeholder="Street, area, city"
           maxLength={ADDRESS_MAX_LENGTH}
+          leftIcon={<Home className="h-4 w-4" />}
           error={errors.address?.message}
           {...register('address', optionalAddressRules)}
         />
@@ -167,6 +171,7 @@ export function CustomerFields({ form, columns = 3 }: CustomerFieldsProps) {
         <Textarea
           label="Notes"
           placeholder="Regular customer, prefers weekend service..."
+          leftIcon={<StickyNote className="h-4 w-4" />}
           {...register('notes')}
         />
       </div>

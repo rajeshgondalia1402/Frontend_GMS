@@ -76,6 +76,7 @@ export const router = createBrowserRouter([
           { path: 'job-cards', element: <JobCards /> },
           { path: 'job-cards/new', element: <JobCardForm /> },
           { path: 'job-cards/:id', element: <JobCardDetails /> },
+          { path: 'job-cards/:id/edit', element: <JobCardForm /> },
           { path: 'billing', element: <Billing /> },
           { path: 'staff', element: <Staff /> },
           { path: 'salary', element: <Salary /> },

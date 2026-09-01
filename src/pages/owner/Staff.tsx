@@ -6,23 +6,17 @@ import {
   PageHeader,
   PaginationBar,
   SearchInput,
+  SortBar,
 } from '@/components/common'
-import {
-  Badge,
-  Button,
-  EmptyState,
-  ErrorState,
-  LoadingState,
-  Select,
-  useToast,
-} from '@/components/ui'
+import type { SortBarField, SortOrder } from '@/components/common'
+import { Badge, Button, EmptyState, ErrorState, LoadingState, useToast } from '@/components/ui'
 import { AddStaffModal } from '@/components/staff'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { staffService } from '@/services/staffService'
 import { ApiError } from '@/services/httpClient'
 import {
   STAFF_CATEGORY_FILTERS,
-  STAFF_STATUS_OPTIONS,
+  STAFF_STATUS_FILTERS,
   staffCategoryLabel,
   staffSalaryLabel,
   staffStatusLabel,
@@ -32,27 +26,33 @@ import { getInitial } from '@/lib/utils'
 import type { Pagination } from '@/types/auth'
 import type { StaffCategory, StaffListParams, StaffRecord, StaffStatus } from '@/types/staff'
 
-type SortKey = 'newest' | 'name-asc' | 'name-desc' | 'salary-desc' | 'salary-asc'
+/** Only these are sortable — the API rejects any other `sortBy`. */
+type SortField = NonNullable<StaffListParams['sortBy']>
 
-const SORT_OPTIONS = [
-  { value: 'newest', label: 'Newest first' },
-  { value: 'name-asc', label: 'Name (A–Z)' },
-  { value: 'name-desc', label: 'Name (Z–A)' },
-  { value: 'salary-desc', label: 'Salary (high–low)' },
-  { value: 'salary-asc', label: 'Salary (low–high)' },
-]
+interface SortState {
+  field: SortField
+  order: SortOrder
+}
 
 /**
- * Every order the picker offers is one the API sorts by, so the whole list is
- * ordered rather than just the page that happens to be on screen.
+ * Every field offered is one the API sorts by, so the whole list is ordered
+ * rather than just the page that happens to be on screen.
  */
-const SORT_QUERY: Record<SortKey, Pick<StaffListParams, 'sortBy' | 'sortOrder'>> = {
-  newest: { sortBy: 'createdAt', sortOrder: 'desc' },
-  'name-asc': { sortBy: 'name', sortOrder: 'asc' },
-  'name-desc': { sortBy: 'name', sortOrder: 'desc' },
-  'salary-desc': { sortBy: 'monthlySalary', sortOrder: 'desc' },
-  'salary-asc': { sortBy: 'monthlySalary', sortOrder: 'asc' },
-}
+const DEFAULT_SORT: SortState = { field: 'createdAt', order: 'desc' }
+
+const sortValue = (sort: SortState) => `${sort.field}:${sort.order}`
+
+/**
+ * Staff are shown as cards rather than a table, so there is no header to
+ * click — the fields are offered as buttons that behave the same way.
+ */
+const SORT_FIELDS: SortBarField[] = [
+  { key: 'name', label: 'Name' },
+  { key: 'category', label: 'Category' },
+  { key: 'monthlySalary', label: 'Salary' },
+  { key: 'status', label: 'Status' },
+  { key: 'createdAt', label: 'Added' },
+]
 
 export function Staff() {
   const { toast } = useToast()
@@ -63,7 +63,7 @@ export function Staff() {
 
   const [category, setCategory] = useState<string>('all')
   const [status, setStatus] = useState<string>('all')
-  const [sort, setSort] = useState<SortKey>('newest')
+  const [sort, setSort] = useState<SortState>(DEFAULT_SORT)
 
   const [staff, setStaff] = useState<StaffRecord[]>([])
   const [pagination, setPagination] = useState<Pagination | null>(null)
@@ -80,7 +80,7 @@ export function Staff() {
   // Any change to what is being asked for starts from page one: page 4 of the
   // old result set says nothing about the new one. Resetting during the render
   // that changes them keeps the stale page from being asked for at all.
-  const queryKey = `${search}|${category}|${status}|${sort}|${limit}`
+  const queryKey = `${search}|${category}|${status}|${sortValue(sort)}|${limit}`
   const [lastQueryKey, setLastQueryKey] = useState(queryKey)
   if (lastQueryKey !== queryKey) {
     setLastQueryKey(queryKey)
@@ -99,7 +99,8 @@ export function Staff() {
       const data = await staffService.listStaff({
         page,
         limit,
-        ...SORT_QUERY[sort],
+        sortBy: sort.field,
+        sortOrder: sort.order,
         ...(search ? { search } : {}),
         ...(category === 'all' ? {} : { category: category as StaffCategory }),
         ...(status === 'all' ? {} : { status: status as StaffStatus }),
@@ -125,6 +126,17 @@ export function Staff() {
   useEffect(() => {
     void fetchPage()
   }, [fetchPage])
+
+  /**
+   * Clicking a field sorts by it: a new field starts ascending, the one already
+   * sorting flips between ascending and descending.
+   */
+  const handleSort = (sortKey: string) =>
+    setSort((current) =>
+      current.field === sortKey
+        ? { ...current, order: current.order === 'asc' ? 'desc' : 'asc' }
+        : { field: sortKey as SortField, order: 'asc' },
+    )
 
   /**
    * A new staff member is `ACTIVE` and newest, so it belongs at the top of the
@@ -153,34 +165,29 @@ export function Staff() {
         }
       />
 
-      <div className="mb-4">
+      <div className="mb-3">
         <FilterButton options={STAFF_CATEGORY_FILTERS} value={category} onChange={setCategory} />
       </div>
 
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row">
+      <div className="mb-4">
+        <FilterButton options={STAFF_STATUS_FILTERS} value={status} onChange={setStatus} />
+      </div>
+
+      <div className="mb-4">
         <SearchInput
           value={query}
           onChange={setQuery}
           placeholder="Search name, role, category or mobile..."
-          className="sm:flex-1"
         />
-        <div className="sm:w-48">
-          <Select
-            aria-label="Filter by status"
-            options={STAFF_STATUS_OPTIONS}
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-          />
-        </div>
-        <div className="sm:w-52">
-          <Select
-            aria-label="Sort staff"
-            options={SORT_OPTIONS}
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortKey)}
-          />
-        </div>
       </div>
+
+      <SortBar
+        className="mb-4"
+        fields={SORT_FIELDS}
+        sortBy={sort.field}
+        sortOrder={sort.order}
+        onSort={handleSort}
+      />
 
       {loading ? (
         <LoadingState />

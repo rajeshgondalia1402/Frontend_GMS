@@ -1,9 +1,11 @@
 import { apiRequest } from './httpClient'
 import type {
   CreateVehiclePayload,
+  UpdateVehiclePayload,
   VehicleListData,
   VehicleListParams,
   VehicleRecord,
+  VehicleWithCustomer,
 } from '@/types/vehicle'
 
 /** Builds the query tail; anything left unset falls back to the API default. */
@@ -47,7 +49,54 @@ export function listVehicles(params: VehicleListParams = {}): Promise<VehicleLis
   return apiRequest<VehicleListData>(`/auth/vehicle${vehicleQuery(params)}`)
 }
 
+/**
+ * `PUT /api/auth/vehicle/:id` — send only what changed. Updatable:
+ * `vehicleNumber`, `vehicleType`, `brand`, `model`, `variant`, `fuelType`,
+ * `description`, `status`, `currentKm`, `color` and `insuranceExpiry`.
+ *
+ * `customerId` is deliberately not accepted — moving a vehicle to another
+ * customer is a business decision, not a field edit — so a body carrying only
+ * that is rejected with "Send at least one field to update."
+ */
+export function updateVehicle(
+  id: string,
+  payload: UpdateVehiclePayload,
+): Promise<VehicleRecord> {
+  return apiRequest<VehicleRecord>(`/auth/vehicle/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: payload,
+  })
+}
+
+/** One request per page while collecting a customer's whole fleet. */
+const ALL_VEHICLES_PAGE_SIZE = 100
+
+/**
+ * Every vehicle matching `params`, not just the first page — the job card
+ * needs all of a customer's vehicles at once.
+ *
+ * The API pages whatever it is asked for, so this follows `hasNextPage` rather
+ * than trusting one oversized `limit`. The page cap is a stop against a server
+ * that always answers `hasNextPage: true`.
+ */
+export async function listAllVehicles(
+  params: Omit<VehicleListParams, 'page' | 'limit'> = {},
+): Promise<VehicleWithCustomer[]> {
+  const MAX_PAGES = 50
+  const rows: VehicleWithCustomer[] = []
+
+  for (let page = 1; page <= MAX_PAGES; page += 1) {
+    const data = await listVehicles({ ...params, page, limit: ALL_VEHICLES_PAGE_SIZE })
+    rows.push(...data.vehicles)
+    if (!data.pagination?.hasNextPage) break
+  }
+
+  return rows
+}
+
 export const vehicleService = {
   createVehicle,
+  updateVehicle,
   listVehicles,
+  listAllVehicles,
 }

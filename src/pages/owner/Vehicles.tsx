@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Car, Download, Eye, Phone } from 'lucide-react'
+import { Car, Download, Eye, Phone, Plus } from 'lucide-react'
 import { DEFAULT_PAGE_SIZE, PageHeader, PaginationBar, SearchInput, StatCard } from '@/components/common'
-import type { Column } from '@/components/common'
-import { ResponsiveList } from '@/components/common'
-import { Badge, Button, EmptyState, ErrorState, LoadingState, Select } from '@/components/ui'
+import type { Column, SortBarField, SortOrder } from '@/components/common'
+import { ResponsiveList, SortBar } from '@/components/common'
+import { Badge, Button, EmptyState, ErrorState, LoadingState } from '@/components/ui'
 import { useAuth } from '@/context/AuthContext'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { vehicleService } from '@/services/vehicleService'
 import { ApiError } from '@/services/httpClient'
 import { formatDate } from '@/lib/utils'
-import { vehicleStatusLabel } from '@/lib/vehicleStatus'
+import { vehicleStatusLabel, vehicleStatusTone } from '@/lib/vehicleStatus'
 import { datedFileName, downloadExcel } from '@/lib/excel'
 import type { ExportColumn } from '@/lib/excel'
 import type { Pagination } from '@/types/auth'
@@ -62,37 +62,61 @@ const EXPORT_COLUMNS: ExportColumn<VehicleWithCustomer>[] = [
   },
 ]
 
-type SortKey = 'newest' | 'vehicle-asc' | 'vehicle-desc' | 'owner-asc' | 'owner-desc'
-
-const SORT_OPTIONS = [
-  { value: 'newest', label: 'Newest first' },
-  { value: 'vehicle-asc', label: 'Vehicle (A–Z)' },
-  { value: 'vehicle-desc', label: 'Vehicle (Z–A)' },
-  { value: 'owner-asc', label: 'Owner Name (A–Z)' },
-  { value: 'owner-desc', label: 'Owner Name (Z–A)' },
-]
+/** What `GET /auth/vehicle` can order by; the API rejects anything else. */
+type ApiSortField = NonNullable<VehicleListParams['sortBy']>
 
 /**
- * `GET /auth/vehicle` sorts by `createdAt`, `updatedAt`, `vehicleNumber` or
- * `status` — neither the vehicle type nor the owner's name is among them, so
- * the list is always read newest first and reordered here (see `sortRows`).
+ * Neither the vehicle type nor the owner's name is among the API's fields, so
+ * those two are ordered here instead (see `sortRows`).
  */
-const LIST_ORDER: Pick<VehicleListParams, 'sortBy' | 'sortOrder'> = {
-  sortBy: 'createdAt',
-  sortOrder: 'desc',
+type ClientSortField = 'vehicleType' | 'owner'
+
+type SortField = ApiSortField | ClientSortField
+
+interface SortState {
+  field: SortField
+  order: SortOrder
 }
+
+const API_SORT_FIELDS: readonly string[] = ['createdAt', 'updatedAt', 'vehicleNumber', 'status']
+
+const isApiSort = (field: SortField): field is ApiSortField => API_SORT_FIELDS.includes(field)
+
+const DEFAULT_SORT: SortState = { field: 'createdAt', order: 'desc' }
+
+/** The order the list is read in: the API's own, or newest first to sort here. */
+const listOrder = (sort: SortState): Pick<VehicleListParams, 'sortBy' | 'sortOrder'> =>
+  isApiSort(sort.field)
+    ? { sortBy: sort.field, sortOrder: sort.order }
+    : { sortBy: 'createdAt', sortOrder: 'desc' }
+
+/** The same fields the sortable table headers offer, for the card list. */
+const SORT_FIELDS: SortBarField[] = [
+  { key: 'vehicleType', label: 'Vehicle' },
+  { key: 'vehicleNumber', label: 'Number' },
+  { key: 'owner', label: 'Owner' },
+  { key: 'status', label: 'Status' },
+  { key: 'createdAt', label: 'Added' },
+]
+
+/** What the current order is called, for the exported sheet's header. */
+const sortLabel = (sort: SortState) =>
+  `${SORT_FIELDS.find((f) => f.key === sort.field)?.label ?? sort.field} (${
+    sort.order === 'asc' ? 'ascending' : 'descending'
+  })`
 
 /**
  * Orders by vehicle type or owner name, neither of which the API can do. It
  * can only reach the rows that were fetched, so it orders a page at a time —
- * pick "All" rows to put the whole list in order.
+ * pick "All" rows to put the whole list in order. Anything the API has already
+ * sorted comes back untouched.
  */
-function sortRows(rows: VehicleWithCustomer[], sort: SortKey): VehicleWithCustomer[] {
-  if (sort === 'newest') return rows
+function sortRows(rows: VehicleWithCustomer[], sort: SortState): VehicleWithCustomer[] {
+  if (isApiSort(sort.field)) return rows
 
-  const byOwner = sort.startsWith('owner')
-  const direction = sort.endsWith('-asc') ? 1 : -1
-  const key = (v: VehicleWithCustomer) => (byOwner ? v.customer?.fullName : v.vehicleType) ?? ''
+  const direction = sort.order === 'asc' ? 1 : -1
+  const key = (v: VehicleWithCustomer) =>
+    (sort.field === 'owner' ? v.customer?.fullName : v.vehicleType) ?? ''
 
   return [...rows].sort((a, b) => direction * key(a).localeCompare(key(b), 'en'))
 }
@@ -109,7 +133,7 @@ export function Vehicles() {
   const [pagination, setPagination] = useState<Pagination | null>(null)
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE)
-  const [sort, setSort] = useState<SortKey>('newest')
+  const [sort, setSort] = useState<SortState>(DEFAULT_SORT)
   /** The garage's whole fleet, read once without a search term. */
   const [total, setTotal] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
@@ -123,7 +147,10 @@ export function Vehicles() {
   // page 4 of the old result set says nothing about the new one. Resetting
   // during the render that changes them keeps the stale page from being asked
   // for at all, rather than fetching it and then correcting.
-  const queryKey = `${search}|${limit}`
+  // Only the order the API is asked for belongs in the key: re-ordering a page
+  // in the browser neither refetches it nor sends the reader back to page one.
+  const order = listOrder(sort)
+  const queryKey = `${search}|${limit}|${order.sortBy}:${order.sortOrder}`
   const [lastQueryKey, setLastQueryKey] = useState(queryKey)
   if (lastQueryKey !== queryKey) {
     setLastQueryKey(queryKey)
@@ -141,7 +168,8 @@ export function Vehicles() {
       const data = await vehicleService.listVehicles({
         page,
         limit,
-        ...LIST_ORDER,
+        sortBy: order.sortBy,
+        sortOrder: order.sortOrder,
         ...(search ? { search } : {}),
       })
 
@@ -158,9 +186,10 @@ export function Vehicles() {
     } finally {
       if (requestId === latestRequest.current) setLoading(false)
     }
-  }, [search, page, limit])
+  }, [search, page, limit, order.sortBy, order.sortOrder])
 
-  // Re-runs whenever the search term, the page or the page size changes.
+  // Re-runs whenever the search term, the page, the page size or the API's
+  // share of the order changes.
   useEffect(() => {
     void fetchPage()
   }, [fetchPage])
@@ -188,17 +217,35 @@ export function Vehicles() {
   const rows = useMemo(() => sortRows(vehicles, sort), [vehicles, sort])
 
   /**
-   * A vehicle has no page of its own — View opens the customer it belongs to,
-   * where their details are shown and the visit is recorded. The row already
-   * carries the whole vehicle, so it is handed over rather than fetched again.
+   * Clicking a header sorts by that column: a new column starts ascending, the
+   * one already sorting flips between ascending and descending.
    */
-  const openOwner = (vehicle: VehicleWithCustomer) => {
+  const handleSort = (sortKey: string) =>
+    setSort((current) =>
+      current.field === sortKey
+        ? { ...current, order: current.order === 'asc' ? 'desc' : 'asc' }
+        : { field: sortKey as SortField, order: 'asc' },
+    )
+
+  /**
+   * Both buttons open the same form on the owner, who the form needs anyway:
+   * `add` fills it in for that vehicle's next visit, `edit` opens it over the
+   * vehicle itself. `from=vehicles` sends the back link to this tab, and the
+   * row is handed over so nothing has to be fetched again.
+   */
+  const openVehicleForm = (vehicle: VehicleWithCustomer, action: 'add' | 'edit') => {
     const customerId = vehicle.customer?.id ?? vehicle.customerId
     if (!customerId) return
 
-    const query = `from=vehicles&vehicleId=${encodeURIComponent(vehicle.id)}`
+    const query = `from=vehicles&action=${action}&vehicleId=${encodeURIComponent(vehicle.id)}`
     navigate(`/app/customers/${customerId}?${query}`, { state: { vehicle } })
   }
+
+  /**
+   * A completed vehicle has nothing left running on it, so the row offers to
+   * add the next one for that owner instead of showing this one's details.
+   */
+  const isCompleted = (vehicle: VehicleWithCustomer) => vehicle.status === 'COMPLETED'
 
   /**
    * Downloads exactly what the list is showing — this page of it, under the
@@ -216,10 +263,7 @@ export function Vehicles() {
         // What the sheet is a snapshot of, so a saved file explains itself.
         meta: [
           { label: 'Search', value: search || 'All vehicles' },
-          {
-            label: 'Sorted By',
-            value: SORT_OPTIONS.find((option) => option.value === sort)?.label,
-          },
+          { label: 'Sorted By', value: sortLabel(sort) },
         ],
       },
       EXPORT_COLUMNS,
@@ -229,30 +273,46 @@ export function Vehicles() {
   const columns: Column<VehicleWithCustomer>[] = [
     {
       header: 'Vehicle',
+      sortKey: 'vehicleType',
       accessor: (v) => <span className="font-medium text-slate-900">{v.vehicleType || '—'}</span>,
     },
     { header: 'Model', accessor: (v) => vehicleName(v) },
     {
       header: 'Number',
+      sortKey: 'vehicleNumber',
       accessor: (v) => <span className="font-mono text-xs">{v.vehicleNumber}</span>,
     },
-    { header: 'Owner', accessor: (v) => v.customer?.fullName || '—' },
+    { header: 'Owner', sortKey: 'owner', accessor: (v) => v.customer?.fullName || '—' },
     {
       header: 'Fuel',
       accessor: (v) => (v.fuelType ? <Badge tone="neutral">{v.fuelType}</Badge> : '—'),
     },
     { header: 'Mobile', accessor: (v) => v.customer?.mobileNumber || '—' },
-    { header: 'Last Service', accessor: (v) => (v.createdAt ? formatDate(v.createdAt) : '—') },
+    {
+      header: 'Last Service',
+      sortKey: 'createdAt',
+      accessor: (v) => (v.createdAt ? formatDate(v.createdAt) : '—'),
+    },
+    {
+      header: 'Status',
+      sortKey: 'status',
+      accessor: (v) =>
+        v.status ? (
+          <Badge tone={vehicleStatusTone(v.status)}>{vehicleStatusLabel(v.status)}</Badge>
+        ) : (
+          '—'
+        ),
+    },
     {
       header: '',
       className: 'text-right',
       accessor: (v) => (
         <button
           type="button"
-          onClick={() => openOwner(v)}
+          onClick={() => openVehicleForm(v, isCompleted(v) ? 'add' : 'edit')}
           className="text-sm font-medium text-primary-600 hover:text-primary-700 hover:underline"
         >
-          View
+          {isCompleted(v) ? 'Add' : 'View'}
         </button>
       ),
     },
@@ -278,14 +338,6 @@ export function Vehicles() {
           placeholder="Search number, brand, model or owner..."
           className="sm:flex-1"
         />
-        <div className="sm:w-56">
-          <Select
-            aria-label="Sort vehicles"
-            options={SORT_OPTIONS}
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortKey)}
-          />
-        </div>
         <Button
           variant="outline"
           leftIcon={<Download className="h-4 w-4" />}
@@ -295,6 +347,15 @@ export function Vehicles() {
           Download Excel
         </Button>
       </div>
+
+      {/* The table sorts from its headers; the cards get the same fields here. */}
+      <SortBar
+        className="mb-4 lg:hidden"
+        fields={SORT_FIELDS}
+        sortBy={sort.field}
+        sortOrder={sort.order}
+        onSort={handleSort}
+      />
 
       {loading ? (
         <LoadingState />
@@ -320,6 +381,9 @@ export function Vehicles() {
             data={rows}
             columns={columns}
             keyField={(v) => v.id}
+            sortBy={sort.field}
+            sortOrder={sort.order}
+            onSort={handleSort}
             renderCard={(v) => (
               <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-card">
                 <div className="flex items-start justify-between gap-3">
@@ -332,7 +396,12 @@ export function Vehicles() {
                     </p>
                     <p className="mt-0.5 font-mono text-sm text-slate-500">{v.vehicleNumber}</p>
                   </div>
-                  {v.fuelType && <Badge tone="neutral">{v.fuelType}</Badge>}
+                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                    {v.status && (
+                      <Badge tone={vehicleStatusTone(v.status)}>{vehicleStatusLabel(v.status)}</Badge>
+                    )}
+                    {v.fuelType && <Badge tone="neutral">{v.fuelType}</Badge>}
+                  </div>
                 </div>
 
                 <div className="mt-3 grid grid-cols-2 gap-3 border-t border-slate-100 pt-3">
@@ -356,14 +425,25 @@ export function Vehicles() {
                 </div>
 
                 <div className="mt-3 flex justify-end">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    leftIcon={<Eye className="h-4 w-4" />}
-                    onClick={() => openOwner(v)}
-                  >
-                    View
-                  </Button>
+                  {isCompleted(v) ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      leftIcon={<Plus className="h-4 w-4" />}
+                      onClick={() => openVehicleForm(v, 'add')}
+                    >
+                      Add
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      leftIcon={<Eye className="h-4 w-4" />}
+                      onClick={() => openVehicleForm(v, 'edit')}
+                    >
+                      View
+                    </Button>
+                  )}
                 </div>
               </div>
             )}

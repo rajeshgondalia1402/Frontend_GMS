@@ -55,6 +55,26 @@ export function getCustomer(id: string): Promise<CustomerWithVehicles> {
 }
 
 /**
+ * `GET /api/auth/jobcard/customer-search` — the job card's type-ahead over the
+ * customers of this garage. `search` is the only parameter and the value itself
+ * decides how it is read: anything with a letter in it matches the name
+ * (contains, case insensitive), a digits-only value matches the mobile number
+ * (starts with). Every match comes back in one array ordered A to Z by name —
+ * there is no paging — and no match is a 200 with `[]`, not a 404.
+ *
+ * Pass a `signal` so the request of a superseded keystroke is dropped.
+ */
+export function searchJobCardCustomers(
+  search: string,
+  signal?: AbortSignal,
+): Promise<CustomerRecord[]> {
+  return apiRequest<CustomerRecord[]>(
+    `/auth/jobcard/customer-search?search=${encodeURIComponent(search)}`,
+    { signal },
+  )
+}
+
+/**
  * `PUT /api/auth/customer/:id` — send only what changed; an empty body is a
  * 400. Moving the mobile number onto one another customer of this garage
  * already holds is a 409.
@@ -72,6 +92,7 @@ export function updateCustomer(
 export const customerService = {
   createCustomer,
   listCustomers,
+  searchJobCardCustomers,
   getCustomer,
   updateCustomer,
 }

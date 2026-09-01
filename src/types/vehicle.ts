@@ -28,6 +28,13 @@ export interface CreateVehiclePayload {
 }
 
 /**
+ * `PUT /api/auth/vehicle/:id` — only the changed fields go out, and an empty
+ * body is rejected with a 400. `customerId` and `garageId` are not accepted,
+ * so a vehicle can never be moved to another customer or garage.
+ */
+export type UpdateVehiclePayload = Partial<Omit<CreateVehiclePayload, 'customerId'>>
+
+/**
  * A vehicle as the API hands it back. Everything past the identifying three
  * is optional: `GET /auth/customer/:id` embeds a trimmed-down vehicle, while
  * a freshly created one comes back in full.
