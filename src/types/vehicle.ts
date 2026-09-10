@@ -3,7 +3,7 @@
 import type { Pagination } from './auth'
 
 /** The API defaults a vehicle to `PENDING` when no status is sent. */
-export type VehicleStatus = 'PENDING' | 'ACTIVE' | 'IN_SERVICE' | 'COMPLETED' | 'INACTIVE'
+export type VehicleStatus = 'PENDING' | 'IN_SERVICE' | 'COMPLETED'
 
 /**
  * `customerId` is checked against the logged-in garage before anything is
@@ -16,7 +16,8 @@ export interface CreateVehiclePayload {
   vehicleNumber: string
   vehicleType: string
   description: string
-  currentKm: number
+  /** Whole kilometres. Left out when the reading was not taken. */
+  currentKm?: number
   brand?: string
   model?: string
   variant?: string

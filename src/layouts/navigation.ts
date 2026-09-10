@@ -7,7 +7,6 @@ import {
   UsersRound,
   Wallet,
   BarChart3,
-  Settings,
   CreditCard,
   Building2,
   Package,
@@ -33,7 +32,6 @@ export const ownerNav: NavItem[] = [
   { label: 'Salary', to: '/app/salary', icon: Wallet },
   { label: 'Reports', to: '/app/reports', icon: BarChart3 },
   { label: 'Subscription', to: '/app/subscription', icon: CreditCard },
-  { label: 'Settings', to: '/app/settings', icon: Settings },
 ]
 
 export const adminNav: NavItem[] = [

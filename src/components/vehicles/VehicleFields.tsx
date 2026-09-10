@@ -145,10 +145,11 @@ export function VehicleFields({ form, columns = 3 }: VehicleFieldsProps) {
       />
 
       <Input
-        label="Current KM *"
+        label="Current KM"
         type="text"
         inputMode="numeric"
         placeholder="25000"
+        hint="Optional"
         leftIcon={<Gauge className="h-4 w-4" />}
         error={errors.currentKm?.message}
         {...kmField}

@@ -73,7 +73,10 @@ const VEHICLE_FORM_FIELDS: string[] = [
 ]
 
 /** Everything the API stores about a vehicle, bar the ids. */
-type VehicleFields = Omit<Required<CreateVehiclePayload>, 'customerId'>
+type VehicleFields = Omit<Required<CreateVehiclePayload>, 'customerId' | 'currentKm'> & {
+  /** `''` when the reading was left blank — left out on create, cleared on update. */
+  currentKm: number | ''
+}
 
 /**
  * Copies what stays the same about a vehicle from one visit to the next.
@@ -119,7 +122,7 @@ function toVehicleFields(values: VehicleFormValues): VehicleFields {
     vehicleNumber: normalizeVehicleNumber(values.vehicleNumber),
     vehicleType: values.vehicleType.trim(),
     description: values.description.trim(),
-    currentKm: Number(values.currentKm.trim()),
+    currentKm: values.currentKm.trim() ? Number(values.currentKm.trim()) : '',
     brand: values.brand.trim(),
     model: values.model.trim(),
     variant: values.variant.trim(),
@@ -141,9 +144,11 @@ export function toCreateVehiclePayload(
     vehicleNumber: fields.vehicleNumber,
     vehicleType: fields.vehicleType,
     description: fields.description,
-    currentKm: fields.currentKm,
     status: fields.status,
   }
+
+  // A blank reading is left out entirely rather than sent as a 0.
+  if (fields.currentKm !== '') payload.currentKm = fields.currentKm
 
   const optional = ['brand', 'model', 'variant', 'fuelType', 'color', 'insuranceExpiry'] as const
   for (const key of optional) {

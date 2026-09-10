@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import type { ChangeEvent } from 'react'
-import { AlertCircle, BadgeCheck, Briefcase, IndianRupee, Phone, User } from 'lucide-react'
+import { AlertCircle, BadgeCheck, Briefcase, IndianRupee, Phone, ToggleLeft, User } from 'lucide-react'
 import { Button, Input, Modal, Select, useToast } from '@/components/ui'
 import { staffService } from '@/services/staffService'
 import { ApiError } from '@/services/httpClient'
-import { STAFF_CATEGORY_OPTIONS } from '@/lib/staff'
-import { EMPTY_STAFF_FORM, applyStaffApiError, toCreateStaffPayload } from '@/lib/staffForm'
+import { STAFF_CATEGORY_OPTIONS, STAFF_STATUS_OPTIONS } from '@/lib/staff'
+import {
+  EMPTY_STAFF_FORM,
+  applyStaffApiError,
+  staffFormValues,
+  toCreateStaffPayload,
+  toUpdateStaffPayload,
+} from '@/lib/staffForm'
 import type { StaffFormValues } from '@/lib/staffForm'
 import {
   MOBILE_LENGTH,
@@ -18,23 +24,34 @@ import {
   optionalStaffRoleRules,
   staffCategoryRules,
   staffNameRules,
+  staffStatusRules,
 } from '@/lib/validation'
 import type { StaffRecord } from '@/types/staff'
 
-interface AddStaffModalProps {
+interface StaffFormModalProps {
   open: boolean
   onClose: () => void
+  /**
+   * The row being changed. Left out, the dialog adds someone instead — which
+   * is the only difference between the two, bar the status field.
+   */
+  staff?: StaffRecord | null
   /** Reports the saved row; the list is reloaded so it appears in order. */
-  onCreated: (staff: StaffRecord) => void
+  onSaved: (staff: StaffRecord) => void
 }
 
 /**
- * `POST /api/auth/staff`. The status is not part of the form — a staff member
- * who has just been added is always working at the garage, so the API sets
- * `ACTIVE` itself.
+ * One dialog for both `POST /api/auth/staff` and `PUT /api/auth/staff/:id`.
+ *
+ * The status is only asked for while editing: someone who has just been added
+ * is always working at the garage, so the API sets `ACTIVE` itself and drops a
+ * `status` sent on create. Switching someone to `INACTIVE` here does not hide
+ * them — they stay in the list, badged.
  */
-export function AddStaffModal({ open, onClose, onCreated }: AddStaffModalProps) {
+export function StaffFormModal({ open, onClose, staff, onSaved }: StaffFormModalProps) {
   const { toast } = useToast()
+
+  const editing = Boolean(staff)
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -51,14 +68,14 @@ export function AddStaffModal({ open, onClose, onCreated }: AddStaffModalProps) 
     defaultValues: EMPTY_STAFF_FORM,
   })
 
-  // Start clean every time the dialog opens, so a cancelled entry is not
-  // carried over into the next one.
+  // Start from the row being edited, or clean when adding — so a cancelled
+  // entry is not carried over into the next time the dialog opens.
   useEffect(() => {
     if (!open) return
-    reset(EMPTY_STAFF_FORM)
+    reset(staff ? staffFormValues(staff) : EMPTY_STAFF_FORM)
     setError(null)
     setSaving(false)
-  }, [open, reset])
+  }, [open, staff, reset])
 
   const close = () => {
     if (saving) return
@@ -77,15 +94,22 @@ export function AddStaffModal({ open, onClose, onCreated }: AddStaffModalProps) 
     setError(null)
 
     try {
-      const created = await staffService.createStaff(toCreateStaffPayload(values))
-      onCreated(created)
-      toast('Staff member added', 'success')
+      const saved = staff
+        ? await staffService.updateStaff(staff.id, toUpdateStaffPayload(values))
+        : await staffService.createStaff(toCreateStaffPayload(values))
+
+      onSaved(saved)
+      toast(staff ? 'Staff member updated' : 'Staff member added', 'success')
       onClose()
     } catch (err) {
       setSaving(false)
 
       if (!(err instanceof ApiError)) {
-        setError('Could not add the staff member. Please try again.')
+        setError(
+          staff
+            ? 'Could not update the staff member. Please try again.'
+            : 'Could not add the staff member. Please try again.',
+        )
         return
       }
 
@@ -98,14 +122,14 @@ export function AddStaffModal({ open, onClose, onCreated }: AddStaffModalProps) 
     <Modal
       open={open}
       onClose={close}
-      title="Add Staff"
+      title={editing ? 'Edit Staff' : 'Add Staff'}
       footer={
         <div className="flex gap-3">
           <Button variant="outline" fullWidth onClick={close} disabled={saving}>
             Cancel
           </Button>
           <Button fullWidth loading={saving} onClick={handleSubmit(onSubmit)}>
-            Save Staff
+            {editing ? 'Update Staff' : 'Save Staff'}
           </Button>
         </div>
       }
@@ -175,6 +199,24 @@ export function AddStaffModal({ open, onClose, onCreated }: AddStaffModalProps) 
           error={errors.monthlySalary?.message}
           {...register('monthlySalary', monthlySalaryRules)}
         />
+
+        {/* Only on the way in does the API decide the status for us. */}
+        {editing && (
+          <div>
+            <Select
+              label="Status *"
+              options={STAFF_STATUS_OPTIONS}
+              leftIcon={<ToggleLeft className="h-4 w-4" />}
+              error={errors.status?.message}
+              {...register('status', staffStatusRules)}
+            />
+            {!errors.status && (
+              <p className="mt-1.5 text-xs text-slate-500">
+                Inactive staff stay on the list, marked as no longer working.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Lets Enter submit the form without a visible duplicate button */}
         <button type="submit" className="hidden" tabIndex={-1} aria-hidden="true" />

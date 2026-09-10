@@ -7,6 +7,7 @@ import {
   Car,
   ClipboardList,
   Copy,
+  Fuel,
   Gauge,
   Hash,
   Loader2,
@@ -30,8 +31,10 @@ import {
 import type { JobItemDraft, PickerOption } from '@/components/jobcards'
 import {
   JOB_STATUS_DOT,
-  JOB_STATUS_OPTIONS,
+  JOB_STATUS_TEXT,
   fromJobCardStatus,
+  jobCardStatusLabel,
+  jobStatusOptions,
   toJobCardStatus,
   calculateTotals,
   normalizeKmInput,
@@ -93,6 +96,18 @@ export function JobCardForm() {
   } = useJobNumber(!isEdit)
   // A card starts as work still to do.
   const [status, setStatus] = useState<JobStatus>('pending')
+  // The picker offers Pending and Delivered — Delivered only on a card that
+  // already exists, since a new one always opens as PENDING. A card in one of
+  // the states the picker does not name — in progress, or called off — has
+  // that state appended, unpickable, rather than read as something it is not.
+  const statusOptions = useMemo(() => {
+    const offered = jobStatusOptions(isEdit)
+    if (offered.some((o) => o.value === status)) return offered
+    return [
+      ...offered,
+      { label: jobCardStatusLabel(toJobCardStatus(status)), value: status, disabled: true },
+    ]
+  }, [status, isEdit])
   // Today, as the date input writes it. A card is opened for work being done
   // now or booked in — never for a day that has already gone.
   const today = toDateInputValue(new Date())
@@ -377,7 +392,6 @@ export function JobCardForm() {
     if (!serviceDate) next.serviceDate = 'Service date is required'
     else if (!isEdit && serviceDate < today) next.serviceDate = 'Service date cannot be in the past'
 
-    if (!currentKm.trim()) next.currentKm = 'Current km is required'
     if (!complaint.trim()) next.complaint = 'Say what the customer came in about'
 
     if (items.length === 0) next.items = 'Add at least one service or item'
@@ -409,10 +423,11 @@ export function JobCardForm() {
     jobNumber,
     // The date the desk picked, as the instant that day starts here.
     serviceDate: new Date(`${serviceDate}T00:00:00`).toISOString(),
-    // The card opens in the state the desk picked, not always as pending.
-    status: toJobCardStatus(status),
+    // No status: the API takes none on create and always opens a card as
+    // PENDING, which is the only thing the picker offers.
     assignedStaffId: staffId || null,
-    currentKm: Number(currentKm),
+    // A reading nobody took is left out rather than written to the vehicle as 0.
+    ...(currentKm.trim() ? { currentKm: Number(currentKm) } : {}),
     description: complaint.trim(),
     items: items.map(({ description, qty, rate }) => ({ description, qty, rate })),
   })
@@ -424,7 +439,8 @@ export function JobCardForm() {
   const buildUpdate = (): UpdateJobCardPayload => ({
     status: toJobCardStatus(status),
     assignedStaffId: staffId || null,
-    currentKm: Number(currentKm),
+    // Blank leaves the vehicle's reading as it stands rather than zeroing it.
+    ...(currentKm.trim() ? { currentKm: Number(currentKm) } : {}),
     description: complaint.trim(),
     items: items.map(({ id, description, qty, rate }) =>
       savedItemIds.current.has(id) ? { id, description, qty, rate } : { description, qty, rate },
@@ -563,10 +579,10 @@ export function JobCardForm() {
               />
               <Select
                 id="status"
-                options={JOB_STATUS_OPTIONS}
+                options={statusOptions}
                 value={status}
                 onChange={(e) => setStatus(e.target.value as JobStatus)}
-                className="pl-8 font-medium text-primary-700"
+                className={cn('pl-8 font-medium', JOB_STATUS_TEXT[status])}
               />
             </div>
           </div>
@@ -697,46 +713,45 @@ export function JobCardForm() {
                     </button>
                   }
                 />
+              </div>
 
-                <div className="grid grid-cols-3 gap-3 border-t border-slate-100 pt-3">
-                  <div>
-                    <p className="text-xs text-slate-500">Vehicle Type</p>
-                    <p className="mt-0.5 truncate text-sm font-semibold text-slate-900">
+              {/* What the picked vehicle is, laid across the whole card rather
+                  than squeezed into the column the vehicle boxes sit in. */}
+              <div className="grid grid-cols-1 gap-4 border-t border-slate-100 pt-4 sm:col-span-2 sm:grid-cols-3">
+                <div>
+                  <span className="mb-1.5 block text-sm font-medium text-slate-700">Vehicle Type</span>
+                  <div className="flex h-11 w-full items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3.5">
+                    <Car className="h-4 w-4 shrink-0 text-slate-400" />
+                    <span className="truncate text-sm font-semibold text-slate-900">
                       {vehicle.type || '—'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">Fuel Type</p>
-                    <p className="mt-0.5 text-sm font-semibold text-slate-900">{vehicle.fuelType || '—'}</p>
-                  </div>
-                  <div>
-                    <label htmlFor="currentKm" className="block text-xs text-slate-500">
-                      Current KM
-                    </label>
-                    <div className="relative mt-0.5">
-                      <Gauge className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                      <input
-                        id="currentKm"
-                        inputMode="numeric"
-                        placeholder="45230"
-                        value={currentKm}
-                        onChange={(e) => {
-                          setCurrentKm(normalizeKmInput(e.target.value))
-                          clearError('currentKm')
-                        }}
-                        className={cn(
-                          'h-8 w-full rounded-md border bg-white pl-7 pr-2 text-sm font-semibold text-slate-900 transition-colors focus:outline-none focus:ring-2',
-                          errors.currentKm
-                            ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
-                            : 'border-slate-200 focus:border-primary-400 focus:ring-primary-100',
-                        )}
-                      />
-                    </div>
+                    </span>
                   </div>
                 </div>
-                {errors.currentKm && (
-                  <p className="mt-1.5 text-xs text-red-600">{errors.currentKm}</p>
-                )}
+
+                <div>
+                  <span className="mb-1.5 block text-sm font-medium text-slate-700">Fuel Type</span>
+                  <div className="flex h-11 w-full items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3.5">
+                    <Fuel className="h-4 w-4 shrink-0 text-slate-400" />
+                    <span className="truncate text-sm font-semibold text-slate-900">
+                      {vehicle.fuelType || '—'}
+                    </span>
+                  </div>
+                </div>
+
+                <Input
+                  id="currentKm"
+                  label="Current KM"
+                  inputMode="numeric"
+                  placeholder="45230"
+                  className="font-semibold tabular-nums"
+                  value={currentKm}
+                  leftIcon={<Gauge className="h-4 w-4" />}
+                  error={errors.currentKm}
+                  onChange={(e) => {
+                    setCurrentKm(normalizeKmInput(e.target.value))
+                    clearError('currentKm')
+                  }}
+                />
               </div>
             </div>
           </SectionCard>

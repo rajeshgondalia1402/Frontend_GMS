@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Car, Download, Eye, Phone, Plus } from 'lucide-react'
-import { DEFAULT_PAGE_SIZE, PageHeader, PaginationBar, SearchInput, StatCard } from '@/components/common'
+import {
+  ActionButton,
+  DEFAULT_PAGE_SIZE,
+  PageHeader,
+  PaginationBar,
+  SearchInput,
+  StatCard,
+} from '@/components/common'
 import type { Column, SortBarField, SortOrder } from '@/components/common'
 import { ResponsiveList, SortBar } from '@/components/common'
 import { Badge, Button, EmptyState, ErrorState, LoadingState } from '@/components/ui'
@@ -304,16 +311,22 @@ export function Vehicles() {
         ),
     },
     {
-      header: '',
-      className: 'text-right',
+      header: 'Actions',
+      align: 'right',
+      className: 'w-[6.5rem]',
       accessor: (v) => (
-        <button
-          type="button"
+        <ActionButton
+          tone="primary"
+          title={
+            isCompleted(v)
+              ? `Open a new job for ${v.vehicleNumber}`
+              : `Open ${v.vehicleNumber}`
+          }
+          className="w-[4.25rem]"
           onClick={() => openVehicleForm(v, isCompleted(v) ? 'add' : 'edit')}
-          className="text-sm font-medium text-primary-600 hover:text-primary-700 hover:underline"
         >
           {isCompleted(v) ? 'Add' : 'View'}
-        </button>
+        </ActionButton>
       ),
     },
   ]
@@ -424,25 +437,25 @@ export function Vehicles() {
                   </div>
                 </div>
 
-                <div className="mt-3 flex justify-end">
+                <div className="mt-3 flex items-stretch gap-2">
                   {isCompleted(v) ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      leftIcon={<Plus className="h-4 w-4" />}
+                    <ActionButton
+                      layout="card"
+                      tone="primary"
+                      icon={<Plus className="h-4 w-4" />}
                       onClick={() => openVehicleForm(v, 'add')}
                     >
-                      Add
-                    </Button>
+                      Add Vehicle
+                    </ActionButton>
                   ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      leftIcon={<Eye className="h-4 w-4" />}
+                    <ActionButton
+                      layout="card"
+                      tone="primary"
+                      icon={<Eye className="h-4 w-4" />}
                       onClick={() => openVehicleForm(v, 'edit')}
                     >
-                      View
-                    </Button>
+                      View Vehicle
+                    </ActionButton>
                   )}
                 </div>
               </div>

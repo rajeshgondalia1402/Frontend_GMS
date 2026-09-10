@@ -1,1 +1,1 @@
-export { AddStaffModal } from './AddStaffModal'
+export { StaffFormModal } from './StaffFormModal'

@@ -61,6 +61,12 @@ export function staffStatusTone(status: StaffStatus): Tone {
   return STATUS_TONES[status] ?? 'neutral'
 }
 
+/** The dropdown on the edit dialog; `status` is not part of adding someone. */
+export const STAFF_STATUS_OPTIONS = (['ACTIVE', 'INACTIVE'] as StaffStatus[]).map((status) => ({
+  label: staffStatusLabel(status),
+  value: status as string,
+}))
+
 /**
  * "Active & Inactive" leaves `?status=` off entirely, which is how the API
  * returns both together — the garage's whole book in one call.

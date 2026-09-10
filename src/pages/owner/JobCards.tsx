@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Eye, Pencil, Plus, Wrench } from 'lucide-react'
+import { Eye, FileText, IndianRupee, Minus, Pencil, Plus, Wrench } from 'lucide-react'
 import {
+  ActionButton,
   DEFAULT_PAGE_SIZE,
   PageHeader,
   PaginationBar,
@@ -10,17 +11,22 @@ import {
   SortBar,
 } from '@/components/common'
 import type { Column, SortBarField, SortOrder } from '@/components/common'
-import { Badge, Button, EmptyState, ErrorState, LoadingState } from '@/components/ui'
+import { Badge, Button, EmptyState, ErrorState, LoadingState, useToast } from '@/components/ui'
+import { useAuth } from '@/context/AuthContext'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
-import { jobCardService } from '@/services/jobCardService'
+import { getJobCard, jobCardService } from '@/services/jobCardService'
+import { paymentService } from '@/services/paymentService'
 import { ApiError } from '@/services/httpClient'
 import {
+  formatMoney,
   formatServiceDate,
   jobCardStatusLabel,
   jobCardStatusTone,
   vehicleDisplayName,
 } from '@/lib/jobCard'
-import { formatCurrency } from '@/lib/utils'
+import { paymentStatusLabel, paymentStatusTone } from '@/lib/payment'
+import { downloadInvoice } from '@/lib/invoice'
+import { cn } from '@/lib/utils'
 import type { Pagination } from '@/types/auth'
 import type { JobCardListParams, JobCardRecord } from '@/types/jobCard'
 
@@ -49,12 +55,49 @@ const SORT_FIELDS: SortBarField[] = [
   { key: 'createdAt', label: 'Created' },
 ]
 
-/** The vehicle and its owner, as every row and card needs them. */
-function vehicleLine(job: JobCardRecord): string {
+/**
+ * Each action keeps one width down the whole table, so the three buttons
+ * line up under one another however long the words in them are.
+ */
+const ACTION_WIDTH = {
+  invoice: 'w-[4.25rem]',
+  money: 'w-[4.75rem]',
+  open: 'w-[3.5rem]',
+}
+
+/**
+ * Who the card is for, opened from the `+` at the start of its row.
+ *
+ * A make and model, a registration, a name and a mobile number are four
+ * long values, and columns wide enough for all four leave the table with
+ * nothing for the money and the buttons. They are read here instead, on the
+ * row that needs them rather than on every row at once.
+ */
+function JobCardParties({ job }: { job: JobCardRecord }) {
   const vehicle = job.vehicle
-  if (!vehicle) return '—'
-  const name = vehicleDisplayName(vehicle)
-  return name ? `${name} · ${vehicle.vehicleNumber}` : vehicle.vehicleNumber
+  const customer = vehicle?.customer
+
+  const fields = [
+    { label: 'Vehicle', value: vehicle ? vehicleDisplayName(vehicle) : '' },
+    { label: 'Vehicle Number', value: vehicle?.vehicleNumber },
+    { label: 'Customer Name', value: customer?.fullName },
+    { label: 'Mobile Number', value: customer?.mobileNumber },
+  ]
+
+  return (
+    <div className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-4">
+      {fields.map((field) => (
+        <div key={field.label} className="min-w-0">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            {field.label}
+          </p>
+          <p className="mt-0.5 break-words text-sm font-medium text-slate-900">
+            {field.value?.trim() || '—'}
+          </p>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 /** What was billed, in the desk's words — the line descriptions. */
@@ -62,8 +105,20 @@ function itemsLine(job: JobCardRecord): string {
   return job.items?.map((item) => item.description).join(', ') || 'Nothing billed yet'
 }
 
+/**
+ * A bill is only worth printing once money has been taken against it: an
+ * unpaid card has nothing on it a customer would keep, and the invoice is
+ * offered the moment the first receipt lands.
+ */
+function hasInvoice(job: JobCardRecord): boolean {
+  return job.paymentStatus === 'PARTIAL' || job.paymentStatus === 'PAID'
+}
+
 export function JobCards() {
   const navigate = useNavigate()
+  const { toast } = useToast()
+  // The invoice is made out over the garage that is logged in.
+  const { user } = useAuth()
 
   const [query, setQuery] = useState('')
   // One request per pause in typing, not one per keystroke.
@@ -76,6 +131,10 @@ export function JobCards() {
   const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  /** The card whose invoice is being put together, if any. */
+  const [invoicing, setInvoicing] = useState<string | null>(null)
+  /** The rows opened to show who the card is for. */
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
 
   // Only the newest request may write to state: a slow response for an earlier
   // search term must not overwrite the results of the one being typed now.
@@ -137,6 +196,77 @@ export function JobCards() {
     })
 
   /**
+   * Downloads the invoice for one card.
+   *
+   * The row on this screen carries the card without its lines and knows
+   * nothing of the receipts, so both are fetched first: an invoice that left
+   * out what was billed, or what has already been paid, would be worse than
+   * no invoice at all. The row stands in for a card the API will not hand
+   * back, which still prints everything the list itself holds.
+   */
+  const downloadJobInvoice = async (job: JobCardRecord) => {
+    setInvoicing(job.id)
+
+    try {
+      const [card, money] = await Promise.all([
+        getJobCard(job.id).catch(() => job),
+        paymentService.getJobCardPayments(job.id),
+      ])
+
+      downloadInvoice({
+        garage: {
+          name: user?.garageName,
+          ownerName: user?.ownerName,
+          mobile: user?.mobileNumber,
+          email: user?.email,
+          city: user?.city,
+        },
+        jobCard: card,
+        money: money.jobCard,
+        payments: money.payments ?? [],
+      })
+    } catch (err) {
+      toast(
+        err instanceof ApiError ? err.message : 'Could not build the invoice.',
+        'error',
+      )
+    } finally {
+      setInvoicing(null)
+    }
+  }
+
+  /** Collecting the money is its own screen, whatever state the card is in. */
+  const openPayment = (job: JobCardRecord) =>
+    navigate(`/app/job-cards/${job.id}/payment`, { state: { jobCard: job } })
+
+  const toggleParties = (id: string) =>
+    setExpanded((current) => {
+      const next = new Set(current)
+      if (!next.delete(id)) next.add(id)
+      return next
+    })
+
+  const isExpanded = (job: JobCardRecord) => expanded.has(job.id)
+
+  /** A card with no vehicle on it has nothing to open, and keeps the cell blank. */
+  const expandToggle = (job: JobCardRecord) => {
+    if (!job.vehicle) return null
+
+    const open = isExpanded(job)
+    return (
+      <button
+        type="button"
+        onClick={() => toggleParties(job.id)}
+        aria-expanded={open}
+        aria-label={`${open ? "Hide" : "Show"} the vehicle and customer of ${job.jobNumber}`}
+        className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:border-slate-300 hover:bg-slate-100 hover:text-slate-700"
+      >
+        {open ? <Minus className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+      </button>
+    )
+  }
+
+  /**
    * Clicking a header sorts by that column: a new column starts ascending, the
    * one already sorting flips between ascending and descending.
    */
@@ -148,37 +278,91 @@ export function JobCards() {
     )
 
   const columns: Column<JobCardRecord>[] = [
+    { header: '', className: 'w-10 pr-0', accessor: expandToggle },
     {
       header: 'Job No.',
       sortKey: 'jobNumber',
+      // Wide enough for the whole of `JC-2026-0004`: an identifier that is
+      // cut short is worse than useless, so this column never truncates.
+      className: 'w-[9rem]',
       accessor: (job) => <span className="font-semibold text-slate-900">{job.jobNumber}</span>,
     },
     {
       header: 'Service Date',
       sortKey: 'serviceDate',
+      // The narrowest desktop still cannot hold every column. The date and
+      // the job status are the two the desk needs least at a glance, so they
+      // are the ones that wait for a wider screen.
+      className: 'hidden w-[8rem] xl:table-cell',
       accessor: (job) => formatServiceDate(job.serviceDate),
     },
-    { header: 'Vehicle', accessor: (job) => vehicleLine(job) },
-    { header: 'Customer', accessor: (job) => job.vehicle?.customer?.fullName ?? '—' },
     {
       header: 'Amount',
       sortKey: 'totalAmount',
-      accessor: (job) => <span className="font-medium">{formatCurrency(job.totalAmount)}</span>,
+      // Money is read down the column, so it is set against the right edge
+      // with the paise always written out and every digit on one width.
+      align: 'right',
+      className: 'w-[7.5rem]',
+      accessor: (job) => (
+        <span className="font-semibold tabular-nums text-slate-900">
+          {formatMoney(job.totalAmount)}
+        </span>
+      ),
     },
     {
       header: 'Status',
       sortKey: 'status',
+      className: 'hidden w-[7rem] xl:table-cell',
       accessor: (job) => (
         <Badge tone={jobCardStatusTone(job.status)}>{jobCardStatusLabel(job.status)}</Badge>
       ),
     },
     {
-      header: '',
-      className: 'text-right',
+      header: 'Payment',
+      className: 'w-[8rem]',
       accessor: (job) => (
-        <span className="text-sm font-medium text-primary-600">
-          {isPending(job) ? 'Edit' : 'View'}
-        </span>
+        <Badge tone={paymentStatusTone(job.paymentStatus)}>
+          {paymentStatusLabel(job.paymentStatus)}
+        </Badge>
+      ),
+    },
+    {
+      header: 'Actions',
+      align: 'right',
+      className: 'w-[14.5rem]',
+      accessor: (job) => (
+        <div className="flex items-center justify-end gap-1.5">
+          {hasInvoice(job) ? (
+            <ActionButton
+              tone="primary"
+              title="Download the invoice as a PDF"
+              loading={invoicing === job.id}
+              onClick={() => void downloadJobInvoice(job)}
+              className={ACTION_WIDTH.invoice}
+            >
+              {invoicing === job.id ? null : 'Invoice'}
+            </ActionButton>
+          ) : (
+            // An unpaid card has no invoice to give, and the gap left in its
+            // place keeps the other two under one another down the table.
+            <span className={cn('shrink-0', ACTION_WIDTH.invoice)} aria-hidden="true" />
+          )}
+          <ActionButton
+            tone="money"
+            title={job.paymentStatus === 'PAID' ? 'See the receipts' : 'Collect the payment'}
+            onClick={() => openPayment(job)}
+            className={ACTION_WIDTH.money}
+          >
+            {job.paymentStatus === 'PAID' ? 'Receipts' : 'Collect'}
+          </ActionButton>
+          <ActionButton
+            title={isPending(job) ? 'Edit this job card' : 'Open this job card'}
+            onClick={() => openJob(job)}
+            className={ACTION_WIDTH.open}
+          >
+            {isPending(job) ? 'Edit' : 'View'}
+          </ActionButton>
+        </div>
       ),
     },
   ]
@@ -245,48 +429,74 @@ export function JobCards() {
             sortBy={sort.field}
             sortOrder={sort.order}
             onSort={handleSort}
-            onRowClick={openJob}
+            isExpanded={isExpanded}
+            renderExpanded={(job) => <JobCardParties job={job} />}
+            fitWidth
             renderCard={(job) => (
               <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-card">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <span className="text-sm font-semibold text-slate-900">{job.jobNumber}</span>
-                    <span className="block text-xs text-slate-500">
-                      {formatServiceDate(job.serviceDate)}
-                    </span>
+                  {/* The same `+` the table row carries, opening the same
+                      four fields under the card. */}
+                  <div className="flex min-w-0 items-start gap-3">
+                    {expandToggle(job)}
+                    <div className="min-w-0">
+                      <span className="text-sm font-semibold text-slate-900">{job.jobNumber}</span>
+                      <span className="block text-xs text-slate-500">
+                        {formatServiceDate(job.serviceDate)}
+                      </span>
+                    </div>
                   </div>
                   <Badge tone={jobCardStatusTone(job.status)}>
                     {jobCardStatusLabel(job.status)}
                   </Badge>
                 </div>
 
-                <p className="mt-2 truncate font-medium text-slate-800">
-                  {job.vehicle ? vehicleDisplayName(job.vehicle) : '—'}
-                </p>
-                <p className="font-mono text-sm text-slate-500">{job.vehicle?.vehicleNumber}</p>
-                <p className="mt-1 truncate text-sm text-slate-600">
-                  {job.vehicle?.customer?.fullName ?? '—'}
-                </p>
                 <p className="mt-2 truncate text-sm text-slate-500">{itemsLine(job)}</p>
 
-                <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
-                  <span className="text-base font-semibold text-slate-900">
-                    {formatCurrency(job.totalAmount)}
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    leftIcon={
-                      isPending(job) ? (
-                        <Pencil className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )
-                    }
-                    onClick={() => openJob(job)}
-                  >
-                    {isPending(job) ? 'Edit' : 'View'}
-                  </Button>
+                <div className="mt-3 border-t border-slate-100 pt-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-lg font-semibold tabular-nums text-slate-900">
+                      {formatMoney(job.totalAmount)}
+                    </span>
+                    <Badge tone={paymentStatusTone(job.paymentStatus)}>
+                      {paymentStatusLabel(job.paymentStatus)}
+                    </Badge>
+                  </div>
+
+                  <div className="mt-3 flex items-stretch gap-2">
+                    {hasInvoice(job) && (
+                      <ActionButton
+                        layout="card"
+                        tone="primary"
+                        loading={invoicing === job.id}
+                        icon={<FileText className="h-4 w-4" />}
+                        onClick={() => void downloadJobInvoice(job)}
+                      >
+                        Invoice
+                      </ActionButton>
+                    )}
+                    <ActionButton
+                      layout="card"
+                      tone="money"
+                      icon={<IndianRupee className="h-4 w-4" />}
+                      onClick={() => openPayment(job)}
+                    >
+                      {job.paymentStatus === 'PAID' ? 'Receipts' : 'Collect'}
+                    </ActionButton>
+                    <ActionButton
+                      layout="card"
+                      icon={
+                        isPending(job) ? (
+                          <Pencil className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )
+                      }
+                      onClick={() => openJob(job)}
+                    >
+                      {isPending(job) ? 'Edit' : 'View'}
+                    </ActionButton>
+                  </div>
                 </div>
               </div>
             )}

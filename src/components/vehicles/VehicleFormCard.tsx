@@ -154,7 +154,7 @@ export function VehicleFormCard({
             Cancel
           </Button>
           <Button type="submit" fullWidth className="sm:w-auto sm:flex-none" loading={saving}>
-            {editing ? 'Edit Vehicle' : 'Save Vehicle'}
+            {editing ? 'Update Vehicle' : 'Save Vehicle'}
           </Button>
         </div>
       </form>
