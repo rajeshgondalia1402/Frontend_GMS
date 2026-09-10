@@ -49,12 +49,12 @@ export function CustomerSummaryCard({ customer, onEdit, footer }: CustomerSummar
         </div>
 
         <Button
-          size="sm"
-          variant="outline"
+          variant="primary"
+          className="shrink-0"
           leftIcon={<Pencil className="h-4 w-4" />}
           onClick={onEdit}
         >
-          Edit
+          Edit Customer
         </Button>
       </div>
 

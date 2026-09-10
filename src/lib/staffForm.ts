@@ -1,6 +1,12 @@
 import type { UseFormSetError, UseFormSetFocus } from 'react-hook-form'
 import type { ApiError } from '@/services/httpClient'
-import type { CreateStaffPayload, StaffCategory } from '@/types/staff'
+import type {
+  CreateStaffPayload,
+  StaffCategory,
+  StaffRecord,
+  StaffStatus,
+  UpdateStaffPayload,
+} from '@/types/staff'
 
 /** The staff dialog's fields, all held as strings while they are typed. */
 export interface StaffFormValues {
@@ -10,6 +16,8 @@ export interface StaffFormValues {
   mobileNumber: string
   /** Blank while the pay has not been agreed yet. */
   monthlySalary: string
+  /** Only shown while editing — the API sets `ACTIVE` on everyone new. */
+  status: string
 }
 
 export const EMPTY_STAFF_FORM: StaffFormValues = {
@@ -18,10 +26,32 @@ export const EMPTY_STAFF_FORM: StaffFormValues = {
   role: '',
   mobileNumber: '',
   monthlySalary: '',
+  status: 'ACTIVE',
+}
+
+/** Fills the dialog from a saved row, with `null` read back as blank. */
+export function staffFormValues(staff: StaffRecord): StaffFormValues {
+  return {
+    name: staff.name ?? '',
+    category: staff.category ?? '',
+    role: staff.role ?? '',
+    mobileNumber: staff.mobileNumber ?? '',
+    monthlySalary: staff.monthlySalary === null || staff.monthlySalary === undefined
+      ? ''
+      : String(staff.monthlySalary),
+    status: staff.status ?? 'ACTIVE',
+  }
 }
 
 /** Fields the API can report a validation error against. */
-const STAFF_FORM_FIELDS: string[] = ['name', 'category', 'role', 'mobileNumber', 'monthlySalary']
+const STAFF_FORM_FIELDS: string[] = [
+  'name',
+  'category',
+  'role',
+  'mobileNumber',
+  'monthlySalary',
+  'status',
+]
 
 /**
  * `role` goes out even when blank — the API stores `''` as `null` — but the
@@ -36,6 +66,25 @@ export function toCreateStaffPayload(values: StaffFormValues): CreateStaffPayloa
     category: values.category.trim() as StaffCategory,
     mobileNumber: values.mobileNumber.trim(),
     role: values.role.trim(),
+    ...(salary ? { monthlySalary: Number(salary) } : {}),
+  }
+}
+
+/**
+ * `PUT /api/auth/staff/:id`. Every updatable field goes out — the dialog was
+ * filled from the row, so anything untouched is sent back as it stands and
+ * the API rejects an empty body anyway. The salary is left out while it is
+ * blank, which is the same "not agreed yet" the create payload means.
+ */
+export function toUpdateStaffPayload(values: StaffFormValues): UpdateStaffPayload {
+  const salary = values.monthlySalary.trim()
+
+  return {
+    name: values.name.trim(),
+    category: values.category.trim() as StaffCategory,
+    mobileNumber: values.mobileNumber.trim(),
+    role: values.role.trim(),
+    status: values.status.trim() as StaffStatus,
     ...(salary ? { monthlySalary: Number(salary) } : {}),
   }
 }

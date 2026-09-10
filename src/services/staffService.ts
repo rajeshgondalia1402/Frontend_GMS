@@ -4,6 +4,7 @@ import type {
   StaffListData,
   StaffListParams,
   StaffRecord,
+  UpdateStaffPayload,
 } from '@/types/staff'
 
 /** Builds the query tail; anything left unset falls back to the API default. */
@@ -34,6 +35,24 @@ function staffQuery(params: StaffListParams): string {
 export function createStaff(payload: CreateStaffPayload): Promise<StaffRecord> {
   return apiRequest<StaffRecord>('/auth/staff', {
     method: 'POST',
+    body: payload,
+  })
+}
+
+/**
+ * `PUT /api/auth/staff/:id` — protected. Changes `name`, `category`, `role`,
+ * `mobileNumber`, `monthlySalary` and `status`; an empty body is rejected.
+ *
+ * Unlike on create, `status` is accepted: this is where someone who has
+ * stopped working is switched off. Switching them to `INACTIVE` does not hide
+ * them — they keep appearing in the list, badged, until they are deleted.
+ *
+ * Renaming onto a mobile number another active staff member of this garage
+ * holds answers 409.
+ */
+export function updateStaff(id: string, payload: UpdateStaffPayload): Promise<StaffRecord> {
+  return apiRequest<StaffRecord>(`/auth/staff/${encodeURIComponent(id)}`, {
+    method: 'PUT',
     body: payload,
   })
 }
@@ -81,6 +100,7 @@ export async function listAllStaff(
 
 export const staffService = {
   createStaff,
+  updateStaff,
   listStaff,
   listAllStaff,
 }

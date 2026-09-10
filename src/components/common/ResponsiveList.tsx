@@ -15,6 +15,8 @@ interface ResponsiveListProps<T> {
   sortBy?: string
   sortOrder?: SortOrder
   onSort?: (sortKey: string) => void
+  /** Fit the table to its container rather than letting it scroll sideways. */
+  fitWidth?: boolean
 }
 
 /** Table on desktop (lg+), stacked cards on mobile. */
@@ -29,6 +31,7 @@ export function ResponsiveList<T>({
   sortBy,
   sortOrder,
   onSort,
+  fitWidth,
 }: ResponsiveListProps<T>) {
   return (
     <>
@@ -43,6 +46,7 @@ export function ResponsiveList<T>({
           sortBy={sortBy}
           sortOrder={sortOrder}
           onSort={onSort}
+          fitWidth={fitWidth}
         />
       </div>
       <div className="space-y-3 lg:hidden">

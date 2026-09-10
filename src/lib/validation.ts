@@ -209,12 +209,11 @@ export const vehicleTypeRules = {
 
 export const vehicleDescriptionRules = requiredTextRules('Description', DESCRIPTION_MAX_LENGTH)
 
-/** Whole kilometres — the API stores an integer. */
+/** Optional whole kilometres — the API stores an integer, or nothing at all. */
 export const currentKmRules = {
-  required: 'Current km is required',
   validate: (value: string) => {
     const km = String(value ?? '').trim()
-    if (!km) return 'Current km is required'
+    if (!km) return true
     if (!/^\d+$/.test(km)) return 'Enter whole kilometres, digits only'
     if (Number(km) > CURRENT_KM_MAX) {
       return `Current km must be at most ${CURRENT_KM_MAX.toLocaleString('en-IN')}`
@@ -255,6 +254,12 @@ export const optionalStaffRoleRules = optionalTextRules('Role', STAFF_ROLE_MAX_L
 export const staffCategoryRules = {
   required: 'Category is required',
   validate: (value: string) => ((value ?? '').trim() ? true : 'Category is required'),
+}
+
+/** Only asked for while editing; adding someone always starts them `ACTIVE`. */
+export const staffStatusRules = {
+  required: 'Status is required',
+  validate: (value: string) => ((value ?? '').trim() ? true : 'Status is required'),
 }
 
 /** Optional: blank means the pay has not been agreed yet and is not sent. */

@@ -3,7 +3,7 @@ import type { ReactNode, SelectHTMLAttributes } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-interface Option { label: string; value: string }
+interface Option { label: string; value: string; disabled?: boolean }
 interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label?: string
   error?: string
@@ -44,7 +44,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           >
             {placeholder && <option value="">{placeholder}</option>}
             {options.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+              <option key={o.value} value={o.value} disabled={o.disabled}>{o.label}</option>
             ))}
           </select>
           <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />

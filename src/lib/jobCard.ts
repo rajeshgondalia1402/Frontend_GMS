@@ -1,16 +1,42 @@
 import type { Tone } from '@/components/ui/Badge'
+import { formatDayMonthYear } from '@/lib/utils'
 import type { JobLineItem, JobStatus } from '@/types'
 import type { JobCardStatus } from '@/types/jobCard'
 
+/** One choice in the status picker. */
+export interface JobStatusOption {
+  label: string
+  value: JobStatus
+  /** Named in the list, but not the desk's to choose here. */
+  disabled?: boolean
+}
+
 /**
- * What the job card form offers. `JobStatus` still carries the two further
- * states an older card can be in, so the list and the badges keep reading them
- * — they are simply not something the desk sets here.
+ * The two states the desk talks a job card in, and the only two the API holds:
+ * work still in hand, or the vehicle gone back out.
  */
-export const JOB_STATUS_OPTIONS: { label: string; value: JobStatus }[] = [
+const JOB_STATUS_OPTIONS: JobStatusOption[] = [
   { label: 'Pending', value: 'pending' },
-  { label: 'Completed', value: 'completed' },
+  { label: 'Delivered', value: 'delivered' },
 ]
+
+/**
+ * What the status picker offers, for a new card or one being edited.
+ *
+ * Both states are always named, but Delivered can only be *chosen* while
+ * editing: `POST /auth/jobcard` takes no status at all and opens every card as
+ * PENDING, so offering it on a new card would be a choice the save quietly
+ * threw away. `PUT /auth/jobcard/:id` does take one — and stamps the card's
+ * completionDate from it — which is where the desk marks the vehicle as having
+ * gone back out.
+ */
+export function jobStatusOptions(isEdit: boolean): JobStatusOption[] {
+  if (isEdit) return JOB_STATUS_OPTIONS
+
+  return JOB_STATUS_OPTIONS.map((option) =>
+    option.value === 'pending' ? option : { ...option, disabled: true },
+  )
+}
 
 /** The dot shown beside the status picker, in the badge's own colours. */
 export const JOB_STATUS_DOT: Record<JobStatus, string> = {
@@ -18,6 +44,20 @@ export const JOB_STATUS_DOT: Record<JobStatus, string> = {
   'in-progress': 'bg-sky-500',
   completed: 'bg-primary-600',
   delivered: 'bg-emerald-500',
+  cancelled: 'bg-red-500',
+}
+
+/**
+ * The picker's own text, in the colour of its dot — so Delivered reads green
+ * in the form the same way its badge does on the list, rather than in the
+ * primary colour every other field is drawn in.
+ */
+export const JOB_STATUS_TEXT: Record<JobStatus, string> = {
+  pending: 'text-amber-700',
+  'in-progress': 'text-sky-700',
+  completed: 'text-primary-700',
+  delivered: 'text-emerald-700',
+  cancelled: 'text-red-700',
 }
 
 /**
@@ -90,21 +130,24 @@ export function emptyJobItem(): Omit<JobLineItem, 'id'> {
 }
 
 /**
- * The API's own status vocabulary, which is uppercased and underscored where
- * the local `JobStatus` is hyphenated and lowercase.
+ * What the desk calls each of the API's statuses, which are uppercased where
+ * the local `JobStatus` is lowercase.
  */
 const JOB_CARD_STATUS_LABELS: Record<JobCardStatus, string> = {
   PENDING: 'Pending',
-  IN_PROGRESS: 'In Progress',
-  COMPLETED: 'Completed',
   DELIVERED: 'Delivered',
 }
 
-/** The picker's value as the API spells it. */
-const TO_JOB_CARD_STATUS: Record<JobStatus, JobCardStatus> = {
+/**
+ * The picker's value as the API spells it.
+ *
+ * `JobStatus` is the wider vocabulary the mock screens still speak; only the
+ * two states the API actually holds are mapped, and `toJobCardStatus` falls
+ * back to PENDING for anything else rather than sending a word the API would
+ * turn away with a 400.
+ */
+const TO_JOB_CARD_STATUS: Partial<Record<JobStatus, JobCardStatus>> = {
   pending: 'PENDING',
-  'in-progress': 'IN_PROGRESS',
-  completed: 'COMPLETED',
   delivered: 'DELIVERED',
 }
 
@@ -121,10 +164,12 @@ export function fromJobCardStatus(status: JobCardStatus): JobStatus {
   return found ?? 'pending'
 }
 
+/**
+ * Amber while the card is still work in hand, green once the vehicle has gone
+ * back out — so the two never read as the same colour at a glance.
+ */
 const JOB_CARD_STATUS_TONES: Record<JobCardStatus, Tone> = {
   PENDING: 'warning',
-  IN_PROGRESS: 'info',
-  COMPLETED: 'primary',
   DELIVERED: 'success',
 }
 
@@ -137,10 +182,12 @@ export function jobCardStatusTone(status: JobCardStatus): Tone {
   return JOB_CARD_STATUS_TONES[status] ?? 'neutral'
 }
 
-/** `31 Aug 2026` — the service date as the desk reads it. */
+/** `31-Aug-2026` — the service date as the desk reads it. */
 export function formatServiceDate(value: string | null | undefined): string {
   if (!value) return '—'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+  return formatDayMonthYear(date)
 }
+
+

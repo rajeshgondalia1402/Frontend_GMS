@@ -30,9 +30,8 @@ export interface CreateJobCardPayload {
   serviceDate?: string
   /** A live staff member of this garage, or `null` for nobody yet. */
   assignedStaffId?: string | null
-  /** What the desk picked. Left out, the API opens the card as `PENDING`. */
-  status?: JobCardStatus
-  currentKm: number
+  /** The reading today, written onto the vehicle. Left out when not taken. */
+  currentKm?: number
   description: string
   /** Omitted entirely for a card with nothing billed on it yet. */
   items?: CreateJobItemPayload[]
@@ -68,7 +67,16 @@ export interface JobItemRecord extends CreateJobItemPayload {
   total: number
 }
 
-export type JobCardStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'DELIVERED'
+/**
+ * The API's own vocabulary — `SERVICE_JOB_STATUSES` in the backend's
+ * `src/constants.js`. Two states and no third: a card is either still work in
+ * hand, or the vehicle has gone back out. Anything else is rejected by
+ * `PUT /auth/jobcard/:id` with a 400, so nothing else may be sent.
+ */
+export type JobCardStatus = 'PENDING' | 'DELIVERED'
+
+/** Where the bill is, as opposed to where the vehicle is. The API owns it. */
+export type JobPaymentStatus = 'UNPAID' | 'PARTIAL' | 'PAID'
 
 /** The staff member a card is handed to, as embedded in the card. */
 export interface JobCardStaff {
@@ -85,8 +93,10 @@ export interface JobCardRecord {
   vehicleId: string
   jobNumber: string
   serviceDate: string
-  /** What was posted with the card, or `PENDING` when none was. */
+  /** Always `PENDING` on a new card — the API does not take one on create. */
   status: JobCardStatus
+  /** `UNPAID` until payments are recorded against the card. */
+  paymentStatus: JobPaymentStatus
   assignedStaffId: string | null
   /** The sum of the line totals, each rounded to 2 decimals before summing. */
   totalAmount: number

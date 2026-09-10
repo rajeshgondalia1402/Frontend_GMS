@@ -1,21 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Eye, Phone, Plus, UsersRound } from 'lucide-react'
+import { Pencil, Phone, Plus, UsersRound } from 'lucide-react'
 import {
+  ActionButton,
   DEFAULT_PAGE_SIZE,
   FilterButton,
   PageHeader,
   PaginationBar,
   SearchInput,
-  SortBar,
 } from '@/components/common'
-import type { SortBarField, SortOrder } from '@/components/common'
-import { Badge, Button, EmptyState, ErrorState, LoadingState, useToast } from '@/components/ui'
-import { AddStaffModal } from '@/components/staff'
+import { Badge, Button, EmptyState, ErrorState, LoadingState } from '@/components/ui'
+import { StaffFormModal } from '@/components/staff'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { staffService } from '@/services/staffService'
 import { ApiError } from '@/services/httpClient'
 import {
-  STAFF_CATEGORY_FILTERS,
   STAFF_STATUS_FILTERS,
   staffCategoryLabel,
   staffSalaryLabel,
@@ -24,46 +22,23 @@ import {
 } from '@/lib/staff'
 import { getInitial } from '@/lib/utils'
 import type { Pagination } from '@/types/auth'
-import type { StaffCategory, StaffListParams, StaffRecord, StaffStatus } from '@/types/staff'
+import type { StaffListParams, StaffRecord, StaffStatus } from '@/types/staff'
 
-/** Only these are sortable — the API rejects any other `sortBy`. */
-type SortField = NonNullable<StaffListParams['sortBy']>
-
-interface SortState {
-  field: SortField
-  order: SortOrder
+/**
+ * The order is not offered on screen, so the list is always read newest
+ * first — the API sorts the whole of it, not just the page shown.
+ */
+const LIST_ORDER: Pick<StaffListParams, 'sortBy' | 'sortOrder'> = {
+  sortBy: 'createdAt',
+  sortOrder: 'desc',
 }
 
-/**
- * Every field offered is one the API sorts by, so the whole list is ordered
- * rather than just the page that happens to be on screen.
- */
-const DEFAULT_SORT: SortState = { field: 'createdAt', order: 'desc' }
-
-const sortValue = (sort: SortState) => `${sort.field}:${sort.order}`
-
-/**
- * Staff are shown as cards rather than a table, so there is no header to
- * click — the fields are offered as buttons that behave the same way.
- */
-const SORT_FIELDS: SortBarField[] = [
-  { key: 'name', label: 'Name' },
-  { key: 'category', label: 'Category' },
-  { key: 'monthlySalary', label: 'Salary' },
-  { key: 'status', label: 'Status' },
-  { key: 'createdAt', label: 'Added' },
-]
-
 export function Staff() {
-  const { toast } = useToast()
-
   const [query, setQuery] = useState('')
   // One request per pause in typing, not one per keystroke.
   const search = useDebouncedValue(query.trim(), 350)
 
-  const [category, setCategory] = useState<string>('all')
   const [status, setStatus] = useState<string>('all')
-  const [sort, setSort] = useState<SortState>(DEFAULT_SORT)
 
   const [staff, setStaff] = useState<StaffRecord[]>([])
   const [pagination, setPagination] = useState<Pagination | null>(null)
@@ -71,7 +46,9 @@ export function Staff() {
   const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [addOpen, setAddOpen] = useState(false)
+  /** The dialog is shared: a row here edits it, `null` adds someone new. */
+  const [formOpen, setFormOpen] = useState(false)
+  const [editing, setEditing] = useState<StaffRecord | null>(null)
 
   // Only the newest request may write to state: a slow response for an earlier
   // search term must not overwrite the results of the one being typed now.
@@ -80,7 +57,7 @@ export function Staff() {
   // Any change to what is being asked for starts from page one: page 4 of the
   // old result set says nothing about the new one. Resetting during the render
   // that changes them keeps the stale page from being asked for at all.
-  const queryKey = `${search}|${category}|${status}|${sortValue(sort)}|${limit}`
+  const queryKey = `${search}|${status}|${limit}`
   const [lastQueryKey, setLastQueryKey] = useState(queryKey)
   if (lastQueryKey !== queryKey) {
     setLastQueryKey(queryKey)
@@ -99,10 +76,8 @@ export function Staff() {
       const data = await staffService.listStaff({
         page,
         limit,
-        sortBy: sort.field,
-        sortOrder: sort.order,
+        ...LIST_ORDER,
         ...(search ? { search } : {}),
-        ...(category === 'all' ? {} : { category: category as StaffCategory }),
         ...(status === 'all' ? {} : { status: status as StaffStatus }),
       })
 
@@ -119,38 +94,40 @@ export function Staff() {
     } finally {
       if (requestId === latestRequest.current) setLoading(false)
     }
-  }, [search, category, status, sort, page, limit])
+  }, [search, status, page, limit])
 
-  // Re-runs whenever the search term, a filter, the order, the page or the
-  // page size changes.
+  // Re-runs whenever the search term, a filter, the page or the page size
+  // changes.
   useEffect(() => {
     void fetchPage()
   }, [fetchPage])
 
-  /**
-   * Clicking a field sorts by it: a new field starts ascending, the one already
-   * sorting flips between ascending and descending.
-   */
-  const handleSort = (sortKey: string) =>
-    setSort((current) =>
-      current.field === sortKey
-        ? { ...current, order: current.order === 'asc' ? 'desc' : 'asc' }
-        : { field: sortKey as SortField, order: 'asc' },
-    )
+  const openAdd = () => {
+    setEditing(null)
+    setFormOpen(true)
+  }
+
+  const openEdit = (member: StaffRecord) => {
+    setEditing(member)
+    setFormOpen(true)
+  }
+
+  const closeForm = () => setFormOpen(false)
 
   /**
    * A new staff member is `ACTIVE` and newest, so it belongs at the top of the
-   * default order — the list is read again rather than patched, which also
-   * keeps the pagination honest.
+   * default order; an edited one may have moved out of the current filter. The
+   * list is read again rather than patched, which also keeps the pagination
+   * honest — a fresh add goes back to page one to be seen.
    */
-  const handleCreated = () => {
-    setAddOpen(false)
-    if (page !== 1) setPage(1)
+  const handleSaved = () => {
+    setFormOpen(false)
+    if (!editing && page !== 1) setPage(1)
     else void fetchPage()
   }
 
   /** True once anything narrows the list, which changes what "empty" means. */
-  const narrowed = Boolean(search) || category !== 'all' || status !== 'all'
+  const narrowed = Boolean(search) || status !== 'all'
 
   return (
     <div>
@@ -158,7 +135,7 @@ export function Staff() {
         title="Staff"
         subtitle="Manage your team"
         action={
-          <Button leftIcon={<Plus className="h-4 w-4" />} onClick={() => setAddOpen(true)}>
+          <Button leftIcon={<Plus className="h-4 w-4" />} onClick={openAdd}>
             <span className="hidden sm:inline">Add Staff</span>
             <span className="sm:hidden">Add</span>
           </Button>
@@ -166,14 +143,6 @@ export function Staff() {
       />
 
       <div className="mb-3">
-        <FilterButton options={STAFF_CATEGORY_FILTERS} value={category} onChange={setCategory} />
-      </div>
-
-      <div className="mb-4">
-        <FilterButton options={STAFF_STATUS_FILTERS} value={status} onChange={setStatus} />
-      </div>
-
-      <div className="mb-4">
         <SearchInput
           value={query}
           onChange={setQuery}
@@ -181,13 +150,9 @@ export function Staff() {
         />
       </div>
 
-      <SortBar
-        className="mb-4"
-        fields={SORT_FIELDS}
-        sortBy={sort.field}
-        sortOrder={sort.order}
-        onSort={handleSort}
-      />
+      <div className="mb-4">
+        <FilterButton options={STAFF_STATUS_FILTERS} value={status} onChange={setStatus} />
+      </div>
 
       {loading ? (
         <LoadingState />
@@ -235,18 +200,19 @@ export function Staff() {
                   </p>
                 </div>
 
-                <div className="mt-3 flex items-center justify-between gap-3">
-                  <p className="flex items-center gap-1.5 text-sm text-slate-600">
-                    <Phone className="h-3.5 w-3.5" /> {s.mobileNumber}
-                  </p>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    leftIcon={<Eye className="h-4 w-4" />}
-                    onClick={() => toast('Opening profile...', 'info')}
+                <p className="mt-3 flex items-center gap-1.5 text-sm text-slate-600">
+                  <Phone className="h-3.5 w-3.5" /> {s.mobileNumber}
+                </p>
+
+                <div className="mt-3 flex items-stretch gap-2">
+                  <ActionButton
+                    layout="card"
+                    tone="primary"
+                    icon={<Pencil className="h-4 w-4" />}
+                    onClick={() => openEdit(s)}
                   >
-                    View
-                  </Button>
+                    Edit Staff
+                  </ActionButton>
                 </div>
               </div>
             ))}
@@ -263,7 +229,12 @@ export function Staff() {
         </>
       )}
 
-      <AddStaffModal open={addOpen} onClose={() => setAddOpen(false)} onCreated={handleCreated} />
+      <StaffFormModal
+        open={formOpen}
+        staff={editing}
+        onClose={closeForm}
+        onSaved={handleSaved}
+      />
     </div>
   )
 }

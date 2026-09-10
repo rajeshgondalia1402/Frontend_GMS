@@ -1,5 +1,5 @@
 export type SubscriptionStatus = 'trial' | 'active' | 'expiring' | 'expired'
-export type JobStatus = 'pending' | 'in-progress' | 'completed' | 'delivered'
+export type JobStatus = 'pending' | 'in-progress' | 'completed' | 'delivered' | 'cancelled'
 export type InvoiceStatus = 'paid' | 'pending' | 'overdue'
 export type PaymentStatus = 'successful' | 'pending' | 'failed'
 export type StaffStatus = 'active' | 'inactive'

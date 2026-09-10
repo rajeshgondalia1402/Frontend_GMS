@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Minus, Phone, Car, Users, Eye, Download } from 'lucide-react'
-import { DEFAULT_PAGE_SIZE, PageHeader, PaginationBar, SearchInput, StatCard } from '@/components/common'
+import {
+  ActionButton,
+  DEFAULT_PAGE_SIZE,
+  PageHeader,
+  PaginationBar,
+  SearchInput,
+  StatCard,
+} from '@/components/common'
 import type { Column, SortBarField, SortOrder } from '@/components/common'
 import { ResponsiveList, SortBar } from '@/components/common'
 import { Button, EmptyState, ErrorState, LoadingState } from '@/components/ui'
@@ -238,7 +245,7 @@ export function Customers() {
         onClick={() => toggleVehicles(c.id)}
         aria-expanded={open}
         aria-label={`${open ? 'Hide' : 'Show'} vehicles of ${c.fullName}`}
-        className="flex h-6 w-6 items-center justify-center rounded border border-slate-300 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+        className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:border-slate-300 hover:bg-slate-100 hover:text-slate-700"
       >
         {open ? <Minus className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
       </button>
@@ -256,17 +263,19 @@ export function Customers() {
     { header: 'Vehicles', accessor: (c) => vehicleLabel(c) },
     { header: 'City', sortKey: 'city', accessor: (c) => c.city || '—' },
     {
-      header: '',
-      className: 'text-right',
+      header: 'Actions',
+      align: 'right',
+      className: 'w-[6.5rem]',
       // Only this opens the customer — a click anywhere else on the row does not.
       accessor: (c) => (
-        <button
-          type="button"
+        <ActionButton
+          tone="primary"
+          title={`Open ${c.fullName}`}
+          className="w-[4.25rem]"
           onClick={() => openCustomer(c)}
-          className="text-sm font-medium text-primary-600 hover:text-primary-700 hover:underline"
         >
           View
-        </button>
+        </ActionButton>
       ),
     },
   ]
@@ -403,19 +412,20 @@ export function Customers() {
                     {expandToggle(c)}
                   </div>
                 </div>
-                <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
-                  <div className="min-w-0">
-                    <p className="text-xs text-slate-400">Vehicles</p>
-                    <p className="truncate text-sm text-slate-600">{vehicleLabel(c)}</p>
+                <div className="mt-3 border-t border-slate-100 pt-3">
+                  <p className="text-xs text-slate-400">Vehicles</p>
+                  <p className="truncate text-sm text-slate-600">{vehicleLabel(c)}</p>
+
+                  <div className="mt-3 flex items-stretch gap-2">
+                    <ActionButton
+                      layout="card"
+                      tone="primary"
+                      icon={<Eye className="h-4 w-4" />}
+                      onClick={() => openCustomer(c)}
+                    >
+                      View Customer
+                    </ActionButton>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    leftIcon={<Eye className="h-4 w-4" />}
-                    onClick={() => openCustomer(c)}
-                  >
-                    View
-                  </Button>
                 </div>
               </div>
             )}

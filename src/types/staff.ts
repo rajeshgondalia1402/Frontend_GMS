@@ -32,6 +32,24 @@ export interface CreateStaffPayload {
   monthlySalary?: number
 }
 
+/**
+ * `PUT /api/auth/staff/:id`. Every field is optional — the API rejects an
+ * empty body with "Send at least one field to update."
+ *
+ * `status` is accepted here, unlike on create: this is where someone who has
+ * stopped working is switched off. `uid` is never accepted, so a staff member
+ * can not be moved to another garage.
+ */
+export interface UpdateStaffPayload {
+  name?: string
+  category?: StaffCategory
+  mobileNumber?: string
+  /** `''` is stored as `null`, which clears the job title. */
+  role?: string
+  monthlySalary?: number
+  status?: StaffStatus
+}
+
 /** The staff row returned by the API, with `null` for anything left blank. */
 export interface StaffRecord {
   id: string

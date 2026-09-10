@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Car, Pencil, RefreshCw, User, UsersRound } from 'lucide-react'
-import { Badge, Button, Card, ErrorState, LoadingState, Modal, useToast } from '@/components/ui'
+import { ArrowLeft, Car, IndianRupee, User, UsersRound } from 'lucide-react'
+import { Badge, Button, Card, ErrorState, LoadingState } from '@/components/ui'
 import { jobCardService } from '@/services/jobCardService'
 import { ApiError } from '@/services/httpClient'
 import {
@@ -11,12 +11,10 @@ import {
   vehicleDisplayName,
 } from '@/lib/jobCard'
 import { staffCategoryLabel } from '@/lib/staff'
+import { paymentStatusLabel, paymentStatusTone } from '@/lib/payment'
 import { formatCurrency } from '@/lib/utils'
-import type { JobCardRecord, JobCardStatus } from '@/types/jobCard'
+import type { JobCardRecord } from '@/types/jobCard'
 import type { StaffCategory } from '@/types/staff'
-
-/** The states a card can be moved to, in the order the work runs. */
-const STATUS_FLOW: JobCardStatus[] = ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'DELIVERED']
 
 /**
  * One job card, read-only — reached from the View button on cards that are no
@@ -27,7 +25,6 @@ export function JobCardDetails() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
-  const { toast } = useToast()
 
   const handed = (location.state as { jobCard?: JobCardRecord } | null)?.jobCard
   const seeded = handed?.id === id ? handed : undefined
@@ -35,8 +32,6 @@ export function JobCardDetails() {
   const [job, setJob] = useState<JobCardRecord | null>(seeded ?? null)
   const [loading, setLoading] = useState(!seeded)
   const [error, setError] = useState<string | null>(null)
-  const [statusModal, setStatusModal] = useState(false)
-  const [savingStatus, setSavingStatus] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -58,28 +53,6 @@ export function JobCardDetails() {
   useEffect(() => {
     void load()
   }, [load])
-
-  /** The one field this screen changes; the form is where the rest is edited. */
-  const changeStatus = async (status: JobCardStatus) => {
-    if (!job || status === job.status) {
-      setStatusModal(false)
-      return
-    }
-
-    setSavingStatus(true)
-    try {
-      setJob(await jobCardService.updateJobCard(job.id, { status }))
-      toast(`Status updated to ${jobCardStatusLabel(status)}`, 'success')
-      setStatusModal(false)
-    } catch (cause) {
-      toast(
-        cause instanceof ApiError ? cause.message : 'Could not update the status.',
-        'error',
-      )
-    } finally {
-      setSavingStatus(false)
-    }
-  }
 
   const backLink = (
     <button
@@ -125,14 +98,6 @@ export function JobCardDetails() {
         </div>
         <div className="flex shrink-0 items-center gap-3">
           <Badge tone={jobCardStatusTone(job.status)}>{jobCardStatusLabel(job.status)}</Badge>
-          <Button
-            size="sm"
-            variant="outline"
-            leftIcon={<Pencil className="h-4 w-4" />}
-            onClick={() => navigate(`/app/job-cards/${job.id}/edit`, { state: { jobCard: job } })}
-          >
-            Edit
-          </Button>
         </div>
       </div>
 
@@ -230,46 +195,30 @@ export function JobCardDetails() {
             <p className="mt-1 text-xs text-slate-400">
               The API totals the lines; the card cannot bill a figure they do not add up to.
             </p>
-          </Card>
 
-          <Button
-            fullWidth
-            variant="outline"
-            leftIcon={<RefreshCw className="h-4 w-4" />}
-            onClick={() => setStatusModal(true)}
-          >
-            Update Status
-          </Button>
+            {/* Where the bill is, as opposed to where the vehicle is. The
+                balance itself lives on the payment screen, which is the one
+                place a receipt can be taken. */}
+            <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4">
+              <span className="text-sm text-slate-600">Payment</span>
+              <Badge tone={paymentStatusTone(job.paymentStatus)}>
+                {paymentStatusLabel(job.paymentStatus)}
+              </Badge>
+            </div>
+            <Button
+              fullWidth
+              className="mt-3"
+              variant={job.paymentStatus === "PAID" ? "outline" : "primary"}
+              leftIcon={<IndianRupee className="h-4 w-4" />}
+              onClick={() =>
+                navigate(`/app/job-cards/${job.id}/payment`, { state: { jobCard: job } })
+              }
+            >
+              {job.paymentStatus === "PAID" ? "View receipts" : "Collect payment"}
+            </Button>
+          </Card>
         </div>
       </div>
-
-      <Modal
-        open={statusModal}
-        onClose={() => !savingStatus && setStatusModal(false)}
-        title="Update Status"
-        size="sm"
-      >
-        <div className="space-y-2">
-          {STATUS_FLOW.map((status) => (
-            <button
-              key={status}
-              type="button"
-              disabled={savingStatus}
-              onClick={() => void changeStatus(status)}
-              className={`flex w-full items-center justify-between rounded-lg border px-4 py-3 text-sm font-medium transition-colors disabled:opacity-60 ${
-                status === job.status
-                  ? 'border-primary-300 bg-primary-50 text-primary-700'
-                  : 'border-slate-200 text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              {jobCardStatusLabel(status)}
-              {status === job.status && (
-                <Badge tone={jobCardStatusTone(status)}>Current</Badge>
-              )}
-            </button>
-          ))}
-        </div>
-      </Modal>
     </div>
   )
 }
