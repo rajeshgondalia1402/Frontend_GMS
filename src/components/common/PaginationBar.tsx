@@ -74,7 +74,7 @@ export function PaginationBar({
 
   return (
     <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-center gap-2 text-sm text-slate-500">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-500">
         <label htmlFor="page-size" className="whitespace-nowrap">
           Rows per page
         </label>
@@ -97,7 +97,11 @@ export function PaginationBar({
       </div>
 
       {totalPages > 1 && (
-        <div className="flex items-center gap-1">
+        // Seven page buttons either side of two arrows come to roughly 356px,
+        // which is wider than a 360px phone once the page's own padding is
+        // taken off. The strip wraps onto a second line there rather than
+        // pushing the whole page sideways.
+        <div className="flex flex-wrap items-center justify-center gap-1 sm:justify-end">
           <button
             type="button"
             aria-label="Previous page"

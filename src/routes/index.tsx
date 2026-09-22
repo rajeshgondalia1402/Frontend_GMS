@@ -32,6 +32,7 @@ import { Subscription } from '@/pages/owner/Subscription'
 import { AdminLogin } from '@/pages/admin/AdminLogin'
 import { AdminDashboard } from '@/pages/admin/AdminDashboard'
 import { AdminGarages } from '@/pages/admin/AdminGarages'
+import { AdminGarageJobCards } from '@/pages/admin/AdminGarageJobCards'
 import { AdminPlans } from '@/pages/admin/AdminPlans'
 import { AdminPayments } from '@/pages/admin/AdminPayments'
 import { AdminReports } from '@/pages/admin/AdminReports'
@@ -110,6 +111,15 @@ export const router = createBrowserRouter([
           { path: 'payments', element: <AdminPayments /> },
           { path: 'reports', element: <AdminReports /> },
         ],
+      },
+
+      // Opened in a window of its own from the garage list, so it carries no
+      // sidebar: a second copy of the admin shell in a second window is only
+      // something to close. Still behind the admin token like every other
+      // admin screen.
+      {
+        path: '/admin/garages/:garageId/job-cards',
+        element: <AdminGarageJobCards />,
       },
     ],
   },

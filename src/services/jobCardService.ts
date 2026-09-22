@@ -7,8 +7,14 @@ import type {
   UpdateJobCardPayload,
 } from '@/types/jobCard'
 
-/** Builds the query tail; anything left unset falls back to the API default. */
-function jobCardQuery(params: JobCardListParams): string {
+/**
+ * Builds the query tail; anything left unset falls back to the API default.
+ *
+ * Exported because the platform admin reads one garage's cards through
+ * `adminService`, on its own token and against its own path, but with exactly
+ * this paging, searching and sorting — the API validates both with one schema.
+ */
+export function jobCardQuery(params: JobCardListParams): string {
   const query = new URLSearchParams()
   if (params.search) query.set('search', params.search)
   if (params.page) query.set('page', String(params.page))

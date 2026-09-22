@@ -290,14 +290,25 @@ export function Vehicles() {
       accessor: (v) => <span className="font-mono text-xs">{v.vehicleNumber}</span>,
     },
     { header: 'Owner', sortKey: 'owner', accessor: (v) => v.customer?.fullName || '—' },
+    // Nine columns want 954px and a 1024px laptop leaves 734 once the sidebar
+    // has taken its 240px, so three wait for a wider screen rather than
+    // pushing the Actions column out of sight. These three are the ones the
+    // desk scans past: the fuel type and the service date are detail, and the
+    // owner's number is one tap away on the row itself.
     {
       header: 'Fuel',
+      className: 'hidden xl:table-cell',
       accessor: (v) => (v.fuelType ? <Badge tone="neutral">{v.fuelType}</Badge> : '—'),
     },
-    { header: 'Mobile', accessor: (v) => v.customer?.mobileNumber || '—' },
+    {
+      header: 'Mobile',
+      className: 'hidden xl:table-cell',
+      accessor: (v) => v.customer?.mobileNumber || '—',
+    },
     {
       header: 'Last Service',
       sortKey: 'createdAt',
+      className: 'hidden xl:table-cell',
       accessor: (v) => (v.createdAt ? formatDate(v.createdAt) : '—'),
     },
     {
