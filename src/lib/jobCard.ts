@@ -1,7 +1,9 @@
 import type { Tone } from '@/components/ui/Badge'
+import type { ExportColumn } from '@/lib/excel'
+import { paymentStatusLabel } from '@/lib/payment'
 import { formatDayMonthYear } from '@/lib/utils'
 import type { JobLineItem, JobStatus } from '@/types'
-import type { JobCardStatus } from '@/types/jobCard'
+import type { JobCardRecord, JobCardStatus } from '@/types/jobCard'
 
 /** One choice in the status picker. */
 export interface JobStatusOption {
@@ -189,5 +191,78 @@ export function formatServiceDate(value: string | null | undefined): string {
   if (Number.isNaN(date.getTime())) return '—'
   return formatDayMonthYear(date)
 }
+
+/**
+ * A date for a spreadsheet cell, which is not quite the date for a screen: a
+ * card that has not been delivered has no completion date, and an em dash in
+ * that cell would be a value to filter and sort around. It is left empty.
+ */
+function sheetDate(value: string | null | undefined): string {
+  if (!value) return ''
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? '' : formatDayMonthYear(date)
+}
+
+/**
+ * One row per job card, for the Excel export on both screens that list them —
+ * the garage's own Job Cards page and the admin's window onto one garage.
+ *
+ * Defined once here because the two lists hold exactly the same record and a
+ * second copy of these columns would drift. A card's billable lines are folded
+ * into one cell rather than given a row each: the sheet is a list OF CARDS, and
+ * one card spread over three rows would break every count and total in it. The
+ * line count and the card total come along so the detail is still summarised.
+ *
+ * Money and counts are written as numbers, not as `₹1,234.00` strings, so the
+ * sheet can sort, filter and total the columns — which is the point of
+ * exporting to Excel rather than printing.
+ */
+export const JOB_CARD_EXPORT_COLUMNS: ExportColumn<JobCardRecord>[] = [
+  { header: 'Job No.', value: (job) => job.jobNumber, align: 'left', width: 16 },
+  { header: 'Service Date', value: (job) => sheetDate(job.serviceDate), align: 'center', width: 14 },
+  { header: 'Status', value: (job) => jobCardStatusLabel(job.status), align: 'center', width: 12 },
+  {
+    header: 'Payment Status',
+    value: (job) => paymentStatusLabel(job.paymentStatus),
+    align: 'center',
+    width: 15,
+  },
+  { header: 'Customer Name', value: (job) => job.vehicle?.customer?.fullName, width: 22 },
+  {
+    header: 'Customer Mobile',
+    value: (job) => job.vehicle?.customer?.mobileNumber,
+    align: 'left',
+    width: 16,
+  },
+  { header: 'Vehicle Number', value: (job) => job.vehicle?.vehicleNumber, align: 'left', width: 18 },
+  {
+    header: 'Vehicle',
+    value: (job) => (job.vehicle ? vehicleDisplayName(job.vehicle) : ''),
+    width: 22,
+  },
+  { header: 'Vehicle Type', value: (job) => job.vehicle?.vehicleType, width: 14 },
+  { header: 'Current KM', value: (job) => job.vehicle?.currentKm, align: 'right', width: 12 },
+  { header: 'Complaint', value: (job) => job.vehicle?.description, wrap: true, width: 32 },
+  { header: 'Assigned To', value: (job) => job.assignedStaff?.name, width: 20 },
+  {
+    header: 'Staff Role',
+    value: (job) => job.assignedStaff?.role || job.assignedStaff?.category,
+    width: 18,
+  },
+  {
+    header: 'Items',
+    value: (job) => (job.items ?? []).map((item) => item.description).join(', '),
+    wrap: true,
+    width: 34,
+  },
+  { header: 'Items Count', value: (job) => job.items?.length ?? 0, align: 'right', width: 12 },
+  { header: 'Total Amount', value: (job) => Number(job.totalAmount) || 0, align: 'right', width: 14 },
+  {
+    header: 'Completion Date',
+    value: (job) => sheetDate(job.completionDate),
+    align: 'center',
+    width: 16,
+  },
+]
 
 

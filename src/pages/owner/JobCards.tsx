@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Eye, FileText, IndianRupee, Minus, Pencil, Plus, Wrench } from 'lucide-react'
+import { Download, Eye, FileText, IndianRupee, Minus, Pencil, Plus, Wrench } from 'lucide-react'
 import {
   ActionButton,
   DEFAULT_PAGE_SIZE,
@@ -18,6 +18,7 @@ import { getJobCard, jobCardService } from '@/services/jobCardService'
 import { paymentService } from '@/services/paymentService'
 import { ApiError } from '@/services/httpClient'
 import {
+  JOB_CARD_EXPORT_COLUMNS,
   formatMoney,
   formatServiceDate,
   jobCardStatusLabel,
@@ -25,6 +26,7 @@ import {
   vehicleDisplayName,
 } from '@/lib/jobCard'
 import { paymentStatusLabel, paymentStatusTone } from '@/lib/payment'
+import { datedFileName, downloadExcel } from '@/lib/excel'
 import { downloadInvoice } from '@/lib/invoice'
 import { cn } from '@/lib/utils'
 import type { Pagination } from '@/types/auth'
@@ -54,6 +56,12 @@ const SORT_FIELDS: SortBarField[] = [
   { key: 'status', label: 'Status' },
   { key: 'createdAt', label: 'Created' },
 ]
+
+/** What the current order is called, for the exported sheet's header. */
+const sortLabel = (sort: SortState) =>
+  `${SORT_FIELDS.find((f) => f.key === sort.field)?.label ?? sort.field} (${
+    sort.order === 'asc' ? 'ascending' : 'descending'
+  })`
 
 /**
  * Each action keeps one width down the whole table, so the three buttons
@@ -239,6 +247,33 @@ export function JobCards() {
   const openPayment = (job: JobCardRecord) =>
     navigate(`/app/job-cards/${job.id}/payment`, { state: { jobCard: job } })
 
+  /**
+   * Downloads exactly what the list is showing — this page of it, under the
+   * search term in the box. Asking for "All" rows first is what downloads
+   * every card.
+   *
+   * One row per card, with its billable lines folded into a cell: this is the
+   * job card register, not the itemised bill. A single card's bill is the
+   * Invoice button on its own row.
+   */
+  const exportExcel = () =>
+    downloadExcel(
+      datedFileName('job-cards'),
+      {
+        title: 'Job Card List',
+        subtitle: user?.garageName ?? 'Garage Management System',
+        sheetName: 'Job Cards',
+        includeIndex: true,
+        // What the sheet is a snapshot of, so a saved file explains itself.
+        meta: [
+          { label: 'Search', value: search || 'All job cards' },
+          { label: 'Sorted By', value: sortLabel(sort) },
+        ],
+      },
+      JOB_CARD_EXPORT_COLUMNS,
+      jobCards,
+    )
+
   const toggleParties = (id: string) =>
     setExpanded((current) => {
       const next = new Set(current)
@@ -387,6 +422,14 @@ export function JobCards() {
           placeholder="Search customer, vehicle number or type..."
           className="sm:flex-1"
         />
+        <Button
+          variant="outline"
+          leftIcon={<Download className="h-4 w-4" />}
+          disabled={jobCards.length === 0}
+          onClick={exportExcel}
+        >
+          Download Excel
+        </Button>
       </div>
 
       {/* The table sorts from its headers; the cards get the same fields here. */}
@@ -463,11 +506,17 @@ export function JobCards() {
                     </Badge>
                   </div>
 
-                  <div className="mt-3 flex items-stretch gap-2">
+                  {/* Invoice + Receipts + View want 289px and a 320px phone's
+                      card gives the row 254. `flex-1` alone cannot shrink them
+                      — a flex item will not go below its content unless it is
+                      told it may — so each is given a floor it may shrink to
+                      and the row wraps once even that will not fit. */}
+                  <div className="mt-3 flex flex-wrap items-stretch gap-2">
                     {hasInvoice(job) && (
                       <ActionButton
                         layout="card"
                         tone="primary"
+                        className="min-w-[5.5rem]"
                         loading={invoicing === job.id}
                         icon={<FileText className="h-4 w-4" />}
                         onClick={() => void downloadJobInvoice(job)}
@@ -478,6 +527,7 @@ export function JobCards() {
                     <ActionButton
                       layout="card"
                       tone="money"
+                      className="min-w-[5.5rem]"
                       icon={<IndianRupee className="h-4 w-4" />}
                       onClick={() => openPayment(job)}
                     >
@@ -485,6 +535,7 @@ export function JobCards() {
                     </ActionButton>
                     <ActionButton
                       layout="card"
+                      className="min-w-[5.5rem]"
                       icon={
                         isPending(job) ? (
                           <Pencil className="h-4 w-4" />
