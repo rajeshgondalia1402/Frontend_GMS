@@ -71,3 +71,40 @@ export function formatClock(totalSeconds: number): string {
   const seconds = safe % 60
   return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
 }
+
+/** Midnight of a date's calendar day, in local time — so days count as days. */
+function startOfDay(value: string | Date): Date | null {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
+}
+
+/**
+ * Whole calendar days from `from` to `to` (today when left out), or `null`
+ * when either is not a date. Negative when `to` comes first.
+ */
+export function daysBetween(from: string | Date, to: string | Date = new Date()): number | null {
+  const start = startOfDay(from)
+  const end = startOfDay(to)
+  if (!start || !end) return null
+  return Math.round((end.getTime() - start.getTime()) / 86_400_000)
+}
+
+/** `3 days`, `2 months`, `1 year` — a span of days as a person would say it. */
+export function spanLabel(days: number): string {
+  const n = Math.abs(days)
+  const plural = (count: number, unit: string) => `${count} ${unit}${count === 1 ? '' : 's'}`
+  if (n < 31) return plural(n, 'day')
+  if (n < 365) return plural(Math.floor(n / 30), 'month')
+  return plural(Math.floor(n / 365), 'year')
+}
+
+/** `Today`, `Yesterday`, `12 days ago`, `2 months ago` — or `null` for a bad date. */
+export function agoLabel(value: string | Date | null | undefined): string | null {
+  if (!value) return null
+  const days = daysBetween(value)
+  if (days === null) return null
+  if (days <= 0) return 'Today'
+  if (days === 1) return 'Yesterday'
+  return `${spanLabel(days)} ago`
+}

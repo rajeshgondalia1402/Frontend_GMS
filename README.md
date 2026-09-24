@@ -113,6 +113,18 @@ during development that usually means the API is not running.
 | `POST /auth/payment` | token | Record Payment dialog |
 | `PUT /auth/payment/:id` | token | Correcting a receipt |
 | `DELETE /auth/payment/:id` | token | Cancelling a receipt |
+| `GET /auth/car-selling` | token | `/app/car-selling` — list, search, order and the count |
+| `POST /auth/car-selling` | token | `/app/car-selling/new`, on save |
+| `GET /auth/car-selling/:id` | token | The car details modal, the edit form, and the car picked on a sale |
+| `PUT /auth/car-selling/:id` | token | `/app/car-selling/:id/edit`, on save |
+| `DELETE /auth/car-selling/:id` | token | Delete Car confirmation |
+| `GET /auth/car-selling/dropdown` | token | The car picker on `/app/car-sold/new` |
+| `GET /auth/car-selling/sold` | token | `/app/car-sold` — list, search, order and the count |
+| `POST /auth/car-selling/:id/sold-customer` | token | `/app/car-sold/new`, on save |
+| `GET /auth/car-selling/sold-customer/:id` | token | `/app/car-sold/:id/edit` opened from its address, and the Receipt PDF |
+| `POST /auth/car-selling/sold-customer/:id` | token | `/app/car-sold/:id/edit`, on save |
+| `POST /auth/car-selling/sold-customer/:id/payment` | token | Collect Payment dialog |
+| `POST /auth/car-selling/sold-customer/:id/payment/:paymentId` | token | Edit Payment dialog |
 | `GET /auth/dashboard/summary` | token | `/app` — every tile at the top |
 | `POST /admin/login` | — | `/admin/login` |
 | `POST /admin/change-password` | admin token | Admin change-password dialog |
@@ -570,17 +582,52 @@ Below `lg` the tables become cards, which have no header row, so the same
 fields are offered as a row of buttons (`SortBar`) that behave exactly the same
 way. Staff is cards at every width and uses that row on its own.
 
+The two car boards are the exception: they sort **from the headers only** — a
+second row of sort buttons above rows that already carry an arrow was one
+control too many there.
+
 The order is sent to the API, so it holds across every page rather than
 shuffling the page on screen — with one exception: the Vehicles tab can also
 sort by vehicle type and owner name, which `GET /auth/vehicle` does not accept.
 Those two are ordered in the browser over the page in hand; ask for **All** rows
 to put the whole list in order.
 
+### Details Under a Row
+
+Customers, Vehicles, Job Cards and the two car boards all carry an **arrow** at
+the start of each row (and on each mobile card) that unfolds the rest of the
+record underneath it. Several rows can stand open at once. What opens shows only
+what the row does **not** — nothing the columns already say is repeated, and a
+detail never filled in is left out rather than shown as a dash or "Not added".
+
+Customers, Vehicles and Job Cards open **one sheet**: a strip of equal fact cells
+across the top, bands for chips, warnings and notes, then the main content in
+columns divided by hairlines — so every part lines up on the same edges. The
+two car boards open **panels**: the car's specs as tiles, its papers or the
+sale's standing as a checklist with a coloured verdict per line, the people on
+either side, and the description or the receipts in full.
+
+Alongside the stored fields they show figures worked out from them:
+
+| Where | Worked out |
+| --- | --- |
+| Job card | **Turnaround** — "2 days in garage" while pending (amber past a week), "Done in 1 day" once delivered |
+| Customer | **Customer for** "1 month"; how many vehicles are in service, pending and completed |
+| Customer, Vehicle | **Insurance** — "Insured till …", or amber "ends in 11 days" / "expired …" within 30 days of the date; a customer lists every vehicle due in one warning band |
+| Vehicle | **Last visit** "2 days ago" |
+| Car sold | The **deal** against the asking price — "₹15,000 off", "At asking" — and how much of the price is paid |
+
+A phone gets the same sheet stacked: fact cells two across with their icons
+dropped, so the values have the room, and nothing scrolls sideways.
+
 ### Customers
 
 Search by name or mobile number, sort by name, city or when they were added,
-and expand any row to see that customer's vehicles. Opening one shows their
-details, their fleet, and the forms to edit them or add another vehicle.
+and open any row's arrow for their other contact details, notes, where their
+vehicles stand, an insurance warning, and each vehicle as a card. **View** opens
+the customer: the same kind of sheet with **Edit Customer**, then their vehicles
+two across — each with its chips, what it came in for and how long ago — and the
+forms to edit them or add another vehicle.
 
 ### Vehicles
 
@@ -595,6 +642,11 @@ the vehicle is in its life:
 
 Both land on the same screen and the same form; only the button — **Save
 Vehicle** or **Edit Vehicle** — and the request differ.
+
+Each row's arrow opens the full make, model and variant with its type, fuel and
+colour, the reading on the clock, where the insurance stands, how long ago the
+vehicle last came in, the owner's WhatsApp when it is not their mobile, and what
+it came in for.
 
 ### Staff
 
@@ -632,10 +684,11 @@ total that no longer adds up to them.
 
 The list itself is the job number, the service date, the money, the two
 statuses and the row of actions — **Invoice**, **Collect** / **Receipts** and
-**Edit** / **View**. The vehicle and the customer are read from the `+` at the
-start of each row, which opens the vehicle, its number, the customer and their
-mobile number under it: four long values that no column can hold at a readable
-width, on the row that needs them rather than on every row at once.
+**Edit** / **View**. The vehicle and the customer are read from the **arrow** at
+the start of each row: the vehicle and its facts, the customer with a call link,
+who attended, the turnaround, what was asked for and every billed line — long
+values no column can hold at a readable width, on the row that needs them
+rather than on every row at once.
 
 ### Payments & Receipts
 
@@ -663,6 +716,105 @@ straight out of the click that asked for it, since a tab opened after an `await`
 is a pop-up as far as the browser is concerned. Nothing is sent behind the
 owner's back: WhatsApp opens with the message ready and they press send.
 
+### Car Selling
+
+The used cars the garage is selling, at `/app/car-selling`. **Car Selling** is a
+group in the sidebar rather than a page of its own: it opens on click — and on
+its own while one of its pages is current — over **Car Add For Selling** and
+**Car Sold Detail**.
+
+The list keeps to what a garage needs to recognise a car and quote it — the car,
+its number, the seller, the mobile number and the price — and each row carries
+an **arrow** that unfolds the rest underneath it: year, fuel, colour (with a
+swatch) and ownership as tiles; insurance, PUC and accident history as a
+checklist marked Valid / Expired / Missing / Clean / Accidental; the seller and
+the listing; and whatever was written about the car.
+
+The add and edit screens are pages, not dialogs, and the whole form sits in
+three full-width sections — seller details on one row, the car and its price
+over two, then the papers — so a listing is written without scrolling. **Car
+Number**, **Fuel Type**, **Owner Name**, **Mobile Number** and **Selling Price**
+are required; the number is uppercased with spaces and hyphens dropped as it is
+typed, which is how the API stores it. **Car Name** is a searchable pick list
+that still takes free text (it is stored as `carType`). The papers read **PUC**,
+**Accidental**, **Insurance**, in that order; ticking **Insurance** opens the
+calendar for the date it runs until — past days cannot be picked, though an
+older car being edited keeps the lapsed date it already has — and unticking it
+clears the date again. Editing
+`PUT`s only the fields that changed, and a form where nothing changed simply
+says so instead of sending an empty body.
+
+A car leaves this board the moment it is sold: `GET /auth/car-selling` answers
+with the cars still `SALE`, and its exact complement — the sold list below —
+answers with the rest.
+
+### Car Sold
+
+Who bought each car and what has been collected, at `/app/car-sold`.
+
+**Add Car Sold** opens a page that starts from a **searchable car picker** over
+`GET /auth/car-selling/dropdown` — every car still for sale, read once and
+narrowed in the browser as it is typed, by number or body type, with the number
+matched the way it is stored so `gj 01-ab` finds `GJ01AB1234`. A car already
+sold is not on it. Picking one reads the listing back and shows it **read only**
+— the seller, their mobile, the asking price and how many owners the car has
+had — and offers the asking price as the figure the deal closed at.
+
+The deal itself is the buyer, the **Final Selling Price** — what the car
+actually went for, which need not be the asking price — and the **Payment
+Received** at the counter, which is **required** and which the API writes as the
+sale's first receipt. It may not exceed the final price, and the field re-checks
+itself when that price is edited. A car can only be sold once — a second attempt
+is the API's `409`, shown as it comes back with the picker focused again.
+
+Recording a sale always takes the car off the board (`SOLD`). Delivery is the
+desk's to say, with one exception:
+
+| Delivered Status | Payment | Stored |
+| --- | --- | --- |
+| **Delivered** | anything | `DELIVERED`, on the **Delivered Date** — shown only for Delivered, filled in with today, no later than today |
+| **Pending** | part of the price | `PENDING`, no date |
+| **Pending** | the whole price | `DELIVERED`, dated **today** — a car paid for in full has gone |
+
+The same rule holds afterwards: the receipt that pays a sale off delivers a car
+still pending and dates it today, while a part payment never touches delivery.
+
+**Edit** on a row opens the sale at `/app/car-sold/:id/edit` — the same form,
+with the car fixed and no payment box (money only moves through Collect). It
+corrects the buyer, the final price — never below what has been paid — and the
+delivery. Opened from the list it fills in at once from the row; opened from its
+address it reads the sale from `GET /auth/car-selling/sold-customer/:id`.
+
+Each row shows the car, the seller, the buyer, the sale price with what is still
+owing under it, and two badges: the money and the delivery. A sale with nothing
+against it reads **Nothing paid** rather than "Partial" — a car sale has only
+the two statuses, `PARTIAL` and `PAID`, so "nothing paid yet" is the far end of
+the first one. The arrow unfolds the car as tiles, the sale's standing — payment,
+delivery and the deal against the asking price — as a checklist, the buyer and
+the seller with call links, and **every receipt** taken against the sale: the
+final price, what is paid and what is pending, a bar showing how far through
+paying the buyer is, and each receipt numbered with its date.
+
+Each receipt has an **Edit** button for a figure typed wrong. The dialog opens on
+the amount the receipt holds and allows at most that plus what is still pending,
+so the corrected total never passes the price; the API
+(`POST /auth/car-selling/sold-customer/:id/payment/:paymentId`) checks the same
+against the live receipts, re-works the payment status, and delivers a car the
+correction pays off.
+
+A car the garage marked sold by hand, without ever recording a buyer, comes back
+with no sale on it. It is shown as **"No buyer recorded"** instead of being
+filtered out, which would leave the garage wondering where the car went.
+
+**Collect** — offered on any row still owing — takes the balance through
+`POST /auth/car-selling/sold-customer/:id/payment`. The dialog shows the price,
+what is paid and what is **pending**, offers to collect the whole balance in one tap,
+and refuses more than is owing before it asks. The API checks the same thing
+against the live receipts, which is the check that counts, since another desk
+may have taken money since the screen was drawn; its `400` names what is left to
+pay and is shown as it comes back. The list reads itself again afterwards, so
+the row, its badges and the count all move together.
+
 ### Invoice PDF
 
 A card that has been paid, in part or in full, offers an **Invoice** button on
@@ -681,9 +833,22 @@ as many pages as the content runs to — and `src/lib/invoice.ts` lays the invoi
 out on it. Those faces carry no rupee sign, so the printed figures read `Rs.`
 where the screen shows `₹`.
 
+### Car Sale Receipt PDF
+
+Every sale with a buyer has a **Receipt** button on Car Sold Detail. It reads the
+sale again first — so a payment collected since the page loaded is on it — and
+builds `receipt-GJ01AB1234.pdf` in the browser: the garage, a **RECEIPT** title
+with a Paid / Partial / Nothing paid stamp, the car number, sale and delivery
+dates, the buyer and the car with its seller, the final price, what is paid and
+the balance due, and every receipt with the balance left after it.
+
+It is laid out with the invoice's own building blocks (`src/lib/carSaleReceipt.ts`
+over `src/lib/invoice.ts`), so the two documents read as coming from one garage.
+
 ### Excel Export
 
-Customers and Vehicles have a **Download Excel** button. It writes a real
+Customers, Vehicles, Car Selling and Car Sold Detail have a **Download Excel**
+button. It writes a real
 `.xlsx` — a title block naming the data, the search term and the order it was
 taken in, then a frozen, styled header over the rows — with no dependency:
 `src/lib/excel.ts` builds the handful of XML parts and stores them in a ZIP
@@ -754,6 +919,12 @@ Below the tiles, the four newest job cards are the real rows from
 | `/app/job-cards/:id/edit` | Edit a pending job card | **API integrated** |
 | `/app/job-cards/:id/payment` | Collect payment, receipts, WhatsApp | **API integrated** |
 | `/app/staff` | Staff | **API integrated** |
+| `/app/car-selling` | Car Add For Selling — the cars on the board | **API integrated** |
+| `/app/car-selling/new` | Add a car for sale | **API integrated** |
+| `/app/car-selling/:id/edit` | Edit a listing | **API integrated** |
+| `/app/car-sold` | Car Sold Detail — sales, money and Collect | **API integrated** |
+| `/app/car-sold/new` | Add Car Sold — pick the car, record the buyer | **API integrated** |
+| `/app/car-sold/:id/edit` | Edit a recorded sale (`:id` is the sale) | **API integrated** |
 | `/app/profile` | Garage Profile | Reads `GET /auth/me`; Save Changes is still mock |
 | `/app/billing`, `/app/salary`, `/app/reports` | Billing, Salary, Reports | Mock |
 | `/app/subscription` | Subscription | Mock |
@@ -786,28 +957,42 @@ Reusable components live in `src/components/`:
 - **`common/`** — PageHeader, SearchInput, FilterButton, StatCard, ActionButton,
   DataTable (sortable headers), ResponsiveList, SortBar, PaginationBar,
   BarChart, SubscriptionBanner, PWA UI (install prompt + offline/online
-  banners).
+  banners), and **DetailBlocks** — the parts every "details under a row" is
+  built from: `DetailSheet`, `FactStrip` / `FactCell`, `SheetBand`,
+  `SheetSection`, `FactChip`, and the panel set `DetailPanel`, `SpecGrid` /
+  `SpecTile`, `StatusList` / `StatusRow` / `StatusPill`, `InfoLine`, `PhoneLink`.
 - **`layout/`** — Sidebar, Topbar, BottomNav, SubscriptionPill,
   ChangePasswordModal.
 - **`customers/`** — CustomerFields (shared by the add page and the edit
-  dialog), CustomerSummaryCard, CustomerVehicleList, EditCustomerModal.
+  dialog), CustomerSummaryCard (the sheet on the customer's page),
+  CustomerMoreDetails (what the row's arrow unfolds), EditCustomerModal.
 - **`vehicles/`** — VehicleFields, VehicleFormCard (adds or edits, depending on
-  what it is given), VehicleSummaryCard, VehicleStatusBadge.
+  what it is given), VehicleSummaryCard, VehicleMoreDetails (the row's arrow),
+  VehicleStatusBadge, and VehicleFacts — the vehicle chips and the one insurance
+  rule (amber within 30 days) every screen shares.
 - **`staff/`** — StaffFormModal (adds or edits, depending on what it is given).
 - **`jobcards/`** — ComboboxInput, CustomerSearchInput (the type-ahead),
-  RecordPickerModal, SectionCard, JobItemsTable, JobItemModal, JobCardSummary.
+  RecordPickerModal, SectionCard, JobItemsTable, JobItemModal, JobCardSummary,
+  JobCardMoreDetails (the row's arrow).
 - **`payments/`** — PaymentSummary (the balance and the bar), PaymentMethodPicker,
   PaymentModal (record or correct a receipt), PaymentHistory.
+- **`carSelling/`** — SuggestionCombobox (a searchable pick list that still takes
+  free text, over `ComboboxInput`), CarFlagBadges, CarSellingDetailsModal,
+  CarSellingMoreDetails (what the row's arrow unfolds).
+- **`carSold/`** — CarPickerInput (the car type-ahead over the dropdown
+  endpoint), SelectedCarDetails (the picked listing, read only),
+  SaleStatusBadges, SoldCarMoreDetails (the sale and its receipts),
+  CollectPaymentModal, EditPaymentModal (corrects one receipt's amount).
 - **`dashboard/`** — SummaryCard, one figure with its icon, colour and link.
 
 ### Rows, cards and their actions
 
 `ActionButton` is the one button at the end of a table row and at the foot of a
-card, shared by Job Cards, Customers, Vehicles and Staff. It is drawn as a
-button — bordered, on its own fill — rather than as a coloured word, because a
-row of links reads as text the desk has to guess is clickable. Its **tone** says
-what the action is for (blue for paperwork, green for money, grey for opening
-the record) and its **layout** sizes it for a row or for a card.
+card, shared by Job Cards, Customers, Vehicles, Staff and the two car boards. It
+is drawn as a button — bordered, on its own fill — rather than as a coloured
+word, because a row of links reads as text the desk has to guess is clickable.
+Its **tone** says what the action is for (blue for paperwork, green for money,
+grey for opening the record) and its **layout** sizes it for a row or for a card.
 
 Table columns carry an `align` that the header and its cells share, so a column
 and the word naming it always line up: money sits against the right edge with
@@ -824,11 +1009,16 @@ src/
 │   ├── common/     shared widgets — PageHeader, DataTable, SortBar, StatCard, ...
 │   ├── layout/     app chrome — Sidebar, Topbar, BottomNav, SubscriptionPill,
 │   │               ChangePasswordModal
-│   ├── customers/  customer fields, summary, vehicle list, edit dialog
-│   ├── vehicles/   vehicle fields, the add/edit form card, summary, status badge
+│   ├── customers/  customer fields, summary sheet, row details, edit dialog
+│   ├── vehicles/   vehicle fields, the add/edit form card, summary, row details,
+│   │               chips and insurance rule, status badge
 │   ├── staff/      the staff form dialog
-│   ├── jobcards/   the job card form's own parts — type-ahead, pickers, items
+│   ├── jobcards/   the job card form's own parts — type-ahead, pickers, items —
+│   │               and the row details
 │   ├── payments/   balance, method picker, receipt dialog, receipt history
+│   ├── carSelling/ pick lists, flag badges, details modal, row details
+│   ├── carSold/    car picker, picked car, status badges, row details,
+│   │               collect and edit-payment dialogs
 │   └── dashboard/  SummaryCard — one figure per tile
 ├── config/       env.ts — API base URL
 ├── context/      AuthContext — session state, persistence, auto-logout
@@ -838,8 +1028,9 @@ src/
 │                 useSessionLifecycle
 ├── layouts/      AppShell, OwnerLayout, AdminLayout, AuthLayout, navigation
 ├── lib/          utils, validation, subscription, dashboard,
-│                 excel, pdf, invoice (the two file writers),
+│                 excel, pdf, invoice, carSaleReceipt (the file writers),
 │                 payment, whatsapp (the receipt message),
+│                 carSelling, carSold (form values, labels, payloads),
 │                 customerForm, vehicleForm, staffForm, jobCard,
 │                 vehicleStatus, staff, activeCustomer,
 │                 authStorage, adminAuthStorage,
@@ -849,9 +1040,11 @@ src/
 ├── routes/       route definitions + Protected / PublicOnly / Admin guards
 ├── services/     httpClient, authService, customerService, vehicleService,
 │                 staffService, jobCardService, paymentService,
+│                 carSellingService, carSoldService,
 │                 dashboardService, adminService
 └── types/        shared types · auth, customer, vehicle, staff, jobCard,
-                  payment, dashboard — mirror the API contract
+                  payment, carSelling, carSold, dashboard — mirror the API
+                  contract
 ```
 
 ## Adding the Next Endpoint

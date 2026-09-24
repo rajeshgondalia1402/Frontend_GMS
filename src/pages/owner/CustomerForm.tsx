@@ -85,18 +85,19 @@ export function CustomerForm() {
           <CustomerFields form={form} />
         </Card>
 
-        <div className="mt-5 flex gap-3 sm:justify-end">
+        {/* Actions */}
+        <div className="mt-4 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-card sm:flex-row sm:justify-end">
           <Button
             type="button"
             variant="outline"
             fullWidth
-            className="sm:w-auto sm:flex-none"
+            className="sm:w-auto"
             disabled={saving}
             onClick={() => navigate('/app/customers')}
           >
             Cancel
           </Button>
-          <Button type="submit" fullWidth className="sm:w-auto sm:flex-none" loading={saving}>
+          <Button type="submit" fullWidth className="sm:w-auto" loading={saving}>
             Save &amp; Add Vehicle
           </Button>
         </div>

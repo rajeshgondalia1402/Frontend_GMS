@@ -24,6 +24,10 @@ import { JobCardDetails } from '@/pages/owner/JobCardDetails'
 import { JobCardPayment } from '@/pages/owner/JobCardPayment'
 import { Billing } from '@/pages/owner/Billing'
 import { Staff } from '@/pages/owner/Staff'
+import { CarSelling } from '@/pages/owner/CarSelling'
+import { CarSellingForm } from '@/pages/owner/CarSellingForm'
+import { CarSold } from '@/pages/owner/CarSold'
+import { CarSoldForm } from '@/pages/owner/CarSoldForm'
 import { Salary } from '@/pages/owner/Salary'
 import { Reports } from '@/pages/owner/Reports'
 import { GarageProfile } from '@/pages/owner/GarageProfile'
@@ -81,6 +85,12 @@ export const router = createBrowserRouter([
           { path: 'job-cards/:id/payment', element: <JobCardPayment /> },
           { path: 'billing', element: <Billing /> },
           { path: 'staff', element: <Staff /> },
+          { path: 'car-selling', element: <CarSelling /> },
+          { path: 'car-selling/new', element: <CarSellingForm /> },
+          { path: 'car-selling/:id/edit', element: <CarSellingForm /> },
+          { path: 'car-sold', element: <CarSold /> },
+          { path: 'car-sold/new', element: <CarSoldForm /> },
+          { path: 'car-sold/:id/edit', element: <CarSoldForm /> },
           { path: 'salary', element: <Salary /> },
           { path: 'reports', element: <Reports /> },
           { path: 'profile', element: <GarageProfile /> },

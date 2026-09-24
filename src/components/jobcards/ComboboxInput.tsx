@@ -46,6 +46,8 @@ export interface ComboboxInputProps extends InputAttrs {
   selected?: boolean
   error?: string
   rightSlot?: ReactNode
+  /** Field icon, shown inside the box on the left. */
+  leftIcon?: ReactNode
 }
 
 /**
@@ -69,6 +71,7 @@ export function ComboboxInput({
   selected = false,
   error,
   rightSlot,
+  leftIcon,
   ...inputProps
 }: ComboboxInputProps) {
   const [highlight, setHighlight] = useState(0)
@@ -104,6 +107,8 @@ export function ComboboxInput({
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Escape') {
+      // Inside a dialog, the first Escape closes only the list, not the dialog.
+      if (open) event.stopPropagation()
       onOpenChange(false)
       return
     }
@@ -140,6 +145,7 @@ export function ComboboxInput({
         {...inputProps}
         ref={inputRef}
         label={label}
+        leftIcon={leftIcon}
         value={value}
         autoComplete="off"
         role="combobox"
