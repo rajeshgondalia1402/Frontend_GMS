@@ -6,6 +6,7 @@ import type { ShellVariant } from '@/components/layout/Topbar'
 import { BottomNav } from '@/components/layout/BottomNav'
 import { Drawer, Modal } from '@/components/ui'
 import { InstallPrompt, NetworkBanner } from '@/components/common/PwaUI'
+import { findNavItem, flattenNav } from './navigation'
 import type { NavItem } from './navigation'
 import { cn } from '@/lib/utils'
 
@@ -21,7 +22,8 @@ export function AppShell({ nav, brand, variant = 'owner' }: AppShellProps) {
   const [moreOpen, setMoreOpen] = useState(false)
   const location = useLocation()
 
-  const current = nav.find((n) => n.to === location.pathname)?.label ?? brand
+  // A page filed under a group is titled by its own label, not the group's.
+  const current = findNavItem(nav, location.pathname)?.label ?? brand
 
   // Close overlays on route change
   useEffect(() => {
@@ -57,25 +59,29 @@ export function AppShell({ nav, brand, variant = 'owner' }: AppShellProps) {
       {/* More menu (bottom sheet) */}
       <Modal open={moreOpen} onClose={() => setMoreOpen(false)} title="Menu">
         <div className="grid grid-cols-3 gap-3 pb-2">
-          {nav.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/app' || item.to === '/admin'}
-              onClick={() => setMoreOpen(false)}
-              className={({ isActive }) =>
-                cn(
-                  'flex flex-col items-center gap-2 rounded-xl border p-3 text-center text-xs font-medium transition-colors',
-                  isActive
-                    ? 'border-primary-200 bg-primary-50 text-primary-700'
-                    : 'border-slate-200 text-slate-600 hover:bg-slate-50',
-                )
-              }
-            >
-              <item.icon className="h-6 w-6" />
-              {item.label}
-            </NavLink>
-          ))}
+          {/* Groups have no page of their own, so the sheet lists what is
+              under them instead of the heading. */}
+          {flattenNav(nav)
+            .filter((item) => !item.children)
+            .map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === '/app' || item.to === '/admin'}
+                onClick={() => setMoreOpen(false)}
+                className={({ isActive }) =>
+                  cn(
+                    'flex flex-col items-center gap-2 rounded-xl border p-3 text-center text-xs font-medium transition-colors',
+                    isActive
+                      ? 'border-primary-200 bg-primary-50 text-primary-700'
+                      : 'border-slate-200 text-slate-600 hover:bg-slate-50',
+                  )
+                }
+              >
+                <item.icon className="h-6 w-6" />
+                {item.label}
+              </NavLink>
+            ))}
         </div>
       </Modal>
 

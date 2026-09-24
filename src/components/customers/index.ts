@@ -1,4 +1,4 @@
 export { CustomerFields } from './CustomerFields'
 export { CustomerSummaryCard } from './CustomerSummaryCard'
-export { CustomerVehicleList } from './CustomerVehicleList'
+export { CustomerMoreDetails } from './CustomerMoreDetails'
 export { EditCustomerModal } from './EditCustomerModal'

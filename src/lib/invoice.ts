@@ -59,7 +59,7 @@ const PAID = hex('#047857')
 const DUE = hex('#b91c1c')
 
 const MARGIN = 40
-const FOOTER_HEIGHT = 46
+export const FOOTER_HEIGHT = 46
 
 /** The column the values in a detail box are set against. */
 const LABEL_WIDTH = 86
@@ -67,21 +67,21 @@ const LABEL_WIDTH = 86
 /** A dash reads as "asked for, not filled in"; an empty cell reads as a bug. */
 const EMPTY = '-'
 
-function value(raw: string | number | null | undefined): string {
+export function value(raw: string | number | null | undefined): string {
   if (raw === null || raw === undefined) return EMPTY
   const text = String(raw).trim()
   return text || EMPTY
 }
 
 /** `05-Sept-2026` from anything the API dates a record with. */
-function day(raw: string | null | undefined): string {
+export function day(raw: string | null | undefined): string {
   if (!raw) return EMPTY
   const parsed = new Date(raw)
   return Number.isNaN(parsed.getTime()) ? String(raw) : formatDayMonthYear(parsed)
 }
 
 /** `05-Sept-2026, 2:50 pm` — a receipt is a moment, not a day. */
-function moment(raw: string | null | undefined): string {
+export function moment(raw: string | null | undefined): string {
   if (!raw) return EMPTY
   const parsed = new Date(raw)
   if (Number.isNaN(parsed.getTime())) return String(raw)
@@ -95,13 +95,13 @@ function moment(raw: string | null | undefined): string {
 }
 
 /** One `Label  ....  Value` line inside a detail box. */
-interface DetailRow {
+export interface DetailRow {
   label: string
   value: string
 }
 
 /** A column of the items or payments table. */
-interface TableColumn {
+export interface TableColumn {
   header: string
   width: number
   align?: 'left' | 'center' | 'right'
@@ -128,7 +128,7 @@ const PAYMENT_COLUMNS: TableColumn[] = [
  * The invoice being laid out. The cursor walks down the page and asks for room
  * before each block; when a block will not fit, the page is turned under it.
  */
-class InvoiceLayout {
+export class InvoiceLayout {
   readonly doc = new PdfDocument()
   private y = MARGIN
 
@@ -193,30 +193,38 @@ class InvoiceLayout {
   }
 }
 
-/** The band at the top: who the bill is from, and what it is. */
-function drawHeader(layout: InvoiceLayout, input: InvoiceInput, paymentStatus: string): void {
+/**
+ * The band at the top: who the document is from, and what it is — `INVOICE`
+ * on a job card's bill, `RECEIPT` on a car sale's.
+ */
+export function drawHeader(
+  layout: InvoiceLayout,
+  garage: InvoiceGarage,
+  paymentStatus: string,
+  title = 'INVOICE',
+): void {
   const { doc } = layout
   const height = 96
 
   doc.rect(0, 0, doc.width, height, { fill: INK })
   doc.rect(0, height, doc.width, 4, { fill: BRAND })
 
-  const garageName = value(input.garage.name) === EMPTY ? 'Garage' : String(input.garage.name).trim()
+  const garageName = value(garage.name) === EMPTY ? 'Garage' : String(garage.name).trim()
   doc.text(garageName, layout.leftEdge, 40, { size: 20, weight: 'bold', color: PAPER })
 
-  const owner = [input.garage.ownerName, input.garage.city]
+  const owner = [garage.ownerName, garage.city]
     .map((part) => part?.trim())
     .filter(Boolean)
     .join(', ')
   if (owner) doc.text(owner, layout.leftEdge, 58, { size: 9.5, color: hex('#94a3b8') })
 
-  const contact = [input.garage.mobile, input.garage.email]
+  const contact = [garage.mobile, garage.email]
     .map((part) => part?.trim())
     .filter(Boolean)
     .join('   |   ')
   if (contact) doc.text(contact, layout.leftEdge, 74, { size: 9.5, color: hex('#cbd5e1') })
 
-  doc.text('INVOICE', layout.rightEdge, 42, {
+  doc.text(title, layout.rightEdge, 42, {
     size: 22,
     weight: 'bold',
     color: PAPER,
@@ -239,7 +247,7 @@ function drawHeader(layout: InvoiceLayout, input: InvoiceInput, paymentStatus: s
 }
 
 /** The four figures that identify the bill, in one strip of cells. */
-function drawMetaStrip(layout: InvoiceLayout, cells: DetailRow[]): void {
+export function drawMetaStrip(layout: InvoiceLayout, cells: DetailRow[]): void {
   const { doc } = layout
   const height = 44
   layout.ensure(height + 14)
@@ -264,7 +272,7 @@ function drawMetaStrip(layout: InvoiceLayout, cells: DetailRow[]): void {
  * One titled box of `label: value` rows. Drawn to a height handed in from
  * outside so the pair of them line up whatever each holds.
  */
-function drawDetailBox(
+export function drawDetailBox(
   layout: InvoiceLayout,
   x: number,
   width: number,
@@ -303,7 +311,7 @@ function drawDetailBox(
 }
 
 /** The height a detail box needs for its rows. */
-function detailBoxHeight(rows: DetailRow[]): number {
+export function detailBoxHeight(rows: DetailRow[]): number {
   return 44 + 16 + rows.length * 14
 }
 
@@ -391,7 +399,7 @@ function drawJobDetails(layout: InvoiceLayout, input: InvoiceInput): void {
 }
 
 /** The header row of a table, repeated at the top of every page it runs onto. */
-function drawTableHead(layout: InvoiceLayout, columns: TableColumn[]): void {
+export function drawTableHead(layout: InvoiceLayout, columns: TableColumn[]): void {
   const { doc } = layout
   const height = 22
   const top = layout.cursor
@@ -415,7 +423,7 @@ function drawTableHead(layout: InvoiceLayout, columns: TableColumn[]): void {
 }
 
 /** One row of cells, each already reduced to the lines it prints as. */
-function drawTableRow(
+export function drawTableRow(
   layout: InvoiceLayout,
   columns: TableColumn[],
   cells: string[][],
@@ -490,10 +498,25 @@ function drawItems(layout: InvoiceLayout, input: InvoiceInput): void {
   layout.cursor += 14
 }
 
+/** The words around the totals block, which differ between documents. */
+export interface TotalsWording {
+  totalLabel: string
+  /** The sentence beside a balance still owing, handed the balance itself. */
+  dueNote: (balance: string) => string
+  settledNote: string
+}
+
+const INVOICE_TOTALS: TotalsWording = {
+  totalLabel: 'Total Amount',
+  dueNote: (balance) => `${balance} is still to be collected on this job card.`,
+  settledNote: 'This bill is fully settled. Thank you for your business.',
+}
+
 /** What the work came to, what has come in, and what is still owed. */
-function drawTotals(
+export function drawTotals(
   layout: InvoiceLayout,
   totals: { total: number; paid: number; balance: number },
+  wording: TotalsWording = INVOICE_TOTALS,
 ): void {
   const { doc } = layout
   const width = 240
@@ -517,7 +540,7 @@ function drawTotals(
   }
 
   doc.rect(x, top, width, height, { fill: SOFT, stroke: LINE })
-  row('Total Amount', formatMoney(totals.total), top + 18, INK)
+  row(wording.totalLabel, formatMoney(totals.total), top + 18, INK)
   row('Amount Paid', formatMoney(totals.paid), top + 18 + rowHeight, PAID)
 
   const balanceTop = top + height - 30
@@ -533,9 +556,7 @@ function drawTotals(
   // The left of the block is otherwise empty page, so the sentence the desk
   // would say out loud goes there.
   const note =
-    totals.balance > 0
-      ? `${formatMoney(totals.balance)} is still to be collected on this job card.`
-      : 'This bill is fully settled. Thank you for your business.'
+    totals.balance > 0 ? wording.dueNote(formatMoney(totals.balance)) : wording.settledNote
   const noteWidth = layout.contentWidth - width - 20
   doc.wrapText(note, noteWidth, 9.5).forEach((line, index) => {
     doc.text(line, layout.leftEdge, top + 18 + index * 13, { size: 9.5, color: MUTED })
@@ -587,7 +608,12 @@ function drawPayments(layout: InvoiceLayout, input: InvoiceInput, total: number)
 }
 
 /** The same line at the foot of every page, once the last of them is drawn. */
-function drawFooters(layout: InvoiceLayout, input: InvoiceInput, generatedAt: Date): void {
+export function drawFooters(
+  layout: InvoiceLayout,
+  garage: InvoiceGarage,
+  generatedAt: Date,
+  documentName = 'invoice',
+): void {
   const { doc } = layout
   const y = doc.height - 30
 
@@ -595,7 +621,7 @@ function drawFooters(layout: InvoiceLayout, input: InvoiceInput, generatedAt: Da
     doc.line(layout.leftEdge, y - 12, layout.rightEdge, y - 12, { color: LINE })
 
     doc.text(
-      `Computer generated invoice - ${value(input.garage.name)} - ${moment(generatedAt.toISOString())}`,
+      `Computer generated ${documentName} - ${value(garage.name)} - ${moment(generatedAt.toISOString())}`,
       layout.leftEdge,
       y,
       { size: 8, weight: 'italic', color: MUTED },
@@ -623,7 +649,7 @@ export function buildInvoicePdf(input: InvoiceInput): Blob {
 
   const layout = new InvoiceLayout(`Invoice ${card.jobNumber}`)
 
-  drawHeader(layout, input, status)
+  drawHeader(layout, input.garage, status)
   drawMetaStrip(layout, [
     { label: 'Invoice / Job No.', value: value(card.jobNumber) },
     { label: 'Invoice Date', value: formatDayMonthYear(generatedAt) },
@@ -635,7 +661,7 @@ export function buildInvoicePdf(input: InvoiceInput): Blob {
   drawItems(layout, input)
   drawTotals(layout, { total, paid, balance })
   drawPayments(layout, input, total)
-  drawFooters(layout, input, generatedAt)
+  drawFooters(layout, input.garage, generatedAt)
 
   return layout.doc.blob()
 }

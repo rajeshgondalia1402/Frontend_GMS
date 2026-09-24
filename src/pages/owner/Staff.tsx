@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Pencil, Phone, Plus, UsersRound } from 'lucide-react'
+import { Phone, Plus, UsersRound } from 'lucide-react'
 import {
   ActionButton,
   DEFAULT_PAGE_SIZE,
@@ -208,7 +208,6 @@ export function Staff() {
                   <ActionButton
                     layout="card"
                     tone="primary"
-                    icon={<Pencil className="h-4 w-4" />}
                     onClick={() => openEdit(s)}
                   >
                     Edit Staff

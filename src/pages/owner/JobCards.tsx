@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Download, Eye, FileText, IndianRupee, Minus, Pencil, Plus, Wrench } from 'lucide-react'
+import {
+  ChevronDown,
+  Download,
+  Eye,
+  FileText,
+  IndianRupee,
+  Pencil,
+  Plus,
+  Wrench,
+} from 'lucide-react'
 import {
   ActionButton,
   DEFAULT_PAGE_SIZE,
@@ -23,11 +32,11 @@ import {
   formatServiceDate,
   jobCardStatusLabel,
   jobCardStatusTone,
-  vehicleDisplayName,
 } from '@/lib/jobCard'
 import { paymentStatusLabel, paymentStatusTone } from '@/lib/payment'
 import { datedFileName, downloadExcel } from '@/lib/excel'
 import { downloadInvoice } from '@/lib/invoice'
+import { JobCardMoreDetails } from '@/components/jobcards'
 import { cn } from '@/lib/utils'
 import type { Pagination } from '@/types/auth'
 import type { JobCardListParams, JobCardRecord } from '@/types/jobCard'
@@ -71,41 +80,6 @@ const ACTION_WIDTH = {
   invoice: 'w-[4.25rem]',
   money: 'w-[4.75rem]',
   open: 'w-[3.5rem]',
-}
-
-/**
- * Who the card is for, opened from the `+` at the start of its row.
- *
- * A make and model, a registration, a name and a mobile number are four
- * long values, and columns wide enough for all four leave the table with
- * nothing for the money and the buttons. They are read here instead, on the
- * row that needs them rather than on every row at once.
- */
-function JobCardParties({ job }: { job: JobCardRecord }) {
-  const vehicle = job.vehicle
-  const customer = vehicle?.customer
-
-  const fields = [
-    { label: 'Vehicle', value: vehicle ? vehicleDisplayName(vehicle) : '' },
-    { label: 'Vehicle Number', value: vehicle?.vehicleNumber },
-    { label: 'Customer Name', value: customer?.fullName },
-    { label: 'Mobile Number', value: customer?.mobileNumber },
-  ]
-
-  return (
-    <div className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-4">
-      {fields.map((field) => (
-        <div key={field.label} className="min-w-0">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-            {field.label}
-          </p>
-          <p className="mt-0.5 break-words text-sm font-medium text-slate-900">
-            {field.value?.trim() || '—'}
-          </p>
-        </div>
-      ))}
-    </div>
-  )
 }
 
 /** What was billed, in the desk's words — the line descriptions. */
@@ -293,10 +267,12 @@ export function JobCards() {
         type="button"
         onClick={() => toggleParties(job.id)}
         aria-expanded={open}
+        title={open ? 'Hide details' : 'More details'}
         aria-label={`${open ? "Hide" : "Show"} the vehicle and customer of ${job.jobNumber}`}
         className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:border-slate-300 hover:bg-slate-100 hover:text-slate-700"
       >
-        {open ? <Minus className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+        {/* The same arrow the car lists use, turning as the details open. */}
+        <ChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
     )
   }
@@ -473,13 +449,13 @@ export function JobCards() {
             sortOrder={sort.order}
             onSort={handleSort}
             isExpanded={isExpanded}
-            renderExpanded={(job) => <JobCardParties job={job} />}
+            renderExpanded={(job) => <JobCardMoreDetails job={job} />}
             fitWidth
             renderCard={(job) => (
               <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-card">
                 <div className="flex items-start justify-between gap-3">
-                  {/* The same `+` the table row carries, opening the same
-                      four fields under the card. */}
+                  {/* The same arrow the table row carries, opening the same
+                      details under the card. */}
                   <div className="flex min-w-0 items-start gap-3">
                     {expandToggle(job)}
                     <div className="min-w-0">

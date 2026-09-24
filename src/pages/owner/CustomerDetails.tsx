@@ -196,6 +196,7 @@ export function CustomerDetails() {
 
         <CustomerSummaryCard
           customer={customer}
+          vehicles={vehicles}
           onEdit={() => setEditing(true)}
           footer={
             !formOpen && (
@@ -235,7 +236,8 @@ export function CustomerDetails() {
         {vehicles.length > 0 && (
           <div className="space-y-3">
             <h2 className="text-sm font-semibold text-slate-700">Vehicles ({vehicles.length})</h2>
-            <div className="space-y-3">
+            {/* Cards side by side where there is room; each stretches to its row. */}
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
               {vehicles.map((vehicle) => (
                 <VehicleSummaryCard key={vehicle.id} vehicle={vehicle} detailed />
               ))}

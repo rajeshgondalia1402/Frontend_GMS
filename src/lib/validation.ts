@@ -327,3 +327,184 @@ export function adminNewPasswordRules(getCurrentPassword: () => string) {
     },
   }
 }
+
+/**
+ * Car selling form rules — mirror the schema behind `POST /api/auth/car-selling`.
+ * Only the owner's name, mobile number and fuel type are required.
+ */
+export const CAR_OWNER_NAME_MAX_LENGTH = 100
+export const CAR_ADDRESS_MAX_LENGTH = 250
+export const CAR_TYPE_MAX_LENGTH = 30
+export const CAR_COMPANY_MAX_LENGTH = 50
+export const CAR_COLOR_MAX_LENGTH = 30
+export const CAR_DESCRIPTION_MAX_LENGTH = 255
+export const CAR_YEAR_MIN = 1900
+export const CAR_PREVIOUS_OWNERS_MAX = 20
+export const SELLING_PRICE_MAX = 99999999.99
+
+/** The API takes a year up to next year — a new model is sold before it starts. */
+export const carYearMax = () => new Date().getFullYear() + 1
+
+export const carOwnerNameRules = requiredTextRules('Owner name', CAR_OWNER_NAME_MAX_LENGTH)
+export const optionalCarAddressRules = optionalTextRules('Address', CAR_ADDRESS_MAX_LENGTH)
+export const optionalCarTypeRules = optionalTextRules('Car name', CAR_TYPE_MAX_LENGTH)
+export const optionalCarCompanyRules = optionalTextRules('Company', CAR_COMPANY_MAX_LENGTH)
+export const optionalCarColorRules = optionalTextRules('Car color', CAR_COLOR_MAX_LENGTH)
+
+/**
+ * Every car put up for sale is identified by its registration number, which
+ * is normalised and length checked exactly like a vehicle's.
+ */
+export const carNumberRules = {
+  required: 'Car number is required',
+  validate: (value: string) => {
+    const number = normalizeVehicleNumber(value)
+    if (!number) return 'Car number is required'
+    if (number.length < VEHICLE_NUMBER_MIN_LENGTH) {
+      return `Car number must be at least ${VEHICLE_NUMBER_MIN_LENGTH} characters`
+    }
+    return true
+  },
+}
+export const optionalCarDescriptionRules = optionalTextRules(
+  'Description',
+  CAR_DESCRIPTION_MAX_LENGTH,
+)
+
+/** The one car detail that has to be picked — the API refuses a car without it. */
+export const fuelTypeRules = {
+  required: 'Fuel type is required',
+  validate: (value: string) => ((value ?? '').trim() ? true : 'Fuel type is required'),
+}
+
+export const yearOfVehicleRules = {
+  validate: (value: string) => {
+    const year = String(value ?? '').trim()
+    if (!year) return true
+    if (!/^\d{4}$/.test(year)) return 'Enter a 4 digit year'
+    const max = carYearMax()
+    if (Number(year) < CAR_YEAR_MIN || Number(year) > max) {
+      return `Year must be between ${CAR_YEAR_MIN} and ${max}`
+    }
+    return true
+  },
+}
+
+/**
+ * Required on the form, although the API would take a car with no price: a
+ * listing is not put up until the garage knows what it is asking for it.
+ */
+export const sellingPriceRules = {
+  required: 'Selling price is required',
+  validate: (value: string) => {
+    const price = String(value ?? '').trim()
+    if (!price) return 'Selling price is required'
+    if (!/^\d+(\.\d{1,2})?$/.test(price)) {
+      return 'Enter a positive amount with at most 2 decimal places'
+    }
+    if (Number(price) <= 0) return 'Selling price must be more than 0'
+    if (Number(price) > SELLING_PRICE_MAX) {
+      return `Selling price must be at most ${SELLING_PRICE_MAX.toLocaleString('en-IN')}`
+    }
+    return true
+  },
+}
+
+/**
+ * Car sold form rules — mirror the schema behind
+ * `POST /api/auth/car-selling/:id/sold-customer`.
+ *
+ * The car, the final price, the buyer's name and the buyer's mobile number are
+ * required; the address is not, and the delivered status always has a value
+ * because the dropdown starts on Pending.
+ */
+export const PURCHASE_OWNER_NAME_MAX_LENGTH = 100
+export const PURCHASE_OWNER_ADDRESS_MAX_LENGTH = 250
+
+export const carSoldCarRules = {
+  required: 'Select the car that was sold',
+  validate: (value: string) => ((value ?? '').trim() ? true : 'Select the car that was sold'),
+}
+
+export const purchaseOwnerNameRules = requiredTextRules(
+  'Buyer name',
+  PURCHASE_OWNER_NAME_MAX_LENGTH,
+)
+
+export const optionalPurchaseOwnerAddressRules = optionalTextRules(
+  'Buyer address',
+  PURCHASE_OWNER_ADDRESS_MAX_LENGTH,
+)
+
+/**
+ * What the car actually went for — the price the payments against this sale
+ * are measured against, so it may not be 0 or left blank. Same DECIMAL(10,2)
+ * bounds as the listing's asking price.
+ */
+export const finalSellingPriceRules = {
+  required: 'Final selling price is required',
+  validate: (value: string) => {
+    const price = String(value ?? '').trim()
+    if (!price) return 'Final selling price is required'
+    if (!/^\d+(\.\d{1,2})?$/.test(price)) {
+      return 'Enter a positive amount with at most 2 decimal places'
+    }
+    if (Number(price) <= 0) return 'Final selling price must be more than 0'
+    if (Number(price) > SELLING_PRICE_MAX) {
+      return `Final selling price must be at most ${SELLING_PRICE_MAX.toLocaleString('en-IN')}`
+    }
+    return true
+  },
+}
+
+/**
+ * The day the car was handed over. Optional — left blank on a delivered sale
+ * the API stamps today — but it can never be in the future, and the API only
+ * accepts it at all while the status is Delivered.
+ */
+export const deliveredDateRules = {
+  validate: (value: string) => {
+    const date = String(value ?? '').trim()
+    if (!date) return true
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return 'Enter a valid date'
+
+    const now = new Date()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    const today = `${now.getFullYear()}-${month}-${day}`
+
+    return date > today ? 'Delivered date cannot be in the future' : true
+  },
+}
+
+/**
+ * The money taken at the counter. Never 0, and never more than the car went
+ * for: the API refuses a receipt bigger than `finalSellingPrice`, and a buyer
+ * who hands over more than the price is owed change, not a bigger sale. Pass
+ * `required` where the amount may not be left blank.
+ *
+ * `max` is read when the rule runs rather than captured, so typing a different
+ * final price re-checks the amount against it.
+ */
+export function carSoldPaymentRules(
+  max: () => number,
+  label = 'Payment amount',
+  required = false,
+) {
+  return {
+    validate: (value: string) => {
+      const amount = String(value ?? '').trim()
+      if (!amount) return required ? `${label} is required` : true
+      if (!/^\d+(\.\d{1,2})?$/.test(amount)) {
+        return 'Enter a positive amount with at most 2 decimal places'
+      }
+      if (Number(amount) <= 0) return `${label} must be more than 0`
+
+      const limit = max()
+      if (limit > 0 && Number(amount) > limit) {
+        return `${label} cannot be more than ${limit.toLocaleString('en-IN')}`
+      }
+      return true
+    },
+  }
+}

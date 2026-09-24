@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Minus, Phone, Car, Users, Eye, Download } from 'lucide-react'
+import { Car, ChevronDown, Download, Eye, Phone, Plus, Users } from 'lucide-react'
 import {
   ActionButton,
   DEFAULT_PAGE_SIZE,
@@ -12,7 +12,7 @@ import {
 import type { Column, SortBarField, SortOrder } from '@/components/common'
 import { ResponsiveList, SortBar } from '@/components/common'
 import { Button, EmptyState, ErrorState, LoadingState } from '@/components/ui'
-import { CustomerVehicleList } from '@/components/customers'
+import { CustomerMoreDetails } from '@/components/customers'
 import { useAuth } from '@/context/AuthContext'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { customerService } from '@/services/customerService'
@@ -234,20 +234,23 @@ export function Customers() {
 
   const isExpanded = (c: CustomerWithVehicles) => expanded.has(c.id)
 
-  /** Only customers with vehicles get a toggle; the rest keep the column blank. */
+  /**
+   * Every customer gets a toggle: the details hold their contact and notes as
+   * well as their vehicles, so there is something to open even with none.
+   */
   const expandToggle = (c: CustomerWithVehicles) => {
-    if ((c.vehicles ?? []).length === 0) return null
-
     const open = isExpanded(c)
     return (
       <button
         type="button"
         onClick={() => toggleVehicles(c.id)}
         aria-expanded={open}
-        aria-label={`${open ? 'Hide' : 'Show'} vehicles of ${c.fullName}`}
+        title={open ? 'Hide details' : 'More details'}
+        aria-label={`${open ? 'Hide' : 'Show'} details of ${c.fullName}`}
         className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:border-slate-300 hover:bg-slate-100 hover:text-slate-700"
       >
-        {open ? <Minus className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+        {/* The same arrow the car lists use, turning as the details open. */}
+        <ChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
     )
   }
@@ -395,7 +398,7 @@ export function Customers() {
             sortOrder={sort.order}
             onSort={handleSort}
             isExpanded={isExpanded}
-            renderExpanded={(c) => <CustomerVehicleList vehicles={c.vehicles ?? []} />}
+            renderExpanded={(c) => <CustomerMoreDetails customer={c} />}
             renderCard={(c) => (
               <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-card">
                 <div className="flex items-start justify-between gap-3">

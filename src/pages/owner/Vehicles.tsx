@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Car, Download, Eye, Phone, Plus } from 'lucide-react'
+import { Car, ChevronDown, Download, Eye, Phone, Plus } from 'lucide-react'
 import {
   ActionButton,
   DEFAULT_PAGE_SIZE,
@@ -12,6 +12,7 @@ import {
 import type { Column, SortBarField, SortOrder } from '@/components/common'
 import { ResponsiveList, SortBar } from '@/components/common'
 import { Badge, Button, EmptyState, ErrorState, LoadingState } from '@/components/ui'
+import { VehicleMoreDetails } from '@/components/vehicles'
 import { useAuth } from '@/context/AuthContext'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { vehicleService } from '@/services/vehicleService'
@@ -145,6 +146,8 @@ export function Vehicles() {
   const [total, setTotal] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  /** Ids of the vehicles whose details are open under their row. */
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
 
   // Only the newest request may write to state: a slow response for an earlier
   // search term must not overwrite the results of the one being typed now.
@@ -277,7 +280,37 @@ export function Vehicles() {
       rows,
     )
 
+  const isExpanded = (v: VehicleWithCustomer) => expanded.has(v.id)
+
+  const toggleDetails = (id: string) =>
+    setExpanded((current) => {
+      const next = new Set(current)
+      if (!next.delete(id)) next.add(id)
+      return next
+    })
+
+  /** The arrow that opens the rest of a vehicle, turning as it opens. */
+  const expandToggle = (v: VehicleWithCustomer) => {
+    const open = isExpanded(v)
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          toggleDetails(v.id)
+        }}
+        aria-expanded={open}
+        aria-label={`${open ? 'Hide' : 'Show'} the details of ${v.vehicleNumber}`}
+        title={open ? 'Hide details' : 'More details'}
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:border-slate-300 hover:bg-slate-100 hover:text-slate-700"
+      >
+        <ChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+    )
+  }
+
   const columns: Column<VehicleWithCustomer>[] = [
+    { header: '', className: 'w-10 pr-0', accessor: expandToggle },
     {
       header: 'Vehicle',
       sortKey: 'vehicleType',
@@ -408,6 +441,8 @@ export function Vehicles() {
             sortBy={sort.field}
             sortOrder={sort.order}
             onSort={handleSort}
+            isExpanded={isExpanded}
+            renderExpanded={(v) => <VehicleMoreDetails vehicle={v} />}
             renderCard={(v) => (
               <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-card">
                 <div className="flex items-start justify-between gap-3">
@@ -425,6 +460,7 @@ export function Vehicles() {
                       <Badge tone={vehicleStatusTone(v.status)}>{vehicleStatusLabel(v.status)}</Badge>
                     )}
                     {v.fuelType && <Badge tone="neutral">{v.fuelType}</Badge>}
+                    {expandToggle(v)}
                   </div>
                 </div>
 
