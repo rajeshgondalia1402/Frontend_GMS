@@ -17,7 +17,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { SubscriptionBanner } from '@/components/common/SubscriptionBanner'
-import { SummaryCard } from '@/components/dashboard'
+import { MonthlyCharts, SummaryCard } from '@/components/dashboard'
 import type { SummaryTone } from '@/components/dashboard'
 import { Badge, Skeleton } from '@/components/ui'
 import { useAuth } from '@/context/AuthContext'
@@ -260,6 +260,8 @@ export function Dashboard() {
       {section('Overall', 'Since the garage opened', TOTAL_TILES)}
       {section(monthLabel(summary?.month), 'From the 1st to today', MONTH_TILES)}
       {section('Needs Attention', 'All time, not just this month', ATTENTION_TILES)}
+
+      <MonthlyCharts />
 
       {/* Recent job cards */}
       <section>
