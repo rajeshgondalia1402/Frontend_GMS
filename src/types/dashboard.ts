@@ -62,3 +62,27 @@ export interface DashboardSummary {
   jobCards: DashboardJobCards
   revenue: DashboardRevenue
 }
+
+/** One bar on each of the dashboard's two monthly charts. */
+export interface DashboardChartMonth {
+  /** 1 for January, 12 for December. */
+  month: number
+  /** `Jan` … `Dec`. */
+  label: string
+  /** Money **collected** that month, by the date each payment came in. */
+  revenue: number
+  /** Job cards opened that month — one per vehicle brought in for service. */
+  jobCards: number
+}
+
+/**
+ * `GET /api/auth/dashboard/monthly?year=2026` — revenue and job cards month by
+ * month. The current year runs January to the month running now; a past year
+ * is all twelve.
+ */
+export interface DashboardMonthlyChart {
+  year: number
+  /** The years the dropdown offers, newest first. */
+  years: number[]
+  months: DashboardChartMonth[]
+}
