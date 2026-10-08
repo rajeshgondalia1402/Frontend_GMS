@@ -82,6 +82,8 @@ export function CarSoldForm() {
   const [loadAttempt, setLoadAttempt] = useState(0)
 
   const [picked, setPicked] = useState<CarSellingOption | null>(null)
+  /** The picked car's asking price, once its details have loaded. */
+  const [loadedAskingPrice, setLoadedAskingPrice] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -95,6 +97,7 @@ export function CarSoldForm() {
     setError: setFieldError,
     setFocus,
     watch,
+    trigger,
     formState: { errors },
   } = useForm<CarSoldFormValues>({
     mode: 'onTouched',
@@ -143,35 +146,49 @@ export function CarSoldForm() {
 
   const onCarPicked = (car: CarSellingOption | null) => {
     setPicked(car)
+    setLoadedAskingPrice(null)
     setValue('carSellingId', car?.id ?? '', { shouldValidate: Boolean(car) })
     setError(null)
   }
 
   /**
-   * The asking price is what the deal usually closes at, so it is offered as
-   * the final price — only while the field is still untouched, so a figure the
-   * desk has already typed is never overwritten.
+   * Only the asking price is kept, to check the final price against. The final
+   * price itself is left for the desk to type - it is never filled in.
    */
-  const onCarLoaded = useCallback(
-    (car: CarSellingRecord) => {
-      setValue('finalSellingPrice', car.sellingPrice === null ? '' : String(car.sellingPrice))
-    },
-    [setValue],
-  )
+  const onCarLoaded = useCallback((car: CarSellingRecord) => {
+    setLoadedAskingPrice(car.sellingPrice)
+  }, [])
 
-  /** On an edit the price may not drop below what the buyer has already paid. */
-  const priceRules = sale
-    ? {
-        ...finalSellingPriceRules,
-        validate: (value: string) => {
-          const valid = finalSellingPriceRules.validate(value)
-          if (valid !== true) return valid
-          return Number(value.trim()) >= sale.paidAmount
-            ? true
-            : `Cannot be less than the ${amountLabel(sale.paidAmount)} already paid`
-        },
+  /** The listing's asking price: from the sale on an edit, the picked car on an add. */
+  const askingPrice = sale ? (editing?.sellingPrice ?? null) : loadedAskingPrice
+
+  // A price typed before the car's details arrived is re-checked against them.
+  useEffect(() => {
+    if (String(getValues('finalSellingPrice') ?? '').trim()) void trigger('finalSellingPrice')
+  }, [askingPrice, getValues, trigger])
+
+  /**
+   * The deal must close above the asking price - equal to it or lower is
+   * refused - and on an edit it may not drop below what has already been paid.
+   */
+  const priceRules = {
+    ...finalSellingPriceRules,
+    validate: (value: string) => {
+      const valid = finalSellingPriceRules.validate(value)
+      if (valid !== true) return valid
+      const price = Number(value.trim())
+      // An edit that keeps the saved price is not re-judged, so a sale recorded
+      // before this rule can still have its other fields changed.
+      const unchanged = sale !== null && price === sale.finalSellingPrice
+      if (!unchanged && askingPrice !== null && askingPrice > 0 && price <= askingPrice) {
+        return `Must be more than the selling price of ${amountLabel(askingPrice)}`
       }
-    : finalSellingPriceRules
+      if (sale && price < sale.paidAmount) {
+        return `Cannot be less than the ${amountLabel(sale.paidAmount)} already paid`
+      }
+      return true
+    },
+  }
 
   const mobileField = register('purchaseOwnerMobileNo', mobileNumberRules)
 
@@ -311,7 +328,9 @@ export function CarSoldForm() {
               hint={
                 sale && sale.paidAmount > 0
                   ? `${amountLabel(sale.paidAmount)} already paid`
-                  : 'What the car actually went for'
+                  : askingPrice
+                    ? `More than the selling price of ${amountLabel(askingPrice)}`
+                    : 'What the car actually went for'
               }
               leftIcon={<IndianRupee className="h-4 w-4" />}
               error={errors.finalSellingPrice?.message}
@@ -328,7 +347,7 @@ export function CarSoldForm() {
           </div>
 
           <div className="mt-4">
-            {/* On an edit the price is the deal's, so the asking price is not offered. */}
+            {/* On an edit the asking price comes from the sale itself. */}
             <SelectedCarDetails
               carSellingId={carSellingId}
               onLoaded={sale ? undefined : onCarLoaded}

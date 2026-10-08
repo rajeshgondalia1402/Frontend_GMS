@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Building2, CalendarDays, ClipboardList, Download, MapPin, Phone } from 'lucide-react'
 import {
   ActionButton,
@@ -123,8 +124,17 @@ export function AdminGarages() {
   // One request per pause in typing, not one per keystroke.
   const search = useDebouncedValue(query.trim(), 350)
 
-  const [state, setState] = useState('all')
-  const [plan, setPlan] = useState('')
+  // `?state=` and `?plan=` open the list already narrowed — the dashboard's
+  // action items link here that way. Anything unrecognised is ignored.
+  const [searchParams] = useSearchParams()
+  const [state, setState] = useState(() => {
+    const value = searchParams.get('state')
+    return STATE_FILTERS.some((f) => f.value === value) ? (value as string) : 'all'
+  })
+  const [plan, setPlan] = useState(() => {
+    const value = searchParams.get('plan')
+    return value && PLAN_FILTER_OPTIONS.some((o) => o.value === value) ? value : ''
+  })
   const [status, setStatus] = useState('')
 
   const [rows, setRows] = useState<GarageReportRow[]>([])

@@ -7,9 +7,11 @@ Tailwind CSS. It talks to the **Node.js API** in
 **Authentication, Customers, Vehicles, Staff, Job Cards, Payments and the
 Dashboard are wired to the real API** — registration, OTP verification, login,
 the garage profile, change password and forgot password, plus the modules the
-desk works in all day, the money taken against a card, and every figure at the
-top of the dashboard. Billing, Salary, Reports and the whole Platform Admin
-panel still render mock data; those are integrated one at a time.
+desk works in all day, the money taken against a card, and the whole dashboard —
+its figures, the list behind each one, and the monthly charts with a popup for
+every bar — and the two revenue reports under the Reports menu. Billing, Salary
+and the whole Platform Admin panel still render mock data; those are integrated
+one at a time.
 
 ## Tech Stack
 
@@ -126,6 +128,18 @@ during development that usually means the API is not running.
 | `POST /auth/car-selling/sold-customer/:id/payment` | token | Collect Payment dialog |
 | `POST /auth/car-selling/sold-customer/:id/payment/:paymentId` | token | Edit Payment dialog |
 | `GET /auth/dashboard/summary` | token | `/app` — every tile at the top |
+| `GET /auth/dashboard/new-customers` | token | `/app` — the New Customers list (open on landing) |
+| `GET /auth/dashboard/new-vehicles` | token | `/app` — the New Vehicles list |
+| `GET /auth/dashboard/new-job-cards` | token | `/app` — the New Job Cards list |
+| `GET /auth/dashboard/pending-vehicles` | token | `/app` — the Pending Vehicles list |
+| `GET /auth/dashboard/in-service-vehicles` | token | `/app` — the In Service list |
+| `GET /auth/dashboard/unpaid-bills` | token | `/app` — the Unpaid Bills list |
+| `GET /auth/dashboard/partially-paid-bills` | token | `/app` — the Partially Paid list |
+| `GET /auth/dashboard/monthly` | token | `/app` — the two bar charts, for the year picked |
+| `GET /auth/dashboard/monthly/revenue` | token | `/app` — the popup behind a Revenue Overview bar |
+| `GET /auth/dashboard/monthly/job-cards` | token | `/app` — the popup behind a Vehicle Services bar |
+| `GET /auth/dashboard/reports/total-revenue` | token | `/app/reports/total-revenue` — and its Excel download |
+| `GET /auth/dashboard/reports/revenue-this-month` | token | `/app/reports/revenue-this-month` — and its Excel download |
 | `POST /admin/login` | — | `/admin/login` |
 | `POST /admin/change-password` | admin token | Admin change-password dialog |
 
@@ -859,39 +873,150 @@ in the box. Ask for "All" rows first to download everything.
 
 ## The Dashboard
 
-Twelve figures, in **one request** — `GET /auth/dashboard/summary` — so the
-screen does not open with a dozen requests racing each other. They are grouped
-under the heading that says what each row is counted over:
+`src/pages/owner/Dashboard.tsx`, top to bottom: the greeting and the plan, nine
+figure tiles, the list behind whichever tile is selected, and the year's two bar
+charts.
+
+### The tiles
+
+Nine figures, in **one request** — `GET /auth/dashboard/summary` — so the screen
+does not open with a dozen requests racing each other. Four in the first row,
+five in the second:
 
 | Row | Tiles |
 | --- | --- |
-| **Overall** — since the garage opened | Total Customers · Total Vehicles · Total Job Cards · Total Revenue |
-| **The month**, named from the answer | New Customers · New Vehicles · New Job Cards · Revenue This Month |
-| **Needs Attention** — all time | Pending Vehicles · In Service · Unpaid Bills · Partially Paid |
+| **Overview** | Total Revenue · Revenue This Month · New Customers · New Vehicles |
+| **The month & Needs Attention**, named from the answer (*October 2026*) | New Job Cards · Pending Vehicles · In Service · Unpaid Bills · Partially Paid |
 
-The month row is the month **to date** — midnight on the 1st up to this moment,
+Each row fills the width on a desktop; below `xl` the five-tile row wraps to 3 + 2,
+and a phone shows two tiles a row.
+
+"This month" is the month **to date** — midnight on the 1st up to this moment,
 on the server's calendar — and the window comes back with the figures, so the
-heading names the month it is showing (*September 2026*) rather than working it
-out from the browser's own clock. It is read off the window's **end**: the start
-is midnight on the 1st in the server's timezone, and that instant falls in the
-previous month once a browser somewhere else in the world writes it out.
+heading names the month it is showing rather than working it out from the
+browser's own clock. It is read off the window's **end**: the start is midnight
+on the 1st in the server's timezone, and that instant falls in the previous
+month once a browser somewhere else in the world writes it out.
 
-The attention row is deliberately **all time**, not this month: an unpaid bill
-from March is still owed in September, and a month boundary would hide exactly
-what a garage opens this screen to see. `unpaid` and `partiallyPaid` count **job
-cards** — it is the bill that is unpaid, not the vehicle or the customer.
+Pending Vehicles, In Service, Unpaid Bills and Partially Paid are deliberately
+**all time**, not this month: an unpaid bill from March is still owed in
+September, and a month boundary would hide exactly what a garage opens this
+screen to see. The two bill tiles count **job cards** — it is the bill that is
+unpaid, not the vehicle or the customer.
 
 Revenue is money **collected**, counted by the date each payment came in, not
 work billed.
 
-Each tile links to the screen where those rows can be read one by one. While the
-request is out they paint with their labels and a bar in place of each figure,
-so nothing jumps when the numbers land; a failure is **one** message with a
-retry rather than twelve tiles each saying the same thing. A brand new garage is
-a `200` with zeros all the way down, never a 404.
+**Total Revenue** and **Revenue This Month** open their report — `/app/reports/total-revenue`
+and `/app/reports/revenue-this-month` — **in a new tab**, so the dashboard tab stays as it
+was. See [Revenue Reports](#revenue-reports).
 
-Below the tiles, the four newest job cards are the real rows from
-`GET /auth/jobcard`, each linking to its own card.
+While the request is out the tiles paint with their labels and a bar in place of
+each figure, so nothing jumps when the numbers land; a failure is **one** message
+with a retry rather than nine tiles each saying the same thing. A brand new
+garage is a `200` with zeros all the way down, never a 404.
+
+### The list behind a tile
+
+Every tile except the two revenue ones opens **its own list** under the tiles,
+instead of linking away. **New Customers** is selected when the dashboard opens.
+The selected tile is highlighted — a coloured border, a strip along its top edge
+and a filled icon — and clicking it again closes its list.
+
+| Tile | List | Endpoint | Order |
+| --- | --- | --- | --- |
+| New Customers | customers added this month, with their vehicle numbers | `/auth/dashboard/new-customers` | newest first |
+| New Vehicles | vehicles added this month, with the owner | `/auth/dashboard/new-vehicles` | newest first |
+| New Job Cards | job cards opened this month, with vehicle, owner, mechanic and paid / due | `/auth/dashboard/new-job-cards` | newest first |
+| Pending Vehicles | vehicles waiting to be worked on | `/auth/dashboard/pending-vehicles` | oldest first |
+| In Service | vehicles on the ramp right now | `/auth/dashboard/in-service-vehicles` | oldest first |
+| Unpaid Bills | job cards with nothing collected | `/auth/dashboard/unpaid-bills` | oldest first |
+| Partially Paid | job cards with a balance still owing | `/auth/dashboard/partially-paid-bills` | oldest first |
+
+- **One API per click.** Only the open list is mounted, so clicking a tile calls
+  that tile's endpoint and nothing else — the tiles, the charts and the other
+  lists are not fetched again.
+- **5 a page**, with the shared `PaginationBar` offering 5, 10, 25 or All.
+  Switching tiles starts the new list on its first page.
+- Each list's total is always the number on its tile: the server counts the list
+  exactly the way it counts the tile.
+- Opening a list **scrolls the page to it**, stopping just under the sticky top
+  bar, so a tap on a phone is never a list that opened out of sight. Landing on
+  the dashboard and closing a list do not scroll.
+- **Everything inside a list opens in a new tab** — a row, its arrow, the
+  "All customers / All vehicles / All job cards" button and the empty state's
+  add button — so the dashboard stays on the same tile, list and page. The
+  session lives in `localStorage`, so the new tab is signed in too. Customer and
+  vehicle rows open the owner's customer page; job card rows open the card.
+- Tables from tablet width up, stacked cards on a phone; loading rows, a retry
+  on failure, and an empty state for a list with nothing in it.
+
+The lists share one frame, `ListPanel` (header, count, states and paging), and
+two row layouts, `VehiclesPanel` and `JobCardsPanel`, each covering three tiles
+by a `variant`.
+
+### The monthly charts
+
+**Year Overview** draws `GET /auth/dashboard/monthly` as two bar charts —
+**Revenue Overview** (money collected each month) and **Vehicle Services** (job
+cards opened each month). The year dropdown offers **the current year and the 4
+before it** — five in all, newest first — and is worked out from today's date,
+so it moves on by itself in January. The current year runs January to this
+month; a past year is all twelve.
+
+**Clicking a bar opens a popup for that month.** The whole month column is
+clickable, not just the bar — a quiet month can be a sliver — and the cursor
+turns to a hand over it. Each popup calls only its own endpoint, 10 rows a page:
+
+| Chart | Popup | Endpoint |
+| --- | --- | --- |
+| Revenue Overview | the month's **total collected** and receipt count, the split by payment method, and every payment — job number, customer, vehicle, date and time, method, received by, amount | `/auth/dashboard/monthly/revenue?year=&month=` |
+| Vehicle Services | the month's **job cards opened** and total billed, the split by status (Pending / Delivered) and by payment (Unpaid / Partially paid / Paid), and every card — customer, vehicle, service date, mechanic, amount | `/auth/dashboard/monthly/job-cards?year=&month=` |
+
+The popup's total is always exactly the bar that was clicked: the server reads
+the month over the same window it drew the bar over. A row in either popup opens
+its job card in a new tab. On a phone the popup is a bottom sheet.
+
+## Revenue Reports
+
+`src/pages/owner/RevenueReport.tsx` — one page, two reports. The left menu has a
+**Reports** group with both under it (`/app/reports` itself redirects to Total Revenue),
+and the two revenue tiles on the dashboard open them in a new tab.
+
+| Menu entry | Route | Endpoint | Window | Trend |
+| --- | --- | --- | --- | --- |
+| Total Revenue | `/app/reports/total-revenue` | `GET /auth/dashboard/reports/total-revenue` | all time, or a from / to date range | month by month |
+| Revenue This Month | `/app/reports/revenue-this-month` | `GET /auth/dashboard/reports/revenue-this-month` | the 1st to now — the tile's own window | day by day |
+
+With no filters the report's total is **always the number on the tile** — the server
+counts both the same way: live receipts on live job cards, by payment date.
+
+Top to bottom:
+
+- **Header** — the report name and the window it covers (*All time — since 28-Apr-2025*,
+  *01-Oct-2026 to 05-Oct-2026*), with **Refresh**, **Excel** and **Print**.
+- **Filters** — a search (job number, customer, mobile or vehicle number, debounced), a
+  payment method, and — Total Revenue only — **from / to dates**. A to date before the
+  from date is flagged on the field and not sent. The filters narrow **everything**
+  together: a report of UPI payments totals UPI. Changing one goes back to page 1, and
+  *Clear filters* resets them.
+- **Four figures** — Total Collected (and from how many customers), Payments (against
+  how many job cards), Average Payment and Largest Payment.
+- **By payment method** — a stacked bar and a row per method with its total, count and
+  share.
+- **Month by month / Day by day** — a bar per month (or day), the empty ones drawn as
+  well, with the best one named; hover a bar for its total. A long run of months scrolls
+  sideways.
+- **Payments** — newest first, 10 a page (10 / 25 / 50 / 100): date and time, job number,
+  customer, vehicle, method and who took it, the bill's payment status and amount, and
+  the amount received. A table on a desktop, cards on a phone. **Clicking a payment
+  opens its job card in a new tab.**
+
+**Excel** downloads **every** payment the filters match, not just the page on screen —
+the report is asked for once more with a page big enough to hold them all — with the
+total, the filters and the split by method in the sheet's title block. **Print** prints
+the page itself: the sidebar, top bar, bottom bar, filters and paging are hidden in
+print, and the payments always print as the table.
 
 ## Panels & Routes
 
@@ -907,7 +1032,7 @@ Below the tiles, the four newest job cards are the real rows from
 ### Garage Owner (`/app`) — protected
 | Route | Screen | Status |
 | --- | --- | --- |
-| `/app` | Dashboard | **API integrated** — twelve figures from `GET /auth/dashboard/summary` |
+| `/app` | Dashboard | **API integrated** — nine tiles, the list behind each, and the monthly charts with a popup per bar |
 | `/app/customers` | Customer list | **API integrated** |
 | `/app/customers/new` | Add customer | **API integrated** |
 | `/app/customers/:id` | Customer details, vehicles, add/edit forms | **API integrated** |
@@ -926,7 +1051,10 @@ Below the tiles, the four newest job cards are the real rows from
 | `/app/car-sold/new` | Add Car Sold — pick the car, record the buyer | **API integrated** |
 | `/app/car-sold/:id/edit` | Edit a recorded sale (`:id` is the sale) | **API integrated** |
 | `/app/profile` | Garage Profile | Reads `GET /auth/me`; Save Changes is still mock |
-| `/app/billing`, `/app/salary`, `/app/reports` | Billing, Salary, Reports | Mock |
+| `/app/reports/total-revenue` | Reports › Total Revenue — also opened by the dashboard tile | **API integrated** |
+| `/app/reports/revenue-this-month` | Reports › Revenue This Month — also opened by the dashboard tile | **API integrated** |
+| `/app/reports` | Redirects to Total Revenue | — |
+| `/app/billing`, `/app/salary` | Billing, Salary | Mock |
 | `/app/subscription` | Subscription | Mock |
 
 ### Platform Admin (`/admin`)
@@ -983,7 +1111,13 @@ Reusable components live in `src/components/`:
   endpoint), SelectedCarDetails (the picked listing, read only),
   SaleStatusBadges, SoldCarMoreDetails (the sale and its receipts),
   CollectPaymentModal, EditPaymentModal (corrects one receipt's amount).
-- **`dashboard/`** — SummaryCard, one figure with its icon, colour and link.
+- **`dashboard/`** — SummaryCard (one figure with its icon and colour; a link —
+  in a new tab with `newTab` — or a toggle that opens its list and highlights
+  itself), ListPanel (the frame every
+  tile list sits in, plus the new-tab helpers), NewCustomersPanel, VehiclesPanel
+  and JobCardsPanel (the tile lists), MonthlyCharts (the two bar charts and the
+  year picker), RevenueMonthModal and JobCardsMonthModal (the popup behind a
+  bar).
 
 ### Rows, cards and their actions
 
@@ -1019,13 +1153,15 @@ src/
 │   ├── carSelling/ pick lists, flag badges, details modal, row details
 │   ├── carSold/    car picker, picked car, status badges, row details,
 │   │               collect and edit-payment dialogs
-│   └── dashboard/  SummaryCard — one figure per tile
+│   └── dashboard/  SummaryCard, ListPanel + the tile lists, MonthlyCharts,
+│                   and the two bar popups
 ├── config/       env.ts — API base URL
 ├── context/      AuthContext — session state, persistence, auto-logout
 ├── hooks/        useCountdown (OTP timers), useDebouncedValue,
 │                 useCustomerSearch, useCustomerVehicles, useAllStaff,
 │                 useJobNumber, useJobCardPayments, useDashboardSummary,
-│                 useSessionLifecycle
+│                 useDashboardMonthly, useDashboardPage (one page of a
+│                 tile list), useSessionLifecycle
 ├── layouts/      AppShell, OwnerLayout, AdminLayout, AuthLayout, navigation
 ├── lib/          utils, validation, subscription, dashboard,
 │                 excel, pdf, invoice, carSaleReceipt (the file writers),
@@ -1036,7 +1172,7 @@ src/
 │                 authStorage, adminAuthStorage,
 │                 pendingRegistration, pendingPasswordReset
 ├── mock/         static mock data (modules not yet integrated)
-├── pages/        auth/ · owner/ · admin/
+├── pages/        auth/ · owner/ (incl. RevenueReport — both revenue reports) · admin/
 ├── routes/       route definitions + Protected / PublicOnly / Admin guards
 ├── services/     httpClient, authService, customerService, vehicleService,
 │                 staffService, jobCardService, paymentService,
@@ -1057,10 +1193,11 @@ src/
 
 ## Notes
 
-- **Billing, Salary and Reports still use mock data and mock submission**
-  (simulated latency + toast); nothing is persisted. The dashboard is not among
-  them any more: every tile on it, and the recent job cards under them, come
-  from the API.
+- **Billing and Salary still use mock data and mock submission**
+  (simulated latency + toast); nothing is persisted. The dashboard and Reports
+  are not among them any more: every tile on the dashboard, the list behind
+  each tile, the charts, the popup behind each bar, and both revenue reports
+  come from the API.
 - **Garage Profile reads but does not write.** Save Changes is still a mock
   submission; the API has no profile-update endpoint yet.
 - The standalone vehicle form at `/app/vehicles/new` and `/app/vehicles/:id` is

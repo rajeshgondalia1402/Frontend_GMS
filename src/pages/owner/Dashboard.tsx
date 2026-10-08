@@ -1,35 +1,36 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
 import {
   AlertCircle,
-  Car,
   CarFront,
-  ChevronRight,
   ClipboardList,
   Clock,
   FilePlus2,
   IndianRupee,
   RefreshCw,
   UserPlus,
-  Users,
   Wallet,
   Wrench,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { SubscriptionBanner } from '@/components/common/SubscriptionBanner'
-import { MonthlyCharts, SummaryCard } from '@/components/dashboard'
-import type { SummaryTone } from '@/components/dashboard'
-import { Badge, Skeleton } from '@/components/ui'
+import {
+  MonthlyCharts,
+  JobCardsPanel,
+  NewCustomersPanel,
+  VehiclesPanel,
+  SummaryCard,
+} from '@/components/dashboard'
+import type {
+  JobCardsPanelVariant,
+  SummaryTone,
+  VehiclesPanelVariant,
+} from '@/components/dashboard'
 import { useAuth } from '@/context/AuthContext'
 import { useDashboardSummary } from '@/hooks/useDashboardSummary'
-import { jobCardService } from '@/services/jobCardService'
-import { ApiError } from '@/services/httpClient'
-import { jobCardStatusLabel, jobCardStatusTone, vehicleDisplayName } from '@/lib/jobCard'
 import { formatCount, monthLabel } from '@/lib/dashboard'
 import { formatCurrency, getGreeting, getInitial } from '@/lib/utils'
 import { getSubscriptionView } from '@/lib/subscription'
 import type { DashboardSummary } from '@/types/dashboard'
-import type { JobCardRecord } from '@/types/jobCard'
 
 /** One tile, as the three rows below describe theirs. */
 interface Tile {
@@ -40,41 +41,49 @@ interface Tile {
   value: (summary: DashboardSummary) => string
   hint?: string
   to?: string
+  /** Opens `to` in a new tab — the revenue tiles open their report there. */
+  newTab?: boolean
+  /** Opens its rows in a panel on the dashboard instead of linking away. */
+  panel?: DashboardPanel
 }
 
-/** What the garage has on its books, counted from the day it opened. */
+/**
+ * The lists a tile can open under the tiles. Only the open one is mounted, so
+ * clicking a tile calls that tile's API and no other.
+ */
+type DashboardPanel =
+  | 'newCustomers'
+  | 'newVehicles'
+  | 'newJobCards'
+  | 'pendingVehicles'
+  | 'inService'
+  | 'unpaidBills'
+  | 'partiallyPaid'
+
+/** The tiles whose rows are vehicles, and which vehicles each one lists. */
+const VEHICLE_PANELS: Partial<Record<DashboardPanel, VehiclesPanelVariant>> = {
+  newVehicles: 'new',
+  pendingVehicles: 'pending',
+  inService: 'inService',
+}
+
+/** The tiles whose rows are job cards, and which job cards each one lists. */
+const JOB_CARD_PANELS: Partial<Record<DashboardPanel, JobCardsPanelVariant>> = {
+  newJobCards: 'new',
+  unpaidBills: 'unpaid',
+  partiallyPaid: 'partial',
+}
+
+/** The money the garage has collected, counted from the day it opened. */
 const TOTAL_TILES: Tile[] = [
-  {
-    label: 'Total Customers',
-    icon: Users,
-    tone: 'primary',
-    value: (s) => formatCount(s.customers.total),
-    hint: 'On the books',
-    to: '/app/customers',
-  },
-  {
-    label: 'Total Vehicles',
-    icon: Car,
-    tone: 'info',
-    value: (s) => formatCount(s.vehicles.total),
-    hint: 'On the books',
-    to: '/app/vehicles',
-  },
-  {
-    label: 'Total Job Cards',
-    icon: Wrench,
-    tone: 'violet',
-    value: (s) => formatCount(s.jobCards.total),
-    hint: 'Opened all time',
-    to: '/app/job-cards',
-  },
   {
     label: 'Total Revenue',
     icon: Wallet,
     tone: 'success',
     value: (s) => formatCurrency(s.revenue.total),
     hint: 'Collected, not billed',
-    to: '/app/reports',
+    to: '/app/reports/total-revenue',
+    newTab: true,
   },
 ]
 
@@ -86,7 +95,7 @@ const MONTH_TILES: Tile[] = [
     tone: 'primary',
     value: (s) => formatCount(s.customers.thisMonth),
     hint: 'Added this month',
-    to: '/app/customers',
+    panel: 'newCustomers',
   },
   {
     label: 'New Vehicles',
@@ -94,7 +103,7 @@ const MONTH_TILES: Tile[] = [
     tone: 'info',
     value: (s) => formatCount(s.vehicles.thisMonth),
     hint: 'Added this month',
-    to: '/app/vehicles',
+    panel: 'newVehicles',
   },
   {
     label: 'New Job Cards',
@@ -102,7 +111,7 @@ const MONTH_TILES: Tile[] = [
     tone: 'violet',
     value: (s) => formatCount(s.jobCards.thisMonth),
     hint: 'Opened this month',
-    to: '/app/job-cards',
+    panel: 'newJobCards',
   },
   {
     label: 'Revenue This Month',
@@ -110,7 +119,8 @@ const MONTH_TILES: Tile[] = [
     tone: 'success',
     value: (s) => formatCurrency(s.revenue.thisMonth),
     hint: 'Collected this month',
-    to: '/app/reports',
+    to: '/app/reports/revenue-this-month',
+    newTab: true,
   },
 ]
 
@@ -126,7 +136,7 @@ const ATTENTION_TILES: Tile[] = [
     tone: 'warning',
     value: (s) => formatCount(s.vehicles.pending),
     hint: 'Waiting to be worked on',
-    to: '/app/vehicles',
+    panel: 'pendingVehicles',
   },
   {
     label: 'In Service',
@@ -134,7 +144,7 @@ const ATTENTION_TILES: Tile[] = [
     tone: 'info',
     value: (s) => formatCount(s.vehicles.inService),
     hint: 'On the ramp right now',
-    to: '/app/vehicles',
+    panel: 'inService',
   },
   {
     label: 'Unpaid Bills',
@@ -142,7 +152,7 @@ const ATTENTION_TILES: Tile[] = [
     tone: 'danger',
     value: (s) => formatCount(s.jobCards.unpaid),
     hint: 'Nothing collected yet',
-    to: '/app/job-cards',
+    panel: 'unpaidBills',
   },
   {
     label: 'Partially Paid',
@@ -150,9 +160,15 @@ const ATTENTION_TILES: Tile[] = [
     tone: 'warning',
     value: (s) => formatCount(s.jobCards.partiallyPaid),
     hint: 'Part of the bill still owing',
-    to: '/app/job-cards',
+    panel: 'partiallyPaid',
   },
 ]
+
+/** The first row: revenue all time and this month, then this month's new customers and vehicles. */
+const HEADLINE_TILES: Tile[] = [...TOTAL_TILES, MONTH_TILES[3], MONTH_TILES[0], MONTH_TILES[1]]
+
+/** The second row: this month's new job cards, then the work still waiting on the garage. */
+const ACTIVITY_TILES: Tile[] = [MONTH_TILES[2], ...ATTENTION_TILES]
 
 export function Dashboard() {
   const { user, session } = useAuth()
@@ -161,44 +177,44 @@ export function Dashboard() {
   /** Every figure at the top of the screen, in one request. */
   const { summary, loading: loadingSummary, error: summaryError, reload } = useDashboardSummary()
 
+  /** The tile whose rows are open under the tiles — new customers on landing. */
+  const [panel, setPanel] = useState<DashboardPanel | null>('newCustomers')
+  const togglePanel = (next: DashboardPanel) => {
+    const opening = panel !== next
+    setPanel(opening ? next : null)
+    // Only when a list opens - closing one has nothing to scroll to.
+    if (opening) setScrollRequest((n) => n + 1)
+  }
+
   /**
-   * The four newest cards of this garage, from the API. They have to be the
-   * real rows rather than a sample: each one links to its own card, and an id
-   * the API never issued opens a detail screen that can only fail.
+   * Brings the list into view once a tile opens it. The list mounts on the
+   * render after the click, so the scroll waits for that render rather than
+   * happening in the click handler. Never on landing: the count starts at 0.
    */
-  const [recent, setRecent] = useState<JobCardRecord[]>([])
-  const [loadingJobs, setLoadingJobs] = useState(true)
-  const [jobsError, setJobsError] = useState<string | null>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const [scrollRequest, setScrollRequest] = useState(0)
 
   useEffect(() => {
-    let cancelled = false
+    if (scrollRequest === 0) return
+    panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [scrollRequest])
+  const vehicleVariant = panel ? VEHICLE_PANELS[panel] : undefined
+  const jobCardVariant = panel ? JOB_CARD_PANELS[panel] : undefined
 
-    jobCardService
-      .listJobCards({ limit: 4, sortBy: 'createdAt', sortOrder: 'desc' })
-      .then((data) => {
-        if (cancelled) return
-        setRecent(data.jobCards)
-        setLoadingJobs(false)
-      })
-      .catch((cause: unknown) => {
-        if (cancelled) return
-        setJobsError(cause instanceof ApiError ? cause.message : 'Could not load job cards.')
-        setLoadingJobs(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  /** One row of four tiles, under the heading that says what they are counted over. */
+  /** One row of tiles, under the heading that says what they are counted over. */
   const section = (title: string, caption: string, tiles: Tile[]) => (
     <section>
       <div className="mb-3 flex items-baseline gap-2">
         <h2 className="text-sm font-semibold text-slate-700">{title}</h2>
         <span className="truncate text-xs text-slate-400">{caption}</span>
       </div>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div
+        className={
+          tiles.length === 4
+            ? 'grid grid-cols-2 gap-3 lg:grid-cols-4'
+            : 'grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5'
+        }
+      >
         {tiles.map((tile) => (
           <SummaryCard
             key={tile.label}
@@ -207,6 +223,9 @@ export function Dashboard() {
             tone={tile.tone}
             hint={tile.hint}
             to={tile.to}
+            newTab={tile.newTab}
+            onClick={tile.panel ? () => togglePanel(tile.panel as DashboardPanel) : undefined}
+            active={tile.panel !== undefined && tile.panel === panel}
             loading={loadingSummary}
             value={summary ? tile.value(summary) : '—'}
           />
@@ -257,74 +276,24 @@ export function Dashboard() {
         </div>
       )}
 
-      {section('Overall', 'Since the garage opened', TOTAL_TILES)}
-      {section(monthLabel(summary?.month), 'From the 1st to today', MONTH_TILES)}
-      {section('Needs Attention', 'All time, not just this month', ATTENTION_TILES)}
+      {section('Overview', 'Revenue, plus new customers and vehicles this month', HEADLINE_TILES)}
+      {section(
+        `${monthLabel(summary?.month)} & Needs Attention`,
+        'Job cards opened this month, and work still open',
+        ACTIVITY_TILES,
+      )}
+
+      {/* scroll-mt clears the sticky top bar (h-16), so the list's header is
+          not hidden under it once it has been scrolled to. */}
+      <div ref={panelRef} className="scroll-mt-20">
+        {panel === 'newCustomers' && <NewCustomersPanel />}
+        {/* Keyed by tile, so switching between two lists of the same kind
+            starts the new one on its own first page. */}
+        {vehicleVariant && <VehiclesPanel key={panel} variant={vehicleVariant} />}
+        {jobCardVariant && <JobCardsPanel key={panel} variant={jobCardVariant} />}
+      </div>
 
       <MonthlyCharts />
-
-      {/* Recent job cards */}
-      <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-700">Recent Job Cards</h2>
-          <Link
-            to="/app/job-cards"
-            className="text-sm font-medium text-primary-600 hover:text-primary-700"
-          >
-            View all
-          </Link>
-        </div>
-        <div className="space-y-3">
-          {loadingJobs ? (
-            [0, 1, 2, 3].map((row) => <Skeleton key={row} className="h-[74px] rounded-xl" />)
-          ) : jobsError ? (
-            <p className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-red-600 shadow-card">
-              {jobsError}
-            </p>
-          ) : recent.length === 0 ? (
-            <p className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500 shadow-card">
-              No job cards yet.{' '}
-              <Link
-                to="/app/job-cards/new"
-                className="font-medium text-primary-600 hover:text-primary-700"
-              >
-                Open the first one
-              </Link>
-              .
-            </p>
-          ) : (
-            recent.map((job) => (
-              <Link
-                key={job.id}
-                to={`/app/job-cards/${job.id}`}
-                // Handed over so the card's own screen paints before its
-                // request comes back, the same way the list does it.
-                state={{ jobCard: job }}
-                className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-card transition-colors hover:bg-slate-50"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-slate-900">{job.jobNumber}</span>
-                    <Badge tone={jobCardStatusTone(job.status)}>
-                      {jobCardStatusLabel(job.status)}
-                    </Badge>
-                  </div>
-                  <p className="mt-1 truncate text-sm text-slate-600">
-                    {job.vehicle ? vehicleDisplayName(job.vehicle) : '—'} ·{' '}
-                    {job.vehicle?.customer?.fullName ?? '—'}
-                  </p>
-                </div>
-                <div className="shrink-0 text-right">
-                  <p className="text-sm font-semibold text-slate-900">
-                    {formatCurrency(job.totalAmount)}
-                  </p>
-                  <ChevronRight className="ml-auto mt-1 h-4 w-4 text-slate-300" />
-                </div>
-              </Link>
-            ))
-          )}
-        </div>
-      </section>
     </div>
   )
 }

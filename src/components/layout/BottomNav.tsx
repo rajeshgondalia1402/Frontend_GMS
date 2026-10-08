@@ -12,7 +12,7 @@ export function BottomNav({ items, onMoreClick }: BottomNavProps) {
   const primary = items.filter((i) => i.primary).slice(0, 3)
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] lg:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-30 print:hidden border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] lg:hidden">
       <div className="grid grid-cols-4">
         {primary.map((item) => (
           <NavLink

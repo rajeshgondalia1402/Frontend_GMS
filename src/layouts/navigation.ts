@@ -57,7 +57,15 @@ export const ownerNav: NavItem[] = [
     ],
   },
   { label: 'Salary', to: '/app/salary', icon: Wallet },
-  { label: 'Reports', to: '/app/reports', icon: BarChart3 },
+  {
+    label: 'Reports',
+    to: '/app/reports',
+    icon: BarChart3,
+    children: [
+      { label: 'Total Revenue', to: '/app/reports/total-revenue', icon: Wallet },
+      { label: 'Revenue This Month', to: '/app/reports/revenue-this-month', icon: IndianRupee },
+    ],
+  },
   { label: 'Subscription', to: '/app/subscription', icon: CreditCard },
 ]
 

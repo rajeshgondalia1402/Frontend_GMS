@@ -36,7 +36,7 @@ export function AppShell({ nav, brand, variant = 'owner' }: AppShellProps) {
       <NetworkBanner />
 
       {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 border-r border-slate-200 bg-white lg:block">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 border-r border-slate-200 bg-white lg:block print:hidden">
         <Sidebar items={nav} brand={brand} />
       </aside>
 
@@ -46,7 +46,7 @@ export function AppShell({ nav, brand, variant = 'owner' }: AppShellProps) {
       </Drawer>
 
       {/* Content column */}
-      <div className="lg:pl-60">
+      <div className="lg:pl-60 print:pl-0">
         <Topbar title={current} variant={variant} onMenuClick={() => setDrawerOpen(true)} />
         <main className="mx-auto max-w-6xl px-4 pb-24 pt-5 sm:px-6 lg:pb-10">
           <Outlet />

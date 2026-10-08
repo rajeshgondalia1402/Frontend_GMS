@@ -169,3 +169,96 @@ export interface GarageJobCardsData {
   jobCards: JobCardRecord[]
   pagination: Pagination
 }
+
+/**
+ * `GET /api/admin/dashboard/summary` — the count tiles of the admin dashboard.
+ *
+ * "Active" means a live subscription right now: stored `ACTIVE` **and** an end
+ * date still ahead, so an expired or cancelled garage is left out.
+ * `freeTrial + paidGarages = activeGarages` and
+ * `activeGarages + expiredGarages = totalGarages`, always.
+ */
+export interface AdminDashboardSummary {
+  /** Every registered garage, whatever its subscription says. */
+  totalGarages: number
+  /** Garages with a live subscription on any plan. */
+  activeGarages: number
+  /** Active garages on the free trial. */
+  freeTrial: number
+  /** Active garages on a monthly or yearly plan. */
+  paidGarages: number
+  /** Garages with no live subscription — run out or cancelled. */
+  expiredGarages: number
+  /** Active garages (any plan) that run out within 7 days. */
+  expiringSoon: number
+  /** Plan price × every MONTHLY subscription ever taken, in rupees. */
+  monthlyRevenue: number
+  /** Plan price × every YEARLY subscription ever taken, in rupees. */
+  yearlyRevenue: number
+}
+
+/** One month of the admin growth chart. */
+export interface AdminGrowthMonth {
+  /** 1–12. */
+  month: number
+  /** `Jan` … `Dec`. */
+  label: string
+  /** Garages that registered that month. */
+  newGarages: number
+  /** Every garage registered by the end of that month. */
+  totalGarages: number
+  /** MONTHLY / YEARLY subscriptions bought that month, live or not. */
+  newPaidSubscriptions: number
+  /** Every paid subscription bought by the end of that month. */
+  totalPaidSubscriptions: number
+}
+
+/**
+ * `GET /api/admin/dashboard/growth?year=2026` — garages and paid subscriptions
+ * month by month. Totals carry on from earlier years. The current year runs
+ * January to the month running now; a past year is all twelve.
+ */
+export interface AdminGrowthChart {
+  year: number
+  /** The years the dropdown offers, newest first. */
+  years: number[]
+  months: AdminGrowthMonth[]
+}
+
+/** What the active garages report sorts on — the garage itself. */
+export type ActiveGaragesSortBy = 'createdAt' | 'ownerName' | 'garageName' | 'city'
+
+/** Query for `GET /api/admin/reports/active-garages`; all optional. */
+export interface ActiveGaragesParams {
+  /** 1-based. Default `1`. */
+  page?: number
+  /** Default `10`. */
+  limit?: number
+  /** Owner name, garage name, city, email or mobile number. */
+  search?: string
+  /**
+   * The plan the garage is live on now. `FREE_TRIAL` means a live trial and no
+   * live paid plan, so the three never overlap.
+   */
+  plan?: SubscriptionPlan
+  /** Default `createdAt` (when the garage registered). */
+  sortBy?: ActiveGaragesSortBy
+  /** Default `desc`. */
+  sortOrder?: 'asc' | 'desc'
+}
+
+/**
+ * `GET /api/admin/reports/active-garages` — every garage live on a
+ * subscription now, one row per garage with the plan it is on. With no search
+ * or plan, `pagination.total` is the dashboard's Active tile.
+ */
+export interface ActiveGaragesReport {
+  garages: GarageReportRow[]
+  /** Platform wide; ignores `search` and `plan`. `activeGarages = paidGarages + freeTrial`. */
+  counts: {
+    activeGarages: number
+    paidGarages: number
+    freeTrial: number
+  }
+  pagination: Pagination
+}

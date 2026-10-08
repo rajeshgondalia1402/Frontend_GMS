@@ -1,3 +1,8 @@
 export { SummaryCard } from './SummaryCard'
 export type { SummaryCardProps, SummaryTone } from './SummaryCard'
 export { MonthlyCharts } from './MonthlyCharts'
+export { NewCustomersPanel } from './NewCustomersPanel'
+export { VehiclesPanel } from './VehiclesPanel'
+export type { VehiclesPanelVariant } from './VehiclesPanel'
+export { JobCardsPanel } from './JobCardsPanel'
+export type { JobCardsPanelVariant } from './JobCardsPanel'
