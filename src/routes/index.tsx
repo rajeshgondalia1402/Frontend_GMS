@@ -29,7 +29,7 @@ import { CarSellingForm } from '@/pages/owner/CarSellingForm'
 import { CarSold } from '@/pages/owner/CarSold'
 import { CarSoldForm } from '@/pages/owner/CarSoldForm'
 import { Salary } from '@/pages/owner/Salary'
-import { Reports } from '@/pages/owner/Reports'
+import { MonthRevenueReport, TotalRevenueReport } from '@/pages/owner/RevenueReport'
 import { GarageProfile } from '@/pages/owner/GarageProfile'
 import { Subscription } from '@/pages/owner/Subscription'
 
@@ -92,7 +92,11 @@ export const router = createBrowserRouter([
           { path: 'car-sold/new', element: <CarSoldForm /> },
           { path: 'car-sold/:id/edit', element: <CarSoldForm /> },
           { path: 'salary', element: <Salary /> },
-          { path: 'reports', element: <Reports /> },
+          // The Reports menu. Its revenue pages are also what the dashboard's two
+          // revenue tiles open in a new window.
+          { path: 'reports', element: <Navigate to="/app/reports/total-revenue" replace /> },
+          { path: 'reports/total-revenue', element: <TotalRevenueReport /> },
+          { path: 'reports/revenue-this-month', element: <MonthRevenueReport /> },
           { path: 'profile', element: <GarageProfile /> },
           { path: 'subscription', element: <Subscription /> },
         ],

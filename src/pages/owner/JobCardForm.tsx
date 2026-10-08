@@ -212,6 +212,7 @@ export function JobCardForm() {
     const lines = card.items ?? []
     savedItemIds.current = new Set(lines.map((item) => item.id))
     setItems(lines.map(({ id, description, qty, rate }) => ({ id, description, qty, rate })))
+    setDiscount(card.discount ? String(card.discount) : '')
   }
 
   /**
@@ -430,6 +431,8 @@ export function JobCardForm() {
     ...(currentKm.trim() ? { currentKm: Number(currentKm) } : {}),
     description: complaint.trim(),
     items: items.map(({ description, qty, rate }) => ({ description, qty, rate })),
+    // The capped figure the summary shows, so what is saved is what was seen.
+    discount: totals.discount,
   })
 
   /**
@@ -445,6 +448,7 @@ export function JobCardForm() {
     items: items.map(({ id, description, qty, rate }) =>
       savedItemIds.current.has(id) ? { id, description, qty, rate } : { description, qty, rate },
     ),
+    discount: totals.discount,
   })
 
   const update = async () => {

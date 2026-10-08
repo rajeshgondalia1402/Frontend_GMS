@@ -44,7 +44,7 @@ export function Topbar({ title, onMenuClick, showSearch = true, variant = 'owner
   }
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-slate-200 bg-white px-4 lg:px-6">
+    <header className="sticky top-0 z-30 flex h-16 print:hidden items-center gap-3 border-b border-slate-200 bg-white px-4 lg:px-6">
       <button
         onClick={onMenuClick}
         className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 lg:hidden"

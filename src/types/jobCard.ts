@@ -35,6 +35,8 @@ export interface CreateJobCardPayload {
   description: string
   /** Omitted entirely for a card with nothing billed on it yet. */
   items?: CreateJobItemPayload[]
+  /** Flat discount off the whole card. The API caps it at the sum of the lines. */
+  discount?: number
 }
 
 /** One line on an edit: a line already on the card carries its id, a new one does not. */
@@ -59,6 +61,8 @@ export interface UpdateJobCardPayload {
   description?: string
   /** Every line the card should end up with — one left out is dropped. */
   items?: UpdateJobItemPayload[]
+  /** Flat discount off the whole card; `0` takes it off. */
+  discount?: number
 }
 
 /** A billed line as the API hands it back, with the total it worked out. */
@@ -98,8 +102,10 @@ export interface JobCardRecord {
   /** `UNPAID` until payments are recorded against the card. */
   paymentStatus: JobPaymentStatus
   assignedStaffId: string | null
-  /** The sum of the line totals, each rounded to 2 decimals before summing. */
+  /** The sum of the line totals, each rounded to 2 decimals before summing, less `discount`. */
   totalAmount: number
+  /** Flat discount already taken off `totalAmount`. `0` when there is none. */
+  discount: number
   completionDate: string | null
   assignedStaff?: JobCardStaff | null
   /** Carried back because `currentKm` and `description` were written onto it. */

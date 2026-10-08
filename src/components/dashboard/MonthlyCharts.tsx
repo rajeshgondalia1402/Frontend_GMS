@@ -15,6 +15,8 @@ import { useDashboardMonthly } from '@/hooks/useDashboardMonthly'
 import { formatCount } from '@/lib/dashboard'
 import { formatCurrency } from '@/lib/utils'
 import type { DashboardChartMonth } from '@/types/dashboard'
+import { JobCardsMonthModal } from './JobCardsMonthModal'
+import { RevenueMonthModal } from './RevenueMonthModal'
 
 /** How many years the dropdown offers before the server has named them. */
 const YEARS_BACK = 5
@@ -90,6 +92,11 @@ interface ChartCardProps {
   months: DashboardChartMonth[]
   year: number
   loading: boolean
+  /**
+   * Makes the whole column of each month clickable — not just the bar, which
+   * for a quiet month can be a sliver — and hands back the month clicked.
+   */
+  onSelectMonth?: (month: DashboardChartMonth) => void
 }
 
 /**
@@ -99,7 +106,7 @@ interface ChartCardProps {
 const NARROW_CHART = 480
 
 /** One metric for the year: its total as the headline, then a bar per month. */
-function ChartCard({ metric, months, year, loading }: ChartCardProps) {
+function ChartCard({ metric, months, year, loading, onSelectMonth }: ChartCardProps) {
   const spec = CHARTS[metric]
   const [narrow, setNarrow] = useState(false)
   const total = months.reduce((sum, row) => sum + row[metric], 0)
@@ -109,7 +116,10 @@ function ChartCard({ metric, months, year, loading }: ChartCardProps) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-sm font-semibold text-slate-700">{spec.title}</h3>
-          <p className="truncate text-xs text-slate-400">{spec.caption}</p>
+          <p className="truncate text-xs text-slate-400">
+            {spec.caption}
+            {onSelectMonth && ' · click a bar for details'}
+          </p>
         </div>
         <div className="shrink-0 text-right">
           {loading ? (
@@ -130,7 +140,24 @@ function ChartCard({ metric, months, year, loading }: ChartCardProps) {
             height="100%"
             onResize={(width) => setNarrow(width < NARROW_CHART && months.length > 6)}
           >
-            <BarChart data={months} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+            <BarChart
+              data={months}
+              margin={{ top: 4, right: 4, bottom: 0, left: 0 }}
+              // A style, not a class: Recharts writes `cursor: default` inline
+              // on its wrapper, and only another inline style outranks it.
+              style={onSelectMonth ? { cursor: 'pointer' } : undefined}
+              onClick={
+                onSelectMonth
+                  ? (state) => {
+                      const row =
+                        state?.activeTooltipIndex !== undefined
+                          ? months[state.activeTooltipIndex]
+                          : undefined
+                      if (row) onSelectMonth(row)
+                    }
+                  : undefined
+              }
+            >
               <CartesianGrid vertical={false} stroke="#f1f5f9" />
               <XAxis
                 dataKey="label"
@@ -182,6 +209,11 @@ export function MonthlyCharts() {
   // Keep the last answer on screen only while it is still for the chosen year.
   const months = chart && chart.year === year ? chart.months : []
 
+  /** The revenue bar that was clicked, open in the popup; `null` when it is shut. */
+  const [revenueMonth, setRevenueMonth] = useState<{ year: number; month: number } | null>(null)
+  /** The vehicle services bar that was clicked, open in its popup. */
+  const [jobCardsMonth, setJobCardsMonth] = useState<{ year: number; month: number } | null>(null)
+
   return (
     <section>
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -219,10 +251,25 @@ export function MonthlyCharts() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          <ChartCard metric="revenue" months={months} year={year} loading={loading} />
-          <ChartCard metric="jobCards" months={months} year={year} loading={loading} />
+          <ChartCard
+            metric="revenue"
+            months={months}
+            year={year}
+            loading={loading}
+            onSelectMonth={(row) => setRevenueMonth({ year, month: row.month })}
+          />
+          <ChartCard
+            metric="jobCards"
+            months={months}
+            year={year}
+            loading={loading}
+            onSelectMonth={(row) => setJobCardsMonth({ year, month: row.month })}
+          />
         </div>
       )}
+
+      <RevenueMonthModal selection={revenueMonth} onClose={() => setRevenueMonth(null)} />
+      <JobCardsMonthModal selection={jobCardsMonth} onClose={() => setJobCardsMonth(null)} />
     </section>
   )
 }

@@ -33,6 +33,8 @@ interface PaginationBarProps {
   count: number
   onPageChange: (page: number) => void
   onLimitChange: (limit: number) => void
+  /** The sizes the picker offers before "All". Defaults to 10, 25, 50, 100. */
+  pageSizes?: number[]
   /** Largest page size the API will honour; caps the "All" option. */
   maxLimit?: number
   disabled?: boolean
@@ -48,6 +50,7 @@ export function PaginationBar({
   count,
   onPageChange,
   onLimitChange,
+  pageSizes = PAGE_SIZES,
   maxLimit,
   disabled = false,
 }: PaginationBarProps) {
@@ -57,8 +60,11 @@ export function PaginationBar({
   const last = total === 0 ? 0 : first + count - 1
 
   // "All" asks for exactly as many rows as there are, within what the API takes.
-  const allLimit = Math.max(DEFAULT_PAGE_SIZE, maxLimit ? Math.min(total, maxLimit) : total)
-  const sizes = PAGE_SIZES.filter((size) => !maxLimit || size <= maxLimit)
+  const allLimit = Math.max(
+    pageSizes[0] ?? DEFAULT_PAGE_SIZE,
+    maxLimit ? Math.min(total, maxLimit) : total,
+  )
+  const sizes = pageSizes.filter((size) => !maxLimit || size <= maxLimit)
   const options = [
     ...sizes.map((size) => ({ label: String(size), value: String(size) })),
     { label: 'All', value: String(allLimit) },
@@ -86,7 +92,7 @@ export function PaginationBar({
           className="h-9 rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-900 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-100 disabled:opacity-60"
         >
           {options.map((option) => (
-            <option key={option.value} value={option.value}>
+            <option key={option.label} value={option.value}>
               {option.label}
             </option>
           ))}

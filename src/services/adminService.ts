@@ -2,8 +2,12 @@ import { apiRequest } from './httpClient'
 import { jobCardQuery } from './jobCardService'
 import type { JobCardListParams, JobCardRecord } from '@/types/jobCard'
 import type {
+  ActiveGaragesParams,
+  ActiveGaragesReport,
   AdminChangePasswordData,
   AdminChangePasswordPayload,
+  AdminDashboardSummary,
+  AdminGrowthChart,
   AdminLoginData,
   AdminLoginPayload,
   GarageJobCardsData,
@@ -117,9 +121,56 @@ export function getGarageJobCard(garageId: string, id: string): Promise<JobCardR
   )
 }
 
+/**
+ * `GET /api/admin/dashboard/summary` — the count tiles of the admin dashboard:
+ * total, active, free trial and paid garages. Takes no query; it reads across
+ * every garage, so it goes out on the **admin** token.
+ */
+export function getDashboardSummary(): Promise<AdminDashboardSummary> {
+  return apiRequest<AdminDashboardSummary>('/admin/dashboard/summary', {
+    authScope: 'admin',
+  })
+}
+
+/**
+ * `GET /api/admin/dashboard/growth?year=` — garages registered and paid
+ * subscriptions bought, month by month, each with a running total. Without a
+ * year the server uses the current one.
+ */
+export function getDashboardGrowth(year?: number): Promise<AdminGrowthChart> {
+  const query = year ? `?year=${year}` : ''
+  return apiRequest<AdminGrowthChart>(`/admin/dashboard/growth${query}`, {
+    authScope: 'admin',
+  })
+}
+
+/**
+ * `GET /api/admin/reports/active-garages` — every garage live on a
+ * subscription right now, one row per garage with the plan it is on now. The
+ * list behind the dashboard's Active tile.
+ */
+export function listActiveGarages(params: ActiveGaragesParams = {}): Promise<ActiveGaragesReport> {
+  const query = new URLSearchParams()
+  if (params.search) query.set('search', params.search)
+  if (params.plan) query.set('plan', params.plan)
+  if (params.page) query.set('page', String(params.page))
+  if (params.limit) query.set('limit', String(params.limit))
+  if (params.sortBy) query.set('sortBy', params.sortBy)
+  if (params.sortOrder) query.set('sortOrder', params.sortOrder)
+
+  const tail = query.toString()
+  return apiRequest<ActiveGaragesReport>(
+    `/admin/reports/active-garages${tail ? `?${tail}` : ''}`,
+    { authScope: 'admin' },
+  )
+}
+
 export const adminService = {
+  listActiveGarages,
   login,
   changePassword,
+  getDashboardSummary,
+  getDashboardGrowth,
   listGarageReport,
   listGarageJobCards,
   getGarageJobCard,
