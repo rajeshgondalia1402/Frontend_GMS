@@ -11,12 +11,38 @@ import type {
   ProfileData,
   RegisterData,
   RegisterPayload,
+  RenewalPlan,
+  RenewSubscriptionPayload,
   VerifyOtpData,
 } from '@/types/auth'
 
-/** `POST /api/auth/login` — returns the token, its expiry and the owner profile. */
+/**
+ * `POST /api/auth/login` — returns the token, its expiry and the owner profile.
+ * Rejects with 403 SUBSCRIPTION_REQUIRED when the free trial or plan has
+ * ended (see `isSubscriptionRequired`); the garage then renews instead.
+ */
 export function login(payload: LoginPayload): Promise<LoginData> {
   return apiRequest<LoginData>('/auth/login', {
+    method: 'POST',
+    body: payload,
+    auth: false,
+  })
+}
+
+/** `GET /api/auth/subscription/plans` — public; the paid plans to renew on. */
+export async function getRenewalPlans(): Promise<RenewalPlan[]> {
+  const data = await apiRequest<{ plans: RenewalPlan[] }>('/auth/subscription/plans', {
+    auth: false,
+  })
+  return data.plans ?? []
+}
+
+/**
+ * `POST /api/auth/subscription/renew` — public; starts the chosen plan now and
+ * answers exactly like a login, so the garage is signed straight in.
+ */
+export function renewSubscription(payload: RenewSubscriptionPayload): Promise<LoginData> {
+  return apiRequest<LoginData>('/auth/subscription/renew', {
     method: 'POST',
     body: payload,
     auth: false,
@@ -101,6 +127,8 @@ export function getProfile(): Promise<ProfileData> {
 }
 
 export const authService = {
+  getRenewalPlans,
+  renewSubscription,
   login,
   generateOtp,
   verifyOtp,

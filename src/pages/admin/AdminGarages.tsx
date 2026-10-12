@@ -23,7 +23,7 @@ import {
   SortBar,
 } from '@/components/common'
 import type { Column, FilterCardTone, SortBarField, SortOrder } from '@/components/common'
-import { Badge, Button, EmptyState, ErrorState, LoadingState, Select } from '@/components/ui'
+import { Badge, Button, EmptyState, ErrorState, LoadingState, Select, WhatsappIcon } from '@/components/ui'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { adminService } from '@/services/adminService'
 import { ApiError } from '@/services/httpClient'
@@ -41,7 +41,15 @@ import {
 import { datedFileName, downloadExcel } from '@/lib/excel'
 import type { ExportColumn } from '@/lib/excel'
 import { formatCount } from '@/lib/dashboard'
-import { formatDate } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
+import {
+  SUBSCRIPTION_REMINDER_LABELS,
+  openWhatsapp,
+  subscriptionReminderKind,
+  subscriptionReminderMessage,
+  toWhatsappNumber,
+  whatsappLink,
+} from '@/lib/whatsapp'
 import type { Pagination } from '@/types/auth'
 import type {
   GarageReportData,
@@ -129,6 +137,48 @@ const STATE_CARDS: {
   { value: 'expiring', label: 'Expiring soon', icon: AlarmClock, tone: 'warning', count: 'expiring' },
   { value: 'expired', label: 'Expired', icon: XCircle, tone: 'danger', count: 'expired' },
 ]
+
+/**
+ * Opens WhatsApp with the subscription message for this garage's status —
+ * free trial, expiring soon or expired — written and addressed, for the admin
+ * to read and send. Nothing is rendered for a live paid plan that is not close
+ * to its end, or a number WhatsApp could not open a chat with.
+ */
+function SubscriptionWhatsappButton({ row, wide = false }: { row: GarageReportRow; wide?: boolean }) {
+  const { garage, subscription } = row
+  const kind = subscriptionReminderKind(subscription)
+  const number = toWhatsappNumber(garage.mobileNumber)
+  if (!kind || !number) return null
+
+  const label = `Send ${garage.ownerName} a ${SUBSCRIPTION_REMINDER_LABELS[kind]} on WhatsApp`
+  const send = () =>
+    openWhatsapp(
+      whatsappLink(
+        number,
+        subscriptionReminderMessage({
+          ownerName: garage.ownerName,
+          garageName: garage.garageName,
+          subscription,
+        }),
+      ),
+    )
+
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      onClick={send}
+      className={cn(
+        'inline-flex shrink-0 items-center justify-center gap-2 bg-[#25D366] text-white shadow-md shadow-[#25D366]/30 transition-all duration-200 hover:bg-[#1ebe5b] hover:shadow-lg hover:shadow-[#25D366]/40 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#25D366]/30',
+        wide ? 'h-9 w-full rounded-lg text-sm font-semibold' : 'h-8 w-8 rounded-full hover:scale-110',
+      )}
+    >
+      <WhatsappIcon className="h-4 w-4" />
+      {wide && <span>Send {SUBSCRIPTION_REMINDER_LABELS[kind]}</span>}
+    </button>
+  )
+}
 
 /** Newest registration first — the API's own default. */
 const DEFAULT_SORT: SortState = { field: 'createdAt', order: 'desc' }
@@ -356,6 +406,12 @@ export function AdminGarages() {
       },
     },
     {
+      header: 'Message',
+      align: 'center',
+      className: 'w-[4.5rem]',
+      accessor: (row) => <SubscriptionWhatsappButton row={row} />,
+    },
+    {
       header: 'Job Cards',
       align: 'right',
       // Until there is room to spare the action is its icon alone — the column
@@ -532,10 +588,14 @@ export function AdminGarages() {
                     </span>
                   </div>
 
+                  <div className="mt-3">
+                    <SubscriptionWhatsappButton row={row} wide />
+                  </div>
+
                   <ActionButton
                     layout="card"
                     tone="primary"
-                    className="mt-3 w-full"
+                    className="mt-2 w-full"
                     icon={<ClipboardList className="h-4 w-4" />}
                     onClick={() => openJobCards(row)}
                   >

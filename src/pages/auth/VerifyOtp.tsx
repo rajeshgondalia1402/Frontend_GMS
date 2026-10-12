@@ -4,7 +4,7 @@ import { AlertCircle, CheckCircle2, Loader2, MessageSquare, Pencil } from 'lucid
 import { Button, OtpInput, useToast } from '@/components/ui'
 import { useAuth } from '@/context/AuthContext'
 import { authService } from '@/services/authService'
-import { ApiError } from '@/services/httpClient'
+import { ApiError, isSubscriptionRequired } from '@/services/httpClient'
 import {
   clearPendingRegistration,
   loadPendingRegistration,
@@ -45,6 +45,8 @@ export function VerifyOtp() {
   const [sendingOtp, setSendingOtp] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  /** The number already has an account, and so has had its one free trial. */
+  const [trialUsed, setTrialUsed] = useState(false)
   const { seconds: resendIn, start: startResend } = useCountdown()
   const { seconds: validityLeft, start: startValidity } = useCountdown()
   const [codeSent, setCodeSent] = useState(false)
@@ -74,8 +76,10 @@ export function VerifyOtp() {
           toast('A new code has been sent', 'info')
         }
       } catch (err) {
-        // 409 means the number was registered in the meantime — the form is the
-        // only place that can fix that.
+        // 409 means the number is already registered. When its trial or plan has
+        // ended the API says the trial is used up — that garage logs in and
+        // picks a plan instead; otherwise the form is the place to fix it.
+        setTrialUsed(isSubscriptionRequired(err))
         setError(err instanceof ApiError ? err.message : 'Could not send the verification code.')
       } finally {
         setSendingOtp(false)
@@ -178,7 +182,18 @@ export function VerifyOtp() {
   const errorBanner = error && (
     <div role="alert" className="mb-4 flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3">
       <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
-      <p className="text-sm font-medium text-red-700">{error}</p>
+      <div className="text-sm text-red-700">
+        <p className="font-medium">{error}</p>
+        {trialUsed && (
+          <Link
+            to="/login"
+            onClick={clearPendingRegistration}
+            className="mt-1 inline-block font-semibold text-primary-600 hover:text-primary-700"
+          >
+            Go to Login
+          </Link>
+        )}
+      </div>
     </div>
   )
 
