@@ -68,6 +68,32 @@ export function setUnauthorizedHandler(
   unauthorizedHandlers[scope] = handler
 }
 
+/**
+ * The `data.code` the API puts on a 403 when the garage's free trial or plan
+ * has ended — on login, and on every garage endpoint once it ends mid-session.
+ */
+export const SUBSCRIPTION_REQUIRED = 'SUBSCRIPTION_REQUIRED'
+
+/** True when the API refused because the trial or plan has ended. */
+export function isSubscriptionRequired(error: unknown): error is ApiError {
+  if (!(error instanceof ApiError)) return false
+  const data = (error.payload as { data?: { code?: unknown } } | null)?.data
+  return data?.code === SUBSCRIPTION_REQUIRED
+}
+
+/**
+ * Called when an authenticated garage request comes back SUBSCRIPTION_REQUIRED,
+ * with the API's message ("Your free trial has ended..."). AuthContext signs
+ * the garage out and the login page shows the message and the plans.
+ */
+type SubscriptionRequiredHandler = (message: string) => void
+
+let subscriptionRequiredHandler: SubscriptionRequiredHandler | null = null
+
+export function setSubscriptionRequiredHandler(handler: SubscriptionRequiredHandler | null): void {
+  subscriptionRequiredHandler = handler
+}
+
 const NETWORK_ERROR_MESSAGE =
   'Unable to reach the server. Please check your connection and try again.'
 
@@ -118,7 +144,15 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     // and only where 401 cannot mean "wrong credentials you just typed".
     if (response.status === 401 && auth && signOutOn401) unauthorizedHandlers[authScope]?.()
 
-    throw new ApiError(message, response.status, payload, payload?.errors ?? [])
+    const error = new ApiError(message, response.status, payload, payload?.errors ?? [])
+
+    // The trial or plan ran out while the garage was signed in: every garage
+    // endpoint now refuses, so sign out rather than show an error per screen.
+    if (auth && authScope === 'user' && isSubscriptionRequired(error)) {
+      subscriptionRequiredHandler?.(message)
+    }
+
+    throw error
   }
 
   return payload.data as T

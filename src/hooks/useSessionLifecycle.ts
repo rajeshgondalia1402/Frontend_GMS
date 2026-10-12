@@ -7,7 +7,11 @@ import type { AuthScope } from '@/services/httpClient'
  *  lives for 30 days — so long waits are split into safe chunks. */
 const MAX_TIMEOUT_MS = 2_147_483_647
 
-export type LogoutReason = 'manual' | 'expired'
+/**
+ * Why the session ended: signed out by hand, the token ran out, or the
+ * garage's free trial / plan ran out (it may log in again once it renews).
+ */
+export type LogoutReason = 'manual' | 'expired' | 'subscription'
 
 /** The little every stored session has in common. */
 interface ExpiringSession {
@@ -31,9 +35,11 @@ interface SessionLifecycle<S> {
   startSession: (session: S) => void
   /** Rewrites the stored session in place — no effect while signed out. */
   updateSession: (update: (current: S) => S) => void
-  logout: (reason?: LogoutReason) => void
+  logout: (reason?: LogoutReason, message?: string) => void
   /** Set when the session ended because the token expired. */
   logoutReason: LogoutReason | null
+  /** What to tell the user about an automatic sign-out, when the API said. */
+  logoutMessage: string | null
   clearLogoutReason: () => void
 }
 
@@ -53,6 +59,7 @@ export function useSessionLifecycle<S extends ExpiringSession>(
   const [session, setSession] = useState<S | null>(null)
   const [initializing, setInitializing] = useState(true)
   const [logoutReason, setLogoutReason] = useState<LogoutReason | null>(null)
+  const [logoutMessage, setLogoutMessage] = useState<string | null>(null)
   const expiryTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // The store is rebuilt on every render by its caller; only ever read the
@@ -68,11 +75,12 @@ export function useSessionLifecycle<S extends ExpiringSession>(
   }, [])
 
   const logout = useCallback(
-    (reason: LogoutReason = 'manual') => {
+    (reason: LogoutReason = 'manual', message?: string) => {
       cancelExpiryTimer()
       storeRef.current.clear()
       setSession(null)
       setLogoutReason(reason)
+      setLogoutMessage(message ?? null)
     },
     [cancelExpiryTimer],
   )
@@ -153,6 +161,7 @@ export function useSessionLifecycle<S extends ExpiringSession>(
       storeRef.current.save(next)
       setSession(next)
       setLogoutReason(null)
+      setLogoutMessage(null)
       scheduleAutoLogout(next.expiresAt)
     },
     [scheduleAutoLogout],
@@ -167,7 +176,10 @@ export function useSessionLifecycle<S extends ExpiringSession>(
     })
   }, [])
 
-  const clearLogoutReason = useCallback(() => setLogoutReason(null), [])
+  const clearLogoutReason = useCallback(() => {
+    setLogoutReason(null)
+    setLogoutMessage(null)
+  }, [])
 
   return {
     session,
@@ -176,6 +188,7 @@ export function useSessionLifecycle<S extends ExpiringSession>(
     updateSession,
     logout,
     logoutReason,
+    logoutMessage,
     clearLogoutReason,
   }
 }
