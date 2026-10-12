@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { CalendarDays, CheckCircle2, Clock, CreditCard, Download, MapPin, Phone } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 import {
-  FilterButton,
   DEFAULT_PAGE_SIZE,
+  FilterCard,
   PageHeader,
   PaginationBar,
   ResponsiveList,
@@ -24,7 +23,7 @@ import {
 import { formatCount } from '@/lib/dashboard'
 import { datedFileName, downloadExcel } from '@/lib/excel'
 import type { ExportColumn } from '@/lib/excel'
-import { formatDate } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
 import { adminService } from '@/services/adminService'
 import { ApiError } from '@/services/httpClient'
 import type { Pagination } from '@/types/auth'
@@ -32,15 +31,28 @@ import type {
   ActiveGaragesReport,
   ActiveGaragesSortBy,
   GarageReportRow,
-  SubscriptionPlan,
+  ActivePlanFilter,
 } from '@/types/admin'
 
-/** The plan tabs. The API's plans never overlap: a trial here holds no live paid plan. */
-const PLAN_TABS = [
-  { label: 'All active', value: '' },
-  { label: 'Free Trial', value: 'FREE_TRIAL' },
-  { label: 'Monthly', value: 'MONTHLY' },
-  { label: 'Yearly', value: 'YEARLY' },
+/** Every `?plan=` the page understands; '' is all active garages. */
+const PLAN_FILTERS: { value: '' | ActivePlanFilter; label: string }[] = [
+  { value: '', label: 'All active' },
+  { value: 'PAID', label: 'Paid (monthly + yearly)' },
+  { value: 'MONTHLY', label: 'Monthly' },
+  { value: 'YEARLY', label: 'Yearly' },
+  { value: 'FREE_TRIAL', label: 'Free Trial' },
+]
+
+/** The filters that sit under the Paid card. */
+const PAID_FILTERS: ActivePlanFilter[] = ['PAID', 'MONTHLY', 'YEARLY']
+
+type Counts = ActiveGaragesReport['counts']
+
+/** The Paid card's sub-filter: all paid, or one paid plan. Each shows its count. */
+const PAID_TABS: { value: ActivePlanFilter; label: string; count: (c: Counts) => number }[] = [
+  { value: 'PAID', label: 'All paid', count: (c) => c.paidGarages },
+  { value: 'MONTHLY', label: 'Monthly', count: (c) => c.monthlyGarages },
+  { value: 'YEARLY', label: 'Yearly', count: (c) => c.yearlyGarages },
 ]
 
 interface SortState {
@@ -87,31 +99,6 @@ const EXPORT_COLUMNS: ExportColumn<GarageReportRow>[] = [
   },
 ]
 
-/** One platform-wide count above the list. */
-function CountChip({
-  icon: Icon,
-  label,
-  value,
-  tone,
-}: {
-  icon: LucideIcon
-  label: string
-  value: string
-  tone: string
-}) {
-  return (
-    <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-card">
-      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${tone}`}>
-        <Icon className="h-[18px] w-[18px]" />
-      </span>
-      <div className="min-w-0">
-        <p className="truncate text-xs text-slate-500">{label}</p>
-        <p className="text-lg font-bold leading-tight text-slate-900">{value}</p>
-      </div>
-    </div>
-  )
-}
-
 /**
  * Reports — the Active Garages report: every garage live on a subscription
  * right now, the list behind the dashboard's Active tile. `?plan=` opens it
@@ -122,10 +109,12 @@ export function AdminReports() {
 
   const [query, setQuery] = useState('')
   const search = useDebouncedValue(query.trim(), 350)
-  const [plan, setPlan] = useState(() => {
-    const value = searchParams.get('plan')
-    return PLAN_TABS.some((tab) => tab.value === value) ? (value as string) : ''
+  const [plan, setPlan] = useState<'' | ActivePlanFilter>(() => {
+    const value = searchParams.get('plan')?.toUpperCase() ?? ''
+    const known = PLAN_FILTERS.find((filter) => filter.value === value)
+    return known ? known.value : ''
   })
+  const onPaid = plan !== '' && PAID_FILTERS.includes(plan)
 
   const [report, setReport] = useState<ActiveGaragesReport | null>(null)
   const [page, setPage] = useState(1)
@@ -157,7 +146,7 @@ export function AdminReports() {
         sortBy: sort.field,
         sortOrder: sort.order,
         ...(search ? { search } : {}),
-        ...(plan ? { plan: plan as SubscriptionPlan } : {}),
+        ...(plan ? { plan } : {}),
       })
       if (requestId !== latestRequest.current) return
       setReport(data)
@@ -196,7 +185,7 @@ export function AdminReports() {
         includeIndex: true,
         meta: [
           { label: 'Search', value: search || 'All garages' },
-          { label: 'Plan', value: PLAN_TABS.find((tab) => tab.value === plan)?.label ?? 'All active' },
+          { label: 'Plan', value: PLAN_FILTERS.find((filter) => filter.value === plan)?.label ?? 'All active' },
         ],
       },
       EXPORT_COLUMNS,
@@ -269,28 +258,72 @@ export function AdminReports() {
         subtitle="Every garage live on a subscription right now"
       />
 
-      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <CountChip
+      {/* The counts are the filters: tap one and the list narrows to it. */}
+      <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <FilterCard
           icon={CheckCircle2}
-          label="Active garages"
+          label="All active garages"
           value={counts ? formatCount(counts.activeGarages) : '—'}
-          tone="bg-emerald-50 text-emerald-600"
+          tone="success"
+          selected={plan === ''}
+          onClick={() => setPlan('')}
         />
-        <CountChip
+        <FilterCard
           icon={CreditCard}
           label="On a paid plan"
           value={counts ? formatCount(counts.paidGarages) : '—'}
-          tone="bg-violet-50 text-violet-600"
+          tone="violet"
+          selected={onPaid}
+          onClick={() => setPlan('PAID')}
         />
-        <CountChip
+        <FilterCard
           icon={Clock}
           label="On the free trial"
           value={counts ? formatCount(counts.freeTrial) : '—'}
-          tone="bg-sky-50 text-sky-600"
+          tone="info"
+          selected={plan === 'FREE_TRIAL'}
+          onClick={() => setPlan('FREE_TRIAL')}
         />
       </div>
 
-      <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center">
+      {/* Paid splits into its two plans; shown only while a paid filter is on. */}
+      {onPaid && (
+        <div
+          role="group"
+          aria-label="Paid plan"
+          className="mb-3 inline-flex w-full rounded-xl border border-violet-200 bg-violet-50/60 p-1 sm:w-auto"
+        >
+          {PAID_TABS.map((tab) => {
+            const active = plan === tab.value
+            return (
+              <button
+                key={tab.value}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setPlan(tab.value)}
+                className={cn(
+                  'flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors sm:flex-none',
+                  active
+                    ? 'bg-white text-violet-700 shadow-sm ring-1 ring-violet-200'
+                    : 'text-slate-600 hover:text-violet-700',
+                )}
+              >
+                {tab.label}
+                <span
+                  className={cn(
+                    'rounded-full px-1.5 py-px text-xs font-semibold',
+                    active ? 'bg-violet-100 text-violet-700' : 'bg-white/80 text-slate-500',
+                  )}
+                >
+                  {counts ? formatCount(tab.count(counts)) : '—'}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center">
         <SearchInput
           value={query}
           onChange={setQuery}
@@ -308,9 +341,6 @@ export function AdminReports() {
         </Button>
       </div>
 
-      <div className="mb-4">
-        <FilterButton options={PLAN_TABS} value={plan} onChange={setPlan} />
-      </div>
 
       <SortBar
         className="mb-4 lg:hidden"

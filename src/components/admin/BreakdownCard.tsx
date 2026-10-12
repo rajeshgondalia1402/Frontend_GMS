@@ -46,18 +46,24 @@ export function BreakdownCard({
   const whole = parts.reduce((sum, part) => sum + part.value, 0)
 
   return (
-    <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
-      <div className="flex items-start justify-between gap-3">
+    <div className="relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 pt-6 shadow-card transition-shadow duration-200 hover:shadow-lg">
+      {/* Money green, like every revenue figure in the app. */}
+      <span className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-400" />
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-gradient-to-br from-emerald-50/70 via-white/0 to-white/0"
+      />
+      <div className="relative flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold text-slate-800">{title}</h2>
           <p className="truncate text-xs text-slate-400">{caption}</p>
         </div>
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-          <Icon className="h-[18px] w-[18px]" />
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/30">
+          <Icon className="h-5 w-5" />
         </span>
       </div>
 
-      <div className="mt-4">
+      <div className="relative mt-4">
         {loading ? (
           <Skeleton className="h-8 w-28 rounded-md" />
         ) : (
@@ -67,7 +73,7 @@ export function BreakdownCard({
       </div>
 
       {/* Segments sit 2px apart so neighbours never bleed into each other. */}
-      <div className="mt-4 flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full bg-slate-100">
+      <div className="relative mt-4 flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full bg-slate-100">
         {!loading &&
           whole > 0 &&
           parts
@@ -82,7 +88,7 @@ export function BreakdownCard({
             ))}
       </div>
 
-      <ul className="mt-4 space-y-2.5">
+      <ul className="relative mt-4 space-y-2.5">
         {parts.map((part) => (
           <li key={part.label} className="flex items-center justify-between gap-3 text-sm">
             <span className="flex min-w-0 items-center gap-2">
@@ -102,7 +108,7 @@ export function BreakdownCard({
         ))}
       </ul>
 
-      {footnote && <p className="mt-auto pt-4 text-[11px] leading-4 text-slate-400">{footnote}</p>}
+      {footnote && <p className="relative mt-auto pt-4 text-[11px] leading-4 text-slate-400">{footnote}</p>}
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import {
   AlertCircle,
   ArrowDown,
@@ -9,7 +9,7 @@ import {
   CalendarDays,
   Car,
   ChevronDown,
-  FileText,
+  Clock,
   Gauge,
   IndianRupee,
   MapPin,
@@ -24,12 +24,12 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import {
   DEFAULT_PAGE_SIZE,
-  FilterButton,
+  FilterCard,
   PaginationBar,
   SearchInput,
   SortBar,
 } from '@/components/common'
-import type { SortBarField } from '@/components/common'
+import type { FilterCardTone, SortBarField } from '@/components/common'
 import { Badge, EmptyState, ErrorState, LoadingState } from '@/components/ui'
 import { adminService } from '@/services/adminService'
 import { ApiError } from '@/services/httpClient'
@@ -107,84 +107,102 @@ async function fetchAllJobCards(
   return { garage: first.garage ?? null, cards }
 }
 
-/** One figure above the list, in its own colour. */
-function StatTile({
-  icon: Icon,
-  label,
+/**
+ * The payment filters as cards: each is a count of the garage's cards and what
+ * those cards were billed, and tapping one narrows the list to them. "All"
+ * carries the garage's total billed, so nothing the old summary showed is lost.
+ */
+function PaymentCards({
+  summary,
   value,
-  hint,
-  accent,
+  onChange,
 }: {
-  icon: LucideIcon
-  label: string
+  summary: JobCardSummary
   value: string
-  hint: string
-  accent: string
+  onChange: (value: string) => void
 }) {
+  const cards: {
+    value: string
+    label: string
+    icon: LucideIcon
+    tone: FilterCardTone
+    count: number
+    billed: number
+  }[] = [
+    { value: 'all', label: 'All job cards', icon: Wrench, tone: 'primary', count: summary.total, billed: summary.billed },
+    { value: 'PAID', label: 'Paid', icon: Wallet, tone: 'success', count: summary.paidCount, billed: summary.paidValue },
+    { value: 'PARTIAL', label: 'Partially paid', icon: Clock, tone: 'warning', count: summary.partialCount, billed: summary.partialValue },
+    { value: 'UNPAID', label: 'Unpaid', icon: AlertCircle, tone: 'danger', count: summary.unpaidCount, billed: summary.unpaidValue },
+  ]
+
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-card sm:p-4">
-      {/* The icon shares its line with the label rather than with the figure:
-          two tiles across a phone leaves each about 140px, and a figure like
-          ₹45,500.00 needs all of it. */}
-      <div className="flex items-start justify-between gap-2">
-        <p className="min-w-0 text-[10px] font-bold uppercase leading-tight tracking-wider text-slate-500 sm:text-[11px]">
-          {label}
-        </p>
-        <span
-          className={cn(
-            'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg sm:h-9 sm:w-9',
-            accent,
-          )}
-        >
-          <Icon className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
-        </span>
-      </div>
-      <p className="mt-1 truncate text-lg font-bold tabular-nums text-slate-900 sm:text-xl xl:text-2xl">
-        {value}
-      </p>
-      <p className="mt-1 text-[11px] leading-snug text-slate-500 sm:text-xs">{hint}</p>
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {cards.map((card) => (
+        <FilterCard
+          key={card.value}
+          icon={card.icon}
+          label={card.label}
+          tone={card.tone}
+          value={String(card.count)}
+          hint={`${formatMoney(card.billed)} billed`}
+          selected={value === card.value}
+          onClick={() => onChange(card.value)}
+          stackOnMobile
+        />
+      ))}
     </div>
   )
 }
 
-/** The four figures the window opens with, read off every card of the garage. */
-function SummaryTiles({ summary }: { summary: JobCardSummary }) {
-  const plural = (count: number) => (count === 1 ? '' : 's')
+/** Job status as a segmented control, each option with its count. */
+function StatusSwitch({
+  summary,
+  value,
+  onChange,
+}: {
+  summary: JobCardSummary
+  value: string
+  onChange: (value: string) => void
+}) {
+  const counts: Record<string, number> = {
+    all: summary.total,
+    PENDING: summary.pending,
+    DELIVERED: summary.delivered,
+  }
 
   return (
-    // Two across on a phone, not one: stacked full width these four tiles came
-    // to 470px, which pushed the job cards themselves off the first screen.
-    <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
-      <StatTile
-        icon={Wrench}
-        label="Job Cards"
-        value={String(summary.total)}
-        hint={`${summary.pending} pending · ${summary.delivered} delivered`}
-        accent="bg-primary-50 text-primary-600"
-      />
-      <StatTile
-        icon={FileText}
-        label="Total Billed"
-        value={formatMoney(summary.billed)}
-        hint="Everything these cards add up to"
-        accent="bg-sky-50 text-sky-600"
-      />
-      <StatTile
-        icon={Wallet}
-        label="Settled"
-        value={formatMoney(summary.paidValue)}
-        hint={`${summary.paidCount} card${plural(summary.paidCount)} fully paid`}
-        accent="bg-emerald-50 text-emerald-600"
-      />
-      <StatTile
-        icon={AlertCircle}
-        label="Outstanding"
-        value={formatMoney(summary.outstandingValue)}
-        hint={`Billed on ${summary.outstandingCount} card${plural(
-          summary.outstandingCount,
-        )} not fully paid`}
-        accent="bg-amber-50 text-amber-600"
-      />
+    <div
+      role="group"
+      aria-label="Job status"
+      className="flex w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-1 lg:inline-flex lg:w-auto lg:shrink-0"
+    >
+      {STATUS_FILTERS.map((option) => {
+        const active = value === option.value
+        return (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onChange(option.value)}
+            className={cn(
+              'flex min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-1.5 text-sm font-medium transition-colors sm:gap-2 sm:px-3 lg:flex-none',
+              active
+                ? 'bg-white text-primary-700 shadow-sm ring-1 ring-primary-200'
+                : 'text-slate-600 hover:text-primary-700',
+            )}
+          >
+            {option.label}
+            <span
+              className={cn(
+                'rounded-full px-1.5 py-px text-xs font-semibold',
+                active ? 'bg-primary-100 text-primary-700' : 'bg-white text-slate-500',
+              )}
+            >
+              {counts[option.value] ?? 0}
+            </span>
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -648,21 +666,17 @@ function JobCardList({
  */
 export function AdminGarageJobCards() {
   const { garageId = '' } = useParams()
-  const [params] = useSearchParams()
-
-  // The garage's details are handed over in the address so the header reads
-  // the moment the window opens — a new window carries no router state. The
-  // API returns the garage beside the cards, and that is what the header ends
-  // up showing: a bookmarked address with nothing on it still titles itself,
-  // and a garage renamed since the list was loaded reads correctly.
-  const [garage, setGarage] = useState<GarageIdentity | null>(null)
-  const garageName = garage?.garageName || params.get('garage') || 'Garage'
-  const ownerName = garage?.ownerName || params.get('owner') || ''
-  const mobileNumber = garage?.mobileNumber || params.get('mobile') || ''
-  const city = garage?.city || params.get('city') || ''
-
   const [cards, setCards] = useState<JobCardRecord[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Only the id comes in the address; the API returns the garage beside its
+  // cards and the header reads it from there, so a renamed garage or a
+  // bookmarked address always shows its current details.
+  const [garage, setGarage] = useState<GarageIdentity | null>(null)
+  const garageName = garage?.garageName || (loading ? 'Loading…' : 'Garage')
+  const ownerName = garage?.ownerName || ''
+  const mobileNumber = garage?.mobileNumber || ''
+  const city = garage?.city || ''
   const [error, setError] = useState<string | null>(null)
 
   const [query, setQuery] = useState('')
@@ -861,17 +875,18 @@ export function AdminGarageJobCards() {
           />
         ) : (
           <div className="space-y-4">
-            <SummaryTiles summary={summary} />
+            {/* The counts are the payment filters: tap one to narrow the list. */}
+            <PaymentCards summary={summary} value={payment} onChange={setPayment} />
 
             <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-card print:hidden sm:p-4">
-              <SearchInput
-                value={query}
-                onChange={setQuery}
-                placeholder="Search job number, customer, mobile, vehicle or item..."
-              />
-              <div className="mt-3 flex flex-col gap-2 xl:flex-row xl:items-center xl:gap-4">
-                <FilterButton options={PAYMENT_FILTERS} value={payment} onChange={setPayment} />
-                <FilterButton options={STATUS_FILTERS} value={status} onChange={setStatus} />
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                <SearchInput
+                  value={query}
+                  onChange={setQuery}
+                  placeholder="Search job number, customer, mobile, vehicle or item..."
+                  className="lg:flex-1"
+                />
+                <StatusSwitch summary={summary} value={status} onChange={setStatus} />
               </div>
 
               {/* The table sorts from its headers; the cards get the same

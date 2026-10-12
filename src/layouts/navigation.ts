@@ -13,6 +13,7 @@ import {
   IndianRupee,
   CarFront,
   BadgeIndianRupee,
+  CheckCircle2,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -71,8 +72,17 @@ export const ownerNav: NavItem[] = [
 
 export const adminNav: NavItem[] = [
   { label: 'Dashboard', to: '/admin', icon: LayoutDashboard, primary: true },
-  { label: 'Garages', to: '/admin/garages', icon: Building2, primary: true },
   { label: 'Plans', to: '/admin/plans', icon: Package, primary: true },
   { label: 'Payments', to: '/admin/payments', icon: IndianRupee },
-  { label: 'Reports', to: '/admin/reports', icon: BarChart3 },
+  {
+    label: 'Reports',
+    to: '/admin/reports',
+    icon: BarChart3,
+    // On the phone bar it opens the reports; the garage list is a tap into More.
+    primary: true,
+    children: [
+      { label: 'Garage Subscriptions', to: '/admin/garages', icon: Building2 },
+      { label: 'Active Garages', to: '/admin/reports/active-garages', icon: CheckCircle2 },
+    ],
+  },
 ]

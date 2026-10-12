@@ -8,6 +8,8 @@ import type {
   AdminChangePasswordPayload,
   AdminDashboardSummary,
   AdminGrowthChart,
+  ExpiringTrialsParams,
+  ExpiringTrialsReport,
   AdminLoginData,
   AdminLoginPayload,
   GarageJobCardsData,
@@ -165,8 +167,29 @@ export function listActiveGarages(params: ActiveGaragesParams = {}): Promise<Act
   )
 }
 
+/**
+ * `GET /api/admin/reports/expiring-trials` — free trial garages with 7 days or
+ * less left, soonest to run out first: the list to call before the trial ends.
+ */
+export function listExpiringTrials(
+  params: ExpiringTrialsParams = {},
+): Promise<ExpiringTrialsReport> {
+  const query = new URLSearchParams()
+  if (params.search) query.set('search', params.search)
+  if (params.page) query.set('page', String(params.page))
+  if (params.limit) query.set('limit', String(params.limit))
+  if (params.sortOrder) query.set('sortOrder', params.sortOrder)
+
+  const tail = query.toString()
+  return apiRequest<ExpiringTrialsReport>(
+    `/admin/reports/expiring-trials${tail ? `?${tail}` : ''}`,
+    { authScope: 'admin' },
+  )
+}
+
 export const adminService = {
   listActiveGarages,
+  listExpiringTrials,
   login,
   changePassword,
   getDashboardSummary,

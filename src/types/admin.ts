@@ -139,6 +139,18 @@ export interface GarageReportParams {
 
 export interface GarageReportData {
   garages: GarageReportRow[]
+  /**
+   * Subscription rows by state, platform wide — they ignore every filter. Each
+   * is exactly what its state filter lists; `live + expired = all`.
+   */
+  counts: {
+    all: number
+    live: number
+    expiring: number
+    expired: number
+    /** The look-ahead `expiring` uses, in days (7). */
+    expiringWindowDays: number
+  }
   pagination: Pagination
 }
 
@@ -229,6 +241,9 @@ export interface AdminGrowthChart {
 export type ActiveGaragesSortBy = 'createdAt' | 'ownerName' | 'garageName' | 'city'
 
 /** Query for `GET /api/admin/reports/active-garages`; all optional. */
+/** What the active garages report filters on: a plan, or `PAID` for monthly and yearly. */
+export type ActivePlanFilter = SubscriptionPlan | 'PAID'
+
 export interface ActiveGaragesParams {
   /** 1-based. Default `1`. */
   page?: number
@@ -238,9 +253,10 @@ export interface ActiveGaragesParams {
   search?: string
   /**
    * The plan the garage is live on now. `FREE_TRIAL` means a live trial and no
-   * live paid plan, so the three never overlap.
+   * live paid plan, so the three never overlap. `PAID` is monthly and yearly
+   * together — the dashboard's Paid tile.
    */
-  plan?: SubscriptionPlan
+  plan?: ActivePlanFilter
   /** Default `createdAt` (when the garage registered). */
   sortBy?: ActiveGaragesSortBy
   /** Default `desc`. */
@@ -259,6 +275,34 @@ export interface ActiveGaragesReport {
     activeGarages: number
     paidGarages: number
     freeTrial: number
+    /** What `plan=MONTHLY` lists. */
+    monthlyGarages: number
+    /** What `plan=YEARLY` lists. */
+    yearlyGarages: number
   }
+  pagination: Pagination
+}
+
+/** Query for `GET /api/admin/reports/expiring-trials`; all optional. */
+export interface ExpiringTrialsParams {
+  /** 1-based. Default `1`. */
+  page?: number
+  /** Default `10`. */
+  limit?: number
+  /** Owner name, garage name, city, email or mobile number. */
+  search?: string
+  /** On the trial's end date. Default `asc` — the one running out first. */
+  sortOrder?: 'asc' | 'desc'
+}
+
+/**
+ * `GET /api/admin/reports/expiring-trials` — free trial garages (no live paid
+ * plan) whose trial ends within `windowDays`, soonest first. The call list
+ * for converting trials before they lapse.
+ */
+export interface ExpiringTrialsReport {
+  /** The look-ahead window, in days (7). */
+  windowDays: number
+  garages: GarageReportRow[]
   pagination: Pagination
 }
