@@ -8,9 +8,9 @@ import {
   PaginationBar,
   ResponsiveList,
   SearchInput,
-  StatCard,
 } from '@/components/common'
 import type { Column, SortOrder } from '@/components/common'
+import { AdminStatCard } from '@/components/admin/AdminStatCard'
 import { Button, EmptyState, ErrorState, LoadingState, Modal, useToast } from '@/components/ui'
 import { CarSellingDetailsModal, CarSellingMoreDetails } from '@/components/carSelling'
 import { useAuth } from '@/context/AuthContext'
@@ -444,7 +444,7 @@ export function CarSelling() {
       />
 
       <div className="mb-4 grid grid-cols-1 gap-3 sm:max-w-[15rem]">
-        <StatCard
+        <AdminStatCard
           label="Cars for Sale"
           value={total === null ? '—' : String(total)}
           icon={CarFront}

@@ -7,10 +7,10 @@ import {
   PageHeader,
   PaginationBar,
   SearchInput,
-  StatCard,
 } from '@/components/common'
 import type { Column, SortBarField, SortOrder } from '@/components/common'
 import { ResponsiveList, SortBar } from '@/components/common'
+import { AdminStatCard } from '@/components/admin/AdminStatCard'
 import { Button, EmptyState, ErrorState, LoadingState } from '@/components/ui'
 import { CustomerMoreDetails } from '@/components/customers'
 import { useAuth } from '@/context/AuthContext'
@@ -322,13 +322,13 @@ export function Customers() {
       />
 
       <div className="mb-4 grid grid-cols-2 gap-3 sm:max-w-md">
-        <StatCard
+        <AdminStatCard
           label="Total Customers"
           value={stats ? String(stats.total) : '—'}
           icon={Users}
           tone="primary"
         />
-        <StatCard
+        <AdminStatCard
           label="New this month"
           value={stats ? `${stats.newThisMonth}${stats.partial ? '+' : ''}` : '—'}
           icon={Plus}

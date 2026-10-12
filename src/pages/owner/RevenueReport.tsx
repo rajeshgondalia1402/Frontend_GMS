@@ -14,8 +14,8 @@ import {
   Wallet,
   X,
 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 import { PaginationBar, SearchInput } from '@/components/common'
+import { AdminStatCard } from '@/components/admin/AdminStatCard'
 import { Badge, EmptyState, Input, Select, Skeleton, useToast } from '@/components/ui'
 import { openInNewTab } from '@/components/dashboard/ListPanel'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
@@ -106,49 +106,6 @@ function periodLabel(kind: RevenueReportKind, data: RevenueReportData | null, fr
   return data?.firstPaymentDate
     ? `All time — since ${formatServiceDate(data.firstPaymentDate)}`
     : 'All time'
-}
-
-/** One figure above the report. */
-function ReportTile({
-  icon: Icon,
-  label,
-  value,
-  hint,
-  accent,
-  loading,
-}: {
-  icon: LucideIcon
-  label: string
-  value: string
-  hint: string
-  accent: string
-  loading: boolean
-}) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-card sm:p-4">
-      <div className="flex items-start justify-between gap-2">
-        <p className="min-w-0 text-[10px] font-bold uppercase leading-tight tracking-wider text-slate-500 sm:text-[11px]">
-          {label}
-        </p>
-        <span
-          className={cn(
-            'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg sm:h-9 sm:w-9',
-            accent,
-          )}
-        >
-          <Icon className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
-        </span>
-      </div>
-      {loading ? (
-        <Skeleton className="mt-2 h-7 w-24 rounded-md" />
-      ) : (
-        <p className="mt-1 truncate text-lg font-bold tabular-nums text-slate-900 sm:text-xl xl:text-2xl">
-          {value}
-        </p>
-      )}
-      <p className="mt-1 truncate text-[11px] text-slate-500 sm:text-xs">{hint}</p>
-    </div>
-  )
 }
 
 /** How the money came in, by payment method — a stacked bar and a row each. */
@@ -650,36 +607,36 @@ export function RevenueReport({ kind }: { kind: RevenueReportKind }) {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
-            <ReportTile
+            <AdminStatCard
               icon={IndianRupee}
               label="Total Collected"
               value={summary ? formatCurrency(summary.total) : '—'}
               hint={summary ? `From ${plural(summary.customers, 'customer')}` : 'Collected, not billed'}
-              accent="bg-emerald-50 text-emerald-600"
+              tone="success"
               loading={firstLoad}
             />
-            <ReportTile
+            <AdminStatCard
               icon={Receipt}
               label="Payments"
               value={summary ? summary.count.toLocaleString('en-IN') : '—'}
               hint={summary ? `Against ${plural(summary.jobCards, 'job card')}` : 'Receipts taken'}
-              accent="bg-primary-50 text-primary-600"
+              tone="primary"
               loading={firstLoad}
             />
-            <ReportTile
+            <AdminStatCard
               icon={TrendingUp}
               label="Average Payment"
               value={summary ? formatCurrency(summary.average) : '—'}
               hint="Per receipt"
-              accent="bg-sky-50 text-sky-600"
+              tone="info"
               loading={firstLoad}
             />
-            <ReportTile
+            <AdminStatCard
               icon={FileText}
               label="Largest Payment"
               value={summary ? formatCurrency(summary.highest) : '—'}
               hint="Single receipt"
-              accent="bg-violet-50 text-violet-600"
+              tone="violet"
               loading={firstLoad}
             />
           </div>

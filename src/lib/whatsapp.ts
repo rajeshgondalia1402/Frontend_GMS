@@ -130,6 +130,63 @@ export function paymentReceiptMessage(input: PaymentReceiptMessageInput): string
   return lines.join('\n')
 }
 
+/** What the free trial reminder says, from one row of the expiring trials list. */
+export interface TrialReminderMessageInput {
+  ownerName?: string | null
+  garageName?: string | null
+  /** When the trial ends, as the API returns it. */
+  endDate: string
+  /** Whole days still to run; 1 or more for a trial that is still live. */
+  daysLeft: number
+}
+
+/**
+ * The platform admin's reminder to a garage whose free trial is about to end:
+ * when it ends, what they keep by subscribing, the plans on offer, and how to
+ * go ahead. No prices — those live on the plans and change; the reply is where
+ * the conversation about them starts.
+ *
+ * Handed over prefilled for the admin to read and send, like the receipt.
+ */
+export function trialReminderMessage(input: TrialReminderMessageInput): string {
+  const owner = input.ownerName?.trim()
+  const garage = input.garageName?.trim() || 'your garage'
+  const ends = receiptDate(input.endDate)
+  const left = input.daysLeft <= 1 ? 'less than a day' : `${input.daysLeft} days`
+
+  const lines: string[] = []
+
+  lines.push(owner ? `Namaste ${owner} 🙏` : 'Namaste 🙏')
+  lines.push('')
+  lines.push(`Greetings from ${bold('GaragePro')}! Thank you for trying GaragePro at ${bold(garage)}.`)
+  lines.push('')
+  lines.push(
+    `This is a gentle reminder that your ${bold('free trial ends on ' + ends)} — only ${left} to go.`,
+  )
+  lines.push('')
+  lines.push(
+    'To keep using GaragePro without any interruption, please choose a subscription plan before the trial ends. Everything you have set up stays exactly as it is:',
+  )
+  lines.push('✅ Customers, vehicles and job cards')
+  lines.push('✅ Billing, payments and WhatsApp receipts')
+  lines.push('✅ Staff, reports and your complete history')
+  lines.push('')
+  lines.push(bold('Plans available'))
+  lines.push('• Monthly — pay as you go')
+  lines.push('• Yearly — best value, save more')
+  lines.push('')
+  lines.push(
+    'Simply reply to this message with the plan you prefer, and our team will share the details and activate it for you.',
+  )
+  lines.push('')
+  lines.push('Thank you for being part of GaragePro. We look forward to supporting your garage.')
+  lines.push('')
+  lines.push('Warm regards,')
+  lines.push(bold('Team GaragePro'))
+
+  return lines.join('\n')
+}
+
 /** The `wa.me` link that opens the chat with the message already typed in. */
 export function whatsappLink(number: string, message: string): string {
   return `https://wa.me/${number}?text=${encodeURIComponent(message)}`

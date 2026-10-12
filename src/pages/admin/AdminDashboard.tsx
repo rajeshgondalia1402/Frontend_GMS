@@ -5,32 +5,28 @@ import {
   CheckCircle2,
   Clock,
   CreditCard,
-  PieChart,
   RefreshCw,
   Wallet,
   XCircle,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { ActionCenter } from '@/components/admin/ActionCenter'
 import { BreakdownCard, share } from '@/components/admin/BreakdownCard'
+import { ExpiringTrialsPanel } from '@/components/admin/ExpiringTrialsPanel'
 import { GrowthChart } from '@/components/admin/GrowthChart'
-import { SummaryCard } from '@/components/dashboard'
-import type { SummaryTone } from '@/components/dashboard'
-import { useAdminAuth } from '@/context/AdminAuthContext'
+import { AdminStatCard } from '@/components/admin/AdminStatCard'
+import type { AdminStatTone } from '@/components/admin/AdminStatCard'
 import { useAdminDashboardSummary } from '@/hooks/useAdminDashboardSummary'
 import { formatCount } from '@/lib/dashboard'
 import { formatCurrency } from '@/lib/utils'
 import type { AdminDashboardSummary } from '@/types/admin'
 
-/** The mix wears the tiles' colours: paid violet, trial sky, expired red (validated). */
-const MIX_COLORS = { paid: '#7c3aed', trial: '#0284c7', expired: '#ef4444' }
 /** Monthly in the app's blue, yearly in teal — a validated pair. */
 const REVENUE_COLORS = { monthly: '#3366ff', yearly: '#0d9488' }
 
 interface Tile {
   label: string
   icon: LucideIcon
-  tone: SummaryTone
+  tone: AdminStatTone
   value: (s: AdminDashboardSummary) => string
   hint: (s: AdminDashboardSummary) => string
   /** Where the tile's garages are listed. Without it the tile is static. */
@@ -45,7 +41,10 @@ const GARAGE_TILES: Tile[] = [
     icon: Building2,
     tone: 'primary',
     value: (s) => formatCount(s.totalGarages),
-    hint: () => 'Every registered garage',
+    hint: () => 'All registered',
+    // Reports → Garage Subscriptions: every garage with its subscription.
+    to: '/admin/garages',
+    newTab: true,
   },
   {
     label: 'Active',
@@ -53,7 +52,7 @@ const GARAGE_TILES: Tile[] = [
     tone: 'success',
     value: (s) => formatCount(s.activeGarages),
     hint: (s) => `${share(s.activeGarages, s.totalGarages)} of all garages`,
-    to: '/admin/reports',
+    to: '/admin/reports/active-garages',
     newTab: true,
   },
   {
@@ -62,6 +61,9 @@ const GARAGE_TILES: Tile[] = [
     tone: 'violet',
     value: (s) => formatCount(s.paidGarages),
     hint: (s) => `${share(s.paidGarages, s.activeGarages)} of active`,
+    // Reports → Active Garages, opened on Paid (monthly + yearly).
+    to: '/admin/reports/active-garages?plan=PAID',
+    newTab: true,
   },
   {
     label: 'Free Trial',
@@ -69,13 +71,19 @@ const GARAGE_TILES: Tile[] = [
     tone: 'info',
     value: (s) => formatCount(s.freeTrial),
     hint: (s) => `${share(s.freeTrial, s.activeGarages)} of active`,
+    // Reports → Active Garages, opened on its Free Trial tab.
+    to: '/admin/reports/active-garages?plan=FREE_TRIAL',
+    newTab: true,
   },
   {
     label: 'Expiring Soon',
     icon: AlarmClock,
     tone: 'warning',
     value: (s) => formatCount(s.expiringSoon),
-    hint: () => 'Within the next 7 days',
+    hint: () => 'Next 7 days',
+    // Reports → Garage Subscriptions, on its "Expiring in 7 days" filter.
+    to: '/admin/garages?state=expiring',
+    newTab: true,
   },
   {
     label: 'Expired',
@@ -83,6 +91,9 @@ const GARAGE_TILES: Tile[] = [
     tone: 'danger',
     value: (s) => formatCount(s.expiredGarages),
     hint: (s) => `${share(s.expiredGarages, s.totalGarages)} of all garages`,
+    // Reports → Garage Subscriptions, on its "Expired" filter.
+    to: '/admin/garages?state=expired',
+    newTab: true,
   },
 ]
 
@@ -96,16 +107,12 @@ function SectionHeading({ title, caption }: { title: string; caption: string }) 
 }
 
 export function AdminDashboard() {
-  const { admin } = useAdminAuth()
   const { summary, loading, error, reload } = useAdminDashboardSummary()
 
   const totalRevenue = summary ? summary.monthlyRevenue + summary.yearlyRevenue : 0
 
   return (
     <div className="space-y-6">
-      {/* Platform health, and the follow-ups the numbers call for. */}
-      <ActionCenter adminName={admin?.name} summary={summary} loading={loading} />
-
       {/* The counts come back together, so one failure is one message. */}
       {error && (
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
@@ -125,7 +132,7 @@ export function AdminDashboard() {
         <SectionHeading title="Garages" caption="Where every garage stands on its subscription" />
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           {GARAGE_TILES.map((tile) => (
-            <SummaryCard
+            <AdminStatCard
               key={tile.label}
               label={tile.label}
               icon={tile.icon}
@@ -141,67 +148,48 @@ export function AdminDashboard() {
       </section>
 
       <section>
-        <SectionHeading title="Subscriptions" caption="How the platform splits, and what it has earned" />
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          <BreakdownCard
-            title="Subscription Mix"
-            caption="Every garage, by where its subscription stands"
-            icon={PieChart}
-            total={summary ? formatCount(summary.totalGarages) : '—'}
-            totalLabel="Garages in total"
-            loading={loading}
-            parts={[
-              {
-                label: 'Paid',
-                value: summary?.paidGarages ?? 0,
-                display: formatCount(summary?.paidGarages),
-                color: MIX_COLORS.paid,
-                hint: 'Monthly or yearly',
-              },
-              {
-                label: 'Free trial',
-                value: summary?.freeTrial ?? 0,
-                display: formatCount(summary?.freeTrial),
-                color: MIX_COLORS.trial,
-              },
-              {
-                label: 'Expired',
-                value: summary?.expiredGarages ?? 0,
-                display: formatCount(summary?.expiredGarages),
-                color: MIX_COLORS.expired,
-                hint: 'Run out or cancelled',
-              },
-            ]}
-          />
-          <BreakdownCard
-            title="Subscription Revenue"
-            caption="Paid plans sold, all time"
-            icon={Wallet}
-            total={summary ? formatCurrency(totalRevenue) : '—'}
-            totalLabel="Total earned from paid plans"
-            loading={loading}
-            parts={[
-              {
-                label: 'Monthly plans',
-                value: summary?.monthlyRevenue ?? 0,
-                display: summary ? formatCurrency(summary.monthlyRevenue) : '—',
-                color: REVENUE_COLORS.monthly,
-              },
-              {
-                label: 'Yearly plans',
-                value: summary?.yearlyRevenue ?? 0,
-                display: summary ? formatCurrency(summary.yearlyRevenue) : '—',
-                color: REVENUE_COLORS.yearly,
-              },
-            ]}
-            footnote="Each subscription sold is valued at its plan's current price."
-          />
-        </div>
-      </section>
+        <SectionHeading
+          title="Subscriptions"
+          caption="How the platform has grown, what it has earned, and trials to follow up"
+        />
+        {/* The growth chart and revenue sit side by side (two thirds / one
+            third, matched in height); trials ending soon run full width below.
+            Below lg everything stacks. */}
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+          <div className="min-w-0 lg:col-span-2 [&>div]:h-full">
+            <GrowthChart />
+          </div>
 
-      <section>
-        <SectionHeading title="Growth" caption="Garages and paid subscriptions over the year" />
-        <GrowthChart />
+          <div className="min-w-0 [&>div]:h-full">
+            <BreakdownCard
+              title="Subscription Revenue"
+              caption="Paid plans sold, all time"
+              icon={Wallet}
+              total={summary ? formatCurrency(totalRevenue) : '—'}
+              totalLabel="Total earned from paid plans"
+              loading={loading}
+              parts={[
+                {
+                  label: 'Monthly plans',
+                  value: summary?.monthlyRevenue ?? 0,
+                  display: summary ? formatCurrency(summary.monthlyRevenue) : '—',
+                  color: REVENUE_COLORS.monthly,
+                },
+                {
+                  label: 'Yearly plans',
+                  value: summary?.yearlyRevenue ?? 0,
+                  display: summary ? formatCurrency(summary.yearlyRevenue) : '—',
+                  color: REVENUE_COLORS.yearly,
+                },
+              ]}
+              footnote="Each subscription sold is valued at its plan's current price."
+            />
+          </div>
+
+          <div className="min-w-0 lg:col-span-3">
+            <ExpiringTrialsPanel />
+          </div>
+        </div>
       </section>
     </div>
   )

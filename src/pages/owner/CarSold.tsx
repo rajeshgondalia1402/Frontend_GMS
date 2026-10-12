@@ -8,9 +8,9 @@ import {
   PaginationBar,
   ResponsiveList,
   SearchInput,
-  StatCard,
 } from '@/components/common'
 import type { Column, SortOrder } from '@/components/common'
+import { AdminStatCard } from '@/components/admin/AdminStatCard'
 import { Button, EmptyState, ErrorState, LoadingState, useToast } from '@/components/ui'
 import {
   CollectPaymentModal,
@@ -531,7 +531,7 @@ export function CarSold() {
       />
 
       <div className="mb-4 grid grid-cols-1 gap-3 sm:max-w-[15rem]">
-        <StatCard
+        <AdminStatCard
           label="Cars Sold"
           value={total === null ? '—' : String(total)}
           icon={Wallet}

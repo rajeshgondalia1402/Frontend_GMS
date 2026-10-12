@@ -1,17 +1,28 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Building2, CalendarDays, ClipboardList, Download, MapPin, Phone } from 'lucide-react'
+import {
+  AlarmClock,
+  Building2,
+  CalendarDays,
+  CheckCircle2,
+  ClipboardList,
+  Download,
+  MapPin,
+  Phone,
+  XCircle,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import {
   ActionButton,
   DEFAULT_PAGE_SIZE,
-  FilterButton,
+  FilterCard,
   PageHeader,
   PaginationBar,
   ResponsiveList,
   SearchInput,
   SortBar,
 } from '@/components/common'
-import type { Column, SortBarField, SortOrder } from '@/components/common'
+import type { Column, FilterCardTone, SortBarField, SortOrder } from '@/components/common'
 import { Badge, Button, EmptyState, ErrorState, LoadingState, Select } from '@/components/ui'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { adminService } from '@/services/adminService'
@@ -29,9 +40,11 @@ import {
 } from '@/lib/adminReport'
 import { datedFileName, downloadExcel } from '@/lib/excel'
 import type { ExportColumn } from '@/lib/excel'
+import { formatCount } from '@/lib/dashboard'
 import { formatDate } from '@/lib/utils'
 import type { Pagination } from '@/types/auth'
 import type {
+  GarageReportData,
   GarageReportRow,
   GarageReportSortBy,
   SubscriptionPlan,
@@ -100,6 +113,23 @@ interface SortState {
   order: SortOrder
 }
 
+/**
+ * The state filters as cards, each with its platform-wide count. The values
+ * are STATE_FILTERS' own, so `?state=` links keep working.
+ */
+const STATE_CARDS: {
+  value: string
+  label: string
+  icon: LucideIcon
+  tone: FilterCardTone
+  count: 'all' | 'live' | 'expiring' | 'expired'
+}[] = [
+  { value: 'all', label: 'All garages', icon: Building2, tone: 'primary', count: 'all' },
+  { value: 'live', label: 'Live', icon: CheckCircle2, tone: 'success', count: 'live' },
+  { value: 'expiring', label: 'Expiring soon', icon: AlarmClock, tone: 'warning', count: 'expiring' },
+  { value: 'expired', label: 'Expired', icon: XCircle, tone: 'danger', count: 'expired' },
+]
+
 /** Newest registration first — the API's own default. */
 const DEFAULT_SORT: SortState = { field: 'createdAt', order: 'desc' }
 
@@ -138,6 +168,7 @@ export function AdminGarages() {
   const [status, setStatus] = useState('')
 
   const [rows, setRows] = useState<GarageReportRow[]>([])
+  const [counts, setCounts] = useState<GarageReportData['counts'] | null>(null)
   const [pagination, setPagination] = useState<Pagination | null>(null)
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE)
@@ -181,6 +212,7 @@ export function AdminGarages() {
       if (requestId !== latestRequest.current) return
 
       setRows(data.garages ?? [])
+      setCounts(data.counts ?? null)
       setPagination(data.pagination ?? null)
     } catch (err) {
       if (requestId !== latestRequest.current) return
@@ -245,19 +277,12 @@ export function AdminGarages() {
    * of its own beside this list — an admin comparing garages keeps the list it
    * came from rather than navigating away from it and back.
    *
-   * A new window carries no router state and the job card endpoint describes
-   * no garage, so the few details that window's header shows travel in the
-   * address with it.
+   * Only the garage's id travels in the address: the job card endpoint
+   * returns the garage beside its cards, and the window's header reads it
+   * from there.
    */
   const openJobCards = ({ garage }: GarageReportRow) => {
-    const query = new URLSearchParams({
-      garage: garage.garageName,
-      owner: garage.ownerName,
-      mobile: garage.mobileNumber,
-      ...(garage.city ? { city: garage.city } : {}),
-    })
-
-    window.open(`/admin/garages/${garage.id}/job-cards?${query}`, '_blank', 'noopener')
+    window.open(`/admin/garages/${garage.id}/job-cards`, '_blank', 'noopener')
   }
 
   const columns: Column<GarageReportRow>[] = [
@@ -354,9 +379,39 @@ export function AdminGarages() {
 
   return (
     <div>
-      <PageHeader title="Garages" subtitle="Every registered garage and its subscription" />
+      <PageHeader
+        title="Garage Subscriptions"
+        subtitle="Every registered garage and its subscription"
+        action={
+          <Button
+            variant="outline"
+            leftIcon={<Download className="h-4 w-4" />}
+            disabled={rows.length === 0}
+            onClick={exportExcel}
+          >
+            <span className="hidden sm:inline">Download Excel</span>
+            <span className="sm:hidden">Excel</span>
+          </Button>
+        }
+      />
 
-      <div className="mb-3 flex flex-col gap-3 lg:flex-row">
+      {/* The counts are the filters: tap one and the list narrows to it. */}
+      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {STATE_CARDS.map((card) => (
+          <FilterCard
+            key={card.value}
+            icon={card.icon}
+            label={card.label}
+            tone={card.tone}
+            value={counts ? formatCount(counts[card.count]) : '—'}
+            selected={state === card.value}
+            onClick={() => setState(card.value)}
+            stackOnMobile
+          />
+        ))}
+      </div>
+
+      <div className="mb-4 flex flex-col gap-3 lg:flex-row">
         <SearchInput
           value={query}
           onChange={setQuery}
@@ -380,24 +435,6 @@ export function AdminGarages() {
             onChange={(e) => setStatus(e.target.value)}
           />
         </div>
-      </div>
-
-      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="min-w-0 lg:flex-1">
-          <FilterButton options={STATE_FILTERS} value={state} onChange={setState} />
-        </div>
-        {/* Sits beside the pills rather than in the search row above: that row
-            already carries the two dropdowns, and a fourth control in it leaves
-            nothing readable at laptop width. */}
-        <Button
-          variant="outline"
-          className="shrink-0"
-          leftIcon={<Download className="h-4 w-4" />}
-          disabled={rows.length === 0}
-          onClick={exportExcel}
-        >
-          Download Excel
-        </Button>
       </div>
 
       {/* The table sorts from its headers; the cards get the same fields here. */}

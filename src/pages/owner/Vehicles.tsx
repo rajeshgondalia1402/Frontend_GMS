@@ -7,10 +7,10 @@ import {
   PageHeader,
   PaginationBar,
   SearchInput,
-  StatCard,
 } from '@/components/common'
 import type { Column, SortBarField, SortOrder } from '@/components/common'
 import { ResponsiveList, SortBar } from '@/components/common'
+import { AdminStatCard } from '@/components/admin/AdminStatCard'
 import { Badge, Button, EmptyState, ErrorState, LoadingState } from '@/components/ui'
 import { VehicleMoreDetails } from '@/components/vehicles'
 import { useAuth } from '@/context/AuthContext'
@@ -380,7 +380,7 @@ export function Vehicles() {
       <PageHeader title="Vehicles" subtitle="All registered vehicles" />
 
       <div className="mb-4 grid grid-cols-1 gap-3 sm:max-w-[15rem]">
-        <StatCard
+        <AdminStatCard
           label="Total Vehicles"
           value={total === null ? '—' : String(total)}
           icon={Car}

@@ -123,7 +123,9 @@ export const router = createBrowserRouter([
           { path: 'garages', element: <AdminGarages /> },
           { path: 'plans', element: <AdminPlans /> },
           { path: 'payments', element: <AdminPayments /> },
-          { path: 'reports', element: <AdminReports /> },
+          // The Reports menu is a group; its own path opens the first report.
+          { path: 'reports', element: <Navigate to="/admin/reports/active-garages" replace /> },
+          { path: 'reports/active-garages', element: <AdminReports /> },
         ],
       },
 

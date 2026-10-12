@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AlertCircle, RefreshCw } from 'lucide-react'
+import { AlertCircle, RefreshCw, TrendingUp } from 'lucide-react'
 import {
   CartesianGrid,
   Line,
@@ -110,11 +110,17 @@ export function GrowthChart() {
   const added = (key: SeriesSpec['newKey']) => months.reduce((sum, row) => sum + row[key], 0)
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
+    <div className="relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 pt-6 shadow-card transition-shadow duration-200 hover:shadow-lg">
+      <span className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary-500 to-sky-400" />
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-slate-800">Garage &amp; Subscription Growth</h2>
-          <p className="truncate text-xs text-slate-400">Running total at the end of each month</p>
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-500/30">
+            <TrendingUp className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-slate-800">Garage &amp; Subscription Growth</h2>
+            <p className="truncate text-xs text-slate-400">Running total at the end of each month</p>
+          </div>
         </div>
         <label className="relative shrink-0">
           <span className="sr-only">Year</span>
@@ -149,7 +155,9 @@ export function GrowthChart() {
         ))}
       </div>
 
-      <div className="mt-3 h-64">
+      {/* A fixed height on its own; beside taller cards it grows to fill the
+          card, so the plot uses the whole block rather than leaving a gap. */}
+      <div className="mt-3 h-64 xl:h-auto xl:min-h-[18rem] xl:flex-1">
         {error ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 text-center">
             <AlertCircle className="h-5 w-5 text-red-500" />
