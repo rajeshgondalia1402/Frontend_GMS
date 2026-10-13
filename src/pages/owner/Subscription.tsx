@@ -1,3 +1,4 @@
+import { useSearchParams } from 'react-router-dom'
 import { Check, Sparkles } from 'lucide-react'
 import { PageHeader } from '@/components/common'
 import { Button, Badge, useToast } from '@/components/ui'
@@ -5,12 +6,33 @@ import { plans } from '@/mock/plans'
 import { formatCurrency } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 
+/**
+ * The public site's plan slugs, as they arrive in `?plan=` when a visitor
+ * picked a plan on `/subscription` before signing in. Mapped to the plan names
+ * this screen already shows, so the choice is carried over rather than lost at
+ * the door.
+ */
+const PLAN_BY_SLUG: Record<string, string> = {
+  trial: 'Free Trial',
+  monthly: 'Monthly',
+  yearly: 'Yearly',
+}
+
 export function Subscription() {
   const { toast } = useToast()
+  const [searchParams] = useSearchParams()
+  const requestedPlan = PLAN_BY_SLUG[searchParams.get('plan') ?? ''] ?? null
 
   return (
     <div>
       <PageHeader title="Choose Your Plan" subtitle="Continue managing your garage without interruption." />
+
+      {requestedPlan && (
+        <p className="mb-5 rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-800">
+          You picked the <span className="font-semibold">{requestedPlan}</span> plan on the website
+          — it is marked below.
+        </p>
+      )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {plans.map((plan) => (
@@ -19,6 +41,7 @@ export function Subscription() {
             className={cn(
               'relative flex flex-col rounded-2xl border bg-white p-5 shadow-card',
               plan.highlight ? 'border-primary-300 ring-1 ring-primary-200' : 'border-slate-200',
+              plan.name === requestedPlan && 'border-primary-400 ring-2 ring-primary-300',
             )}
           >
             {plan.highlight && (

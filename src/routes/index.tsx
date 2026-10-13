@@ -1,10 +1,19 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 
 import { AuthLayout } from '@/layouts/AuthLayout'
+import { PublicLayout } from '@/layouts/PublicLayout'
 import { OwnerLayout } from '@/layouts/OwnerLayout'
 import { AdminLayout } from '@/layouts/AdminLayout'
 import { ProtectedRoute, PublicOnlyRoute } from './ProtectedRoute'
 import { AdminProtectedRoute, AdminPublicOnlyRoute } from './AdminRoute'
+
+import {
+  About as PublicAbout,
+  Contact as PublicContact,
+  Features as PublicFeatures,
+  Home as PublicHome,
+  Subscription as PublicSubscription,
+} from '@/pages/public'
 
 import { Login } from '@/pages/auth/Login'
 import { Register } from '@/pages/auth/Register'
@@ -44,7 +53,19 @@ import { AdminReports } from '@/pages/admin/AdminReports'
 import { NotFound } from '@/pages/NotFound'
 
 export const router = createBrowserRouter([
-  { path: '/', element: <Navigate to="/login" replace /> },
+  // The public website. It sits outside `PublicOnlyRoute` on purpose: these
+  // pages are for visitors, but a signed-in owner must still be able to read
+  // them — the header offers them their dashboard instead of a sign-in.
+  {
+    element: <PublicLayout />,
+    children: [
+      { path: '/', element: <PublicHome /> },
+      { path: '/features', element: <PublicFeatures /> },
+      { path: '/subscription', element: <PublicSubscription /> },
+      { path: '/about', element: <PublicAbout /> },
+      { path: '/contact', element: <PublicContact /> },
+    ],
+  },
 
   // Auth screens — redirected to /app when already signed in.
   {
