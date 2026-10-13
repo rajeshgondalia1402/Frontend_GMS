@@ -13,6 +13,10 @@ every bar — and the two revenue reports under the Reports menu. Billing, Salar
 and the whole Platform Admin panel still render mock data; those are integrated
 one at a time.
 
+The repository also carries the product's **public website** — home, features,
+subscription, about and contact — at the root of the same app. See
+[The Public Website](#the-public-website).
+
 ## Tech Stack
 
 - **React 18** + **TypeScript**
@@ -45,6 +49,7 @@ if needed:
 | --- | --- | --- |
 | `VITE_API_BASE_URL` | `/api` | Prefix added to every API call. |
 | `VITE_API_PROXY_TARGET` | `http://localhost:5000` | Where the dev server forwards `/api`. Dev only. |
+| `VITE_CONTACT_ENQUIRY_PATH` | *(blank)* | Path the public Contact form posts to, under `VITE_API_BASE_URL`. Blank keeps the form switched off and honest — the API has no enquiry endpoint yet. |
 
 The backend has **no CORS middleware**, so a browser cannot call
 `http://localhost:5000` directly from `http://localhost:5173`. The dev server
@@ -1018,7 +1023,187 @@ total, the filters and the split by method in the sheet's title block. **Print**
 the page itself: the sidebar, top bar, bottom bar, filters and paging are hidden in
 print, and the payments always print as the table.
 
+## The Public Website
+
+Everything at the root of the site — `/`, `/features`, `/subscription`,
+`/about`, `/contact` — is the marketing site a visitor lands on before they
+have an account. It is branded **GaragePilot**, from `public/GMS_Logo.png` (see
+[Brand, logo and palette](#brand-logo-and-palette)). It shares the app's design
+system (the same Tailwind palette,
+`Button`, `Input`, `Select`, `Textarea`, `WhatsappIcon`, `shadow-card`, Inter)
+but none of its chrome: `PublicLayout` carries a header and a footer of its own
+and no sidebar, bottom bar or session widgets.
+
+It sits **outside** `PublicOnlyRoute`, unlike the auth screens. A signed-in
+owner must still be able to read the pricing page, so instead of bouncing them
+to `/app` the header, hero and closing CTA simply offer **Go to Dashboard**
+where a visitor is offered **Login** / **Start Free Trial**. `/login` and
+`/register` still redirect a signed-in owner exactly as they did.
+
+| Route | Page | Notes |
+| --- | --- | --- |
+| `/` | Home | Hero, features, benefits, how it works, product preview, pricing, FAQ, CTA |
+| `/features` | Features | All twelve capabilities, with what is still being built named explicitly |
+| `/subscription` | Subscription | The three plans, a comparison table, and how paying actually works today |
+| `/about` | About Us | Why the product exists, who it is for, and the decisions behind it |
+| `/contact` | Contact Us | Enquiry form — see *Contact form* below |
+
+`/` used to redirect to `/login`; it is now the home page.
+
+### What the site is allowed to claim
+
+Every feature on the site is a screen that exists and saves to the API. The
+content lives in **`src/lib/publicContent.ts`** so the home and features pages
+cannot drift apart, and it deliberately leaves out **Billing**, **Salary**,
+saving the garage profile and the platform admin panel, which still run on mock
+data. `/features` and `/about` say so in as many words rather than letting a
+visitor find out after signing up. There are no testimonials, customer counts
+or ratings anywhere, because there is nothing to source them from.
+
+The dashboard and bill shown on the home page (`DashboardPreview`,
+`BillPreview`) are drawn from the app's own tile, chart, table and badge shapes
+with **illustrative figures**, captioned as such. Nothing on the public site
+fetches anything.
+
+### Plans and the CTA wiring
+
+`src/lib/publicPlans.ts` holds the three plans and carries the API's own plan
+codes (`FREE_TRIAL`, `MONTHLY`, `YEARLY`), so a choice made on the website is
+spoken in the same vocabulary the app uses.
+
+No new subscription flow was built. The buttons reuse what already exists:
+
+| Button | Signed out | Signed in |
+| --- | --- | --- |
+| Start Free Trial | `/register` — registration already starts the trial | `/app/subscription` |
+| Choose Monthly / Yearly | `/register?plan=monthly` or `?plan=yearly` | `/app/subscription?plan=…` |
+
+`/register` acknowledges `?plan=` with one line — every account starts on the
+free trial, so the choice is only carried, never acted on — and
+`/app/subscription` reads it to mark the plan the visitor picked. Both are
+additive: the registration payload, the OTP step and the subscription screen
+behave exactly as before without the parameter.
+
+**Online checkout does not exist yet**, and the pricing page says so plainly
+instead of linking to a payment page that is not there.
+
+### Contact form
+
+It `POST`s through the usual `httpClient` layer via
+**`src/services/contactService.ts`** — but **the API has no enquiry endpoint
+today**. The path is read from `VITE_CONTACT_ENQUIRY_PATH` and is blank by
+default, so the form renders, validates (the same mobile and email rules the
+auth forms use) and then says *"Message delivery is being set up"* with the
+submit button disabled, rather than accepting a message and reporting a
+delivery that never happened.
+
+Set `VITE_CONTACT_ENQUIRY_PATH=/contact` once the endpoint ships and the form
+starts sending; nothing else needs changing, and `ApiError.fieldErrors` is
+already mapped onto the fields.
+
+No phone number, email address or postal address appears anywhere on the site —
+the codebase holds none, and inventing one would be worse than leaving it out.
+The page offers links that answer the common questions immediately instead.
+
+### Brand, logo and palette
+
+The public site is branded **GaragePilot — Smart Garage Management**, from
+`public/GMS_Logo.png`. The signed-in app, the auth screens, the web manifest
+and the generated PDFs still say *GaragePro*; that rename was deliberately left
+for a separate pass, so the two names coexist today:
+
+| Says GaragePilot | Still says GaragePro |
+| --- | --- |
+| The whole public site and its copy | `/login`, `/register` and the other auth screens |
+| `<title>`, meta description, Open Graph / Twitter tags | The sidebar and top bar (`AppShell`) |
+| The dashboard still on the home page | `public/manifest.webmanifest` |
+| | Invoice and car-sale-receipt PDFs (`src/lib/invoice.ts`) |
+
+Because `index.html` holds the app-wide defaults, the **browser tab reads
+GaragePilot on every screen**, including the auth screens whose own heading
+still says GaragePro.
+
+#### Assets
+
+`public/GMS_Logo.png` is the original artwork (2172 × 724, 843 KB) and is left
+untouched. What the site loads is derived from it:
+
+| File | What it is |
+| --- | --- |
+| `public/brand/garagepilot-logo.png` | The wordmark, trimmed of its transparent margin and resized to 718 × 216 (122 KB) — 6× the 36px it is drawn at, so it is sharp on a retina screen without shipping 843 KB in the header |
+| `public/brand/garagepilot-og.png` | 1200 × 630 share card: the wordmark centred on the brand navy |
+| `public/favicon.svg` | The square app mark — a brand-blue gradient tile, a white garage, and its shutter in the logo's orange. Drawn rather than cropped out of the wordmark, because no part of "GaragePilot" survives being shrunk to 16px |
+
+The logo is a **wordmark** — it carries the name and the tagline itself — so
+`BrandMark` sets no text beside it. On the dark footer it sits on a white
+plate: the navy "Smart Garage Management" line all but vanishes against
+`slate-900`, and recolouring someone's logo is not the site's call to make.
+
+#### Palette
+
+`tailwind.config.js` was retuned onto the logo. The token names and every use
+of them are unchanged — only the hex values moved:
+
+| Token | Was | Now | Sampled from |
+| --- | --- | --- | --- |
+| `primary-500` | `#3366ff` | `#1472e6` | the bright face of the "Garage" letters |
+| `primary-600` | `#1f4ef5` | `#0b5ed7` | — the colour of every primary button |
+| `primary-700` | `#173ce1` | `#0a4bab` | hover and link text |
+| `primary-900` | `#1a308f` | `#0a2a60` | the navy the letters are shaded with |
+
+A new **`accent`** scale carries the orange half of the logo (`#f97316` at 500,
+running to `#c2410c` at 700). It is used in four places only — the hero badge,
+the Best Value chip, the saving on the yearly plan, and the one button on the
+closing call to action — so the orange stays an accent rather than a second
+primary.
+
+Because `primary` is the app's own token, **the signed-in owner and admin
+screens pick up the brand blue too**, with no code change anywhere else.
+
+#### Contrast
+
+The logo's orange is bright, and white text on it is only **2.8:1** — under the
+4.5:1 AA needs. The orange is therefore kept exactly as bright as the logo and
+the *ink* on it is the brand navy (`primary-950`) instead, at **6.25:1**. The
+measured ratios:
+
+| Combination | Ratio |
+| --- | --- |
+| `accent-500` fill + `primary-950` text (badges, CTA button) | 6.25:1 |
+| `accent-700` text on white (the yearly saving) | 5.18:1 |
+| `accent-700` on `accent-50` (hero badge) | 4.88:1 |
+| `primary-600` button + white text | 5.84:1 |
+
+`_audit.cjs`-style checking is described under
+[SEO, accessibility and responsiveness](#seo-accessibility-and-responsiveness);
+every text node on all five pages was measured against its painted background
+and none falls below its threshold.
+
+### SEO, accessibility and responsiveness
+
+- `src/hooks/usePageMeta.ts` sets the title, meta description, canonical link
+  and the Open Graph / Twitter tags per page — no helmet dependency, three
+  `querySelector` calls. `index.html` keeps the app-wide defaults a crawler
+  sees first.
+- One `<h1>` per page, `<h2>` per section, semantic `<section>` / `<article>` /
+  `<nav>` / `<dl>`, a skip link, visible focus rings on every control, and
+  labelled form fields.
+- The FAQ is `<details>` / `<summary>`, so it is keyboard operable and open to
+  search engines without any JavaScript.
+- Checked at **320 / 390 / 768 / 1440 px**: no horizontal overflow on any page,
+  pricing cards stack, the comparison table becomes definition lists on a
+  phone, and the menu collapses to an accessible drawer.
+
 ## Panels & Routes
+
+### Public website (`/`)
+| Route | Screen | Status |
+| --- | --- | --- |
+| `/` | Home | Public — see [The Public Website](#the-public-website) |
+| `/features` | Features | Public |
+| `/subscription` | Subscription & pricing | Public |
+| `/about` | About Us | Public |
+| `/contact` | Contact Us | Public — form disabled until an enquiry endpoint exists |
 
 ### Authentication (`/`)
 | Route | Screen | Status |
@@ -1153,17 +1338,22 @@ src/
 │   ├── carSelling/ pick lists, flag badges, details modal, row details
 │   ├── carSold/    car picker, picked car, status badges, row details,
 │   │               collect and edit-payment dialogs
+│   ├── public/     the marketing site's own parts — header, footer, section
+│   │               shells, feature cards, pricing cards, FAQ, CTA band and
+│   │               the two illustrative product previews
 │   └── dashboard/  SummaryCard, ListPanel + the tile lists, MonthlyCharts,
 │                   and the two bar popups
 ├── config/       env.ts — API base URL
 ├── context/      AuthContext — session state, persistence, auto-logout
-├── hooks/        useCountdown (OTP timers), useDebouncedValue,
+├── hooks/        useCountdown (OTP timers), useDebouncedValue, usePageMeta,
 │                 useCustomerSearch, useCustomerVehicles, useAllStaff,
 │                 useJobNumber, useJobCardPayments, useDashboardSummary,
 │                 useDashboardMonthly, useDashboardPage (one page of a
 │                 tile list), useSessionLifecycle
-├── layouts/      AppShell, OwnerLayout, AdminLayout, AuthLayout, navigation
+├── layouts/      AppShell, OwnerLayout, AdminLayout, AuthLayout, PublicLayout,
+│                 navigation
 ├── lib/          utils, validation, subscription, dashboard,
+│                 publicPlans, publicContent (what the public site may claim),
 │                 excel, pdf, invoice, carSaleReceipt (the file writers),
 │                 payment, whatsapp (the receipt message),
 │                 carSelling, carSold (form values, labels, payloads),
@@ -1172,9 +1362,11 @@ src/
 │                 authStorage, adminAuthStorage,
 │                 pendingRegistration, pendingPasswordReset
 ├── mock/         static mock data (modules not yet integrated)
-├── pages/        auth/ · owner/ (incl. RevenueReport — both revenue reports) · admin/
+├── pages/        public/ (the marketing site) · auth/ ·
+│                 owner/ (incl. RevenueReport — both revenue reports) · admin/
 ├── routes/       route definitions + Protected / PublicOnly / Admin guards
-├── services/     httpClient, authService, customerService, vehicleService,
+├── services/     httpClient, authService, contactService, customerService,
+│                 vehicleService,
 │                 staffService, jobCardService, paymentService,
 │                 carSellingService, carSoldService,
 │                 dashboardService, adminService
