@@ -5,6 +5,26 @@ export interface LoginPayload {
   password: string
 }
 
+/**
+ * One plan from `GET /api/auth/subscription/plans` — what a garage whose trial
+ * or plan has ended can renew on. The free trial is never in the list.
+ */
+export interface RenewalPlan {
+  planId: number
+  /** `MONTHLY`, `YEARLY`, ... */
+  name: string
+  price: number
+  durationDays: number
+}
+
+/**
+ * `POST /api/auth/subscription/renew`. The garage has no token (login refused
+ * it), so the credentials come again with the chosen plan.
+ */
+export interface RenewSubscriptionPayload extends LoginPayload {
+  planId: number
+}
+
 export interface AuthUser {
   id: string
   ownerName: string
@@ -124,4 +144,14 @@ export interface ResetPasswordData {
   id: string
   mobileNumber: string
   passwordChangedAt: string
+}
+
+/** Page envelope returned by the paginated collection endpoints. */
+export interface Pagination {
+  page: number
+  limit: number
+  total: number
+  totalPages: number
+  hasNextPage: boolean
+  hasPreviousPage: boolean
 }

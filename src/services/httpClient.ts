@@ -1,5 +1,6 @@
 import { env } from '@/config/env'
 import { getStoredToken } from '@/lib/authStorage'
+import { getStoredAdminToken } from '@/lib/adminAuthStorage'
 import type { ApiFieldError, ApiResponse } from '@/types/auth'
 
 /** Error carrying the HTTP status and the API's `{ success, message }` body. */
@@ -28,12 +29,21 @@ interface RequestOptions extends Omit<RequestInit, 'body'> {
   /** Attach the stored bearer token (default: true). */
   auth?: boolean
   /**
+   * Which stored token to attach (default: `user`).
+   * The platform admin signs in through `/api/admin/login` and holds a token of
+   * its own, so an admin endpoint must never be sent the garage owner's.
+   */
+  authScope?: AuthScope
+  /**
    * Whether a 401 means "this token is dead" (default: true).
    * Set false on endpoints where 401 reports a credential the user just typed —
    * a wrong current password must not sign them out.
    */
   signOutOn401?: boolean
 }
+
+/** Which account a request is made as — each keeps its own stored token. */
+export type AuthScope = 'user' | 'admin'
 
 /**
  * Called when an authenticated request comes back 401 — the token was rejected
@@ -42,10 +52,46 @@ interface RequestOptions extends Omit<RequestInit, 'body'> {
  */
 type UnauthorizedHandler = () => void
 
-let onUnauthorized: UnauthorizedHandler | null = null
+const unauthorizedHandlers: Record<AuthScope, UnauthorizedHandler | null> = {
+  user: null,
+  admin: null,
+}
 
-export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): void {
-  onUnauthorized = handler
+/**
+ * Each context registers for its own scope, so a rejected admin token signs the
+ * admin out and leaves a garage session in the same browser alone.
+ */
+export function setUnauthorizedHandler(
+  scope: AuthScope,
+  handler: UnauthorizedHandler | null,
+): void {
+  unauthorizedHandlers[scope] = handler
+}
+
+/**
+ * The `data.code` the API puts on a 403 when the garage's free trial or plan
+ * has ended — on login, and on every garage endpoint once it ends mid-session.
+ */
+export const SUBSCRIPTION_REQUIRED = 'SUBSCRIPTION_REQUIRED'
+
+/** True when the API refused because the trial or plan has ended. */
+export function isSubscriptionRequired(error: unknown): error is ApiError {
+  if (!(error instanceof ApiError)) return false
+  const data = (error.payload as { data?: { code?: unknown } } | null)?.data
+  return data?.code === SUBSCRIPTION_REQUIRED
+}
+
+/**
+ * Called when an authenticated garage request comes back SUBSCRIPTION_REQUIRED,
+ * with the API's message ("Your free trial has ended..."). AuthContext signs
+ * the garage out and the login page shows the message and the plans.
+ */
+type SubscriptionRequiredHandler = (message: string) => void
+
+let subscriptionRequiredHandler: SubscriptionRequiredHandler | null = null
+
+export function setSubscriptionRequiredHandler(handler: SubscriptionRequiredHandler | null): void {
+  subscriptionRequiredHandler = handler
 }
 
 const NETWORK_ERROR_MESSAGE =
@@ -56,14 +102,14 @@ const NETWORK_ERROR_MESSAGE =
  * into `ApiError`, so callers only deal with `data` or a thrown error.
  */
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { body, auth = true, signOutOn401 = true, headers, ...init } = options
+  const { body, auth = true, authScope = 'user', signOutOn401 = true, headers, ...init } = options
 
   const requestHeaders = new Headers(headers)
   requestHeaders.set('Accept', 'application/json')
   if (body !== undefined) requestHeaders.set('Content-Type', 'application/json')
 
   if (auth) {
-    const token = getStoredToken()
+    const token = authScope === 'admin' ? getStoredAdminToken() : getStoredToken()
     if (token) requestHeaders.set('Authorization', `Bearer ${token}`)
   }
 
@@ -96,9 +142,17 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
     // A rejected token only means anything on requests that actually sent one,
     // and only where 401 cannot mean "wrong credentials you just typed".
-    if (response.status === 401 && auth && signOutOn401) onUnauthorized?.()
+    if (response.status === 401 && auth && signOutOn401) unauthorizedHandlers[authScope]?.()
 
-    throw new ApiError(message, response.status, payload, payload?.errors ?? [])
+    const error = new ApiError(message, response.status, payload, payload?.errors ?? [])
+
+    // The trial or plan ran out while the garage was signed in: every garage
+    // endpoint now refuses, so sign out rather than show an error per screen.
+    if (auth && authScope === 'user' && isSubscriptionRequired(error)) {
+      subscriptionRequiredHandler?.(message)
+    }
+
+    throw error
   }
 
   return payload.data as T

@@ -9,6 +9,7 @@ const config: Record<string, { label: string; tone: Tone }> = {
   'in-progress': { label: 'In Progress', tone: 'info' },
   completed: { label: 'Completed', tone: 'primary' },
   delivered: { label: 'Delivered', tone: 'success' },
+  cancelled: { label: 'Cancelled', tone: 'danger' },
   paid: { label: 'Paid', tone: 'success' },
   overdue: { label: 'Overdue', tone: 'danger' },
   successful: { label: 'Successful', tone: 'success' },

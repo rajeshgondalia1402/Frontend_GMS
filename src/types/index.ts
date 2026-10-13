@@ -1,5 +1,5 @@
 export type SubscriptionStatus = 'trial' | 'active' | 'expiring' | 'expired'
-export type JobStatus = 'pending' | 'in-progress' | 'completed' | 'delivered'
+export type JobStatus = 'pending' | 'in-progress' | 'completed' | 'delivered' | 'cancelled'
 export type InvoiceStatus = 'paid' | 'pending' | 'overdue'
 export type PaymentStatus = 'successful' | 'pending' | 'failed'
 export type StaffStatus = 'active' | 'inactive'
@@ -34,6 +34,14 @@ export interface JobPart {
   name: string
   qty: number
   price: number
+}
+
+/** One billable row on a job card — a service, a part, or labour. */
+export interface JobLineItem {
+  id: string
+  description: string
+  qty: number
+  rate: number
 }
 
 export interface JobCard {

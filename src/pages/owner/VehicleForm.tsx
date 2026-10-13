@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, CalendarDays, Car, CarFront, Fuel, Hash, Tag, User } from 'lucide-react'
 import { Button, Input, Select, useToast } from '@/components/ui'
 import { PageHeader } from '@/components/common'
 import { vehicles } from '@/mock/vehicles'
@@ -69,16 +69,17 @@ export function VehicleForm() {
                 label="Vehicle Number *"
                 placeholder="GJ 05 AB 1234"
                 className="uppercase"
+                leftIcon={<Hash className="h-4 w-4" />}
                 error={errors.number?.message}
                 {...register('number', { required: 'Vehicle number is required' })}
               />
             </div>
-            <Select label="Vehicle Type" placeholder="Select type" options={typeOptions} {...register('type')} />
-            <Input label="Brand" placeholder="Maruti Suzuki" {...register('brand')} />
-            <Input label="Model" placeholder="Swift Dzire" {...register('model')} />
-            <Input label="Year" type="number" placeholder="2021" {...register('year')} />
-            <Select label="Customer" placeholder="Select owner" options={customerOptions} {...register('customerId')} />
-            <Select label="Fuel Type" placeholder="Select fuel" options={fuelOptions} {...register('fuelType')} />
+            <Select label="Vehicle Type" placeholder="Select type" options={typeOptions} leftIcon={<Car className="h-4 w-4" />} {...register('type')} />
+            <Input label="Brand" placeholder="Maruti Suzuki" leftIcon={<Tag className="h-4 w-4" />} {...register('brand')} />
+            <Input label="Model" placeholder="Swift Dzire" leftIcon={<CarFront className="h-4 w-4" />} {...register('model')} />
+            <Input label="Year" type="number" placeholder="2021" leftIcon={<CalendarDays className="h-4 w-4" />} {...register('year')} />
+            <Select label="Customer" placeholder="Select owner" options={customerOptions} leftIcon={<User className="h-4 w-4" />} {...register('customerId')} />
+            <Select label="Fuel Type" placeholder="Select fuel" options={fuelOptions} leftIcon={<Fuel className="h-4 w-4" />} {...register('fuelType')} />
           </div>
         </div>
 

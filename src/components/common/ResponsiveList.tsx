@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { Column } from './DataTable'
+import type { Column, SortOrder } from './DataTable'
 import { DataTable } from './DataTable'
 
 interface ResponsiveListProps<T> {
@@ -8,18 +8,57 @@ interface ResponsiveListProps<T> {
   keyField: (row: T) => string
   renderCard: (row: T) => ReactNode
   onRowClick?: (row: T) => void
+  /** Detail block shown under the row (or card) while it is expanded. */
+  renderExpanded?: (row: T) => ReactNode
+  isExpanded?: (row: T) => boolean
+  /** Header sorting — only the table has headers, so cards ignore these. */
+  sortBy?: string
+  sortOrder?: SortOrder
+  onSort?: (sortKey: string) => void
+  /** Fit the table to its container rather than letting it scroll sideways. */
+  fitWidth?: boolean
 }
 
 /** Table on desktop (lg+), stacked cards on mobile. */
-export function ResponsiveList<T>({ columns, data, keyField, renderCard, onRowClick }: ResponsiveListProps<T>) {
+export function ResponsiveList<T>({
+  columns,
+  data,
+  keyField,
+  renderCard,
+  onRowClick,
+  renderExpanded,
+  isExpanded,
+  sortBy,
+  sortOrder,
+  onSort,
+  fitWidth,
+}: ResponsiveListProps<T>) {
   return (
     <>
       <div className="hidden lg:block">
-        <DataTable columns={columns} data={data} keyField={keyField} onRowClick={onRowClick} />
+        <DataTable
+          columns={columns}
+          data={data}
+          keyField={keyField}
+          onRowClick={onRowClick}
+          renderExpanded={renderExpanded}
+          isExpanded={isExpanded}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          onSort={onSort}
+          fitWidth={fitWidth}
+        />
       </div>
       <div className="space-y-3 lg:hidden">
         {data.map((row) => (
-          <div key={keyField(row)}>{renderCard(row)}</div>
+          <div key={keyField(row)}>
+            {renderCard(row)}
+            {renderExpanded && isExpanded?.(row) && (
+              <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                {renderExpanded(row)}
+              </div>
+            )}
+          </div>
         ))}
       </div>
     </>

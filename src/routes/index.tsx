@@ -1,9 +1,19 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 
 import { AuthLayout } from '@/layouts/AuthLayout'
+import { PublicLayout } from '@/layouts/PublicLayout'
 import { OwnerLayout } from '@/layouts/OwnerLayout'
 import { AdminLayout } from '@/layouts/AdminLayout'
 import { ProtectedRoute, PublicOnlyRoute } from './ProtectedRoute'
+import { AdminProtectedRoute, AdminPublicOnlyRoute } from './AdminRoute'
+
+import {
+  About as PublicAbout,
+  Contact as PublicContact,
+  Features as PublicFeatures,
+  Home as PublicHome,
+  Subscription as PublicSubscription,
+} from '@/pages/public'
 
 import { Login } from '@/pages/auth/Login'
 import { Register } from '@/pages/auth/Register'
@@ -14,21 +24,28 @@ import { ResetPassword } from '@/pages/auth/ResetPassword'
 import { Dashboard } from '@/pages/owner/Dashboard'
 import { Customers } from '@/pages/owner/Customers'
 import { CustomerForm } from '@/pages/owner/CustomerForm'
+import { CustomerDetails } from '@/pages/owner/CustomerDetails'
 import { Vehicles } from '@/pages/owner/Vehicles'
 import { VehicleForm } from '@/pages/owner/VehicleForm'
 import { JobCards } from '@/pages/owner/JobCards'
 import { JobCardForm } from '@/pages/owner/JobCardForm'
 import { JobCardDetails } from '@/pages/owner/JobCardDetails'
+import { JobCardPayment } from '@/pages/owner/JobCardPayment'
 import { Billing } from '@/pages/owner/Billing'
 import { Staff } from '@/pages/owner/Staff'
+import { CarSelling } from '@/pages/owner/CarSelling'
+import { CarSellingForm } from '@/pages/owner/CarSellingForm'
+import { CarSold } from '@/pages/owner/CarSold'
+import { CarSoldForm } from '@/pages/owner/CarSoldForm'
 import { Salary } from '@/pages/owner/Salary'
-import { Reports } from '@/pages/owner/Reports'
+import { MonthRevenueReport, TotalRevenueReport } from '@/pages/owner/RevenueReport'
 import { GarageProfile } from '@/pages/owner/GarageProfile'
-import { Settings } from '@/pages/owner/Settings'
 import { Subscription } from '@/pages/owner/Subscription'
 
+import { AdminLogin } from '@/pages/admin/AdminLogin'
 import { AdminDashboard } from '@/pages/admin/AdminDashboard'
 import { AdminGarages } from '@/pages/admin/AdminGarages'
+import { AdminGarageJobCards } from '@/pages/admin/AdminGarageJobCards'
 import { AdminPlans } from '@/pages/admin/AdminPlans'
 import { AdminPayments } from '@/pages/admin/AdminPayments'
 import { AdminReports } from '@/pages/admin/AdminReports'
@@ -36,7 +53,19 @@ import { AdminReports } from '@/pages/admin/AdminReports'
 import { NotFound } from '@/pages/NotFound'
 
 export const router = createBrowserRouter([
-  { path: '/', element: <Navigate to="/login" replace /> },
+  // The public website. It sits outside `PublicOnlyRoute` on purpose: these
+  // pages are for visitors, but a signed-in owner must still be able to read
+  // them — the header offers them their dashboard instead of a sign-in.
+  {
+    element: <PublicLayout />,
+    children: [
+      { path: '/', element: <PublicHome /> },
+      { path: '/features', element: <PublicFeatures /> },
+      { path: '/subscription', element: <PublicSubscription /> },
+      { path: '/about', element: <PublicAbout /> },
+      { path: '/contact', element: <PublicContact /> },
+    ],
+  },
 
   // Auth screens — redirected to /app when already signed in.
   {
@@ -66,34 +95,69 @@ export const router = createBrowserRouter([
           { index: true, element: <Dashboard /> },
           { path: 'customers', element: <Customers /> },
           { path: 'customers/new', element: <CustomerForm /> },
-          { path: 'customers/:id', element: <CustomerForm /> },
+          { path: 'customers/:id', element: <CustomerDetails /> },
           { path: 'vehicles', element: <Vehicles /> },
           { path: 'vehicles/new', element: <VehicleForm /> },
           { path: 'vehicles/:id', element: <VehicleForm /> },
           { path: 'job-cards', element: <JobCards /> },
           { path: 'job-cards/new', element: <JobCardForm /> },
           { path: 'job-cards/:id', element: <JobCardDetails /> },
+          { path: 'job-cards/:id/edit', element: <JobCardForm /> },
+          { path: 'job-cards/:id/payment', element: <JobCardPayment /> },
           { path: 'billing', element: <Billing /> },
           { path: 'staff', element: <Staff /> },
+          { path: 'car-selling', element: <CarSelling /> },
+          { path: 'car-selling/new', element: <CarSellingForm /> },
+          { path: 'car-selling/:id/edit', element: <CarSellingForm /> },
+          { path: 'car-sold', element: <CarSold /> },
+          { path: 'car-sold/new', element: <CarSoldForm /> },
+          { path: 'car-sold/:id/edit', element: <CarSoldForm /> },
           { path: 'salary', element: <Salary /> },
-          { path: 'reports', element: <Reports /> },
+          // The Reports menu. Its revenue pages are also what the dashboard's two
+          // revenue tiles open in a new window.
+          { path: 'reports', element: <Navigate to="/app/reports/total-revenue" replace /> },
+          { path: 'reports/total-revenue', element: <TotalRevenueReport /> },
+          { path: 'reports/revenue-this-month', element: <MonthRevenueReport /> },
           { path: 'profile', element: <GarageProfile /> },
-          { path: 'settings', element: <Settings /> },
           { path: 'subscription', element: <Subscription /> },
         ],
       },
     ],
   },
 
+  // The admin sign-in. Nothing links here — an admin types the address — and a
+  // signed-in admin is sent straight on to the dashboard.
   {
-    path: '/admin',
-    element: <AdminLayout />,
+    element: <AdminPublicOnlyRoute />,
+    children: [{ path: '/admin/login', element: <AdminLogin /> }],
+  },
+
+  // Platform admin panel — requires a valid, non-expired **admin** token.
+  {
+    element: <AdminProtectedRoute />,
     children: [
-      { index: true, element: <AdminDashboard /> },
-      { path: 'garages', element: <AdminGarages /> },
-      { path: 'plans', element: <AdminPlans /> },
-      { path: 'payments', element: <AdminPayments /> },
-      { path: 'reports', element: <AdminReports /> },
+      {
+        path: '/admin',
+        element: <AdminLayout />,
+        children: [
+          { index: true, element: <AdminDashboard /> },
+          { path: 'garages', element: <AdminGarages /> },
+          { path: 'plans', element: <AdminPlans /> },
+          { path: 'payments', element: <AdminPayments /> },
+          // The Reports menu is a group; its own path opens the first report.
+          { path: 'reports', element: <Navigate to="/admin/reports/active-garages" replace /> },
+          { path: 'reports/active-garages', element: <AdminReports /> },
+        ],
+      },
+
+      // Opened in a window of its own from the garage list, so it carries no
+      // sidebar: a second copy of the admin shell in a second window is only
+      // something to close. Still behind the admin token like every other
+      // admin screen.
+      {
+        path: '/admin/garages/:garageId/job-cards',
+        element: <AdminGarageJobCards />,
+      },
     ],
   },
 

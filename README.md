@@ -4,10 +4,18 @@ A mobile-first Garage Management SaaS frontend built with React, TypeScript and
 Tailwind CSS. It talks to the **Node.js API** in
 `D:\Arti\Project\GarageManagementSystem\NodeJS_API`.
 
-**Authentication is fully wired to the real API** — registration, OTP
-verification, login, the garage profile, change password and forgot password.
-Every other screen still renders mock data and mock form submissions; those
-modules are integrated one at a time.
+**Authentication, Customers, Vehicles, Staff, Job Cards, Payments and the
+Dashboard are wired to the real API** — registration, OTP verification, login,
+the garage profile, change password and forgot password, plus the modules the
+desk works in all day, the money taken against a card, and the whole dashboard —
+its figures, the list behind each one, and the monthly charts with a popup for
+every bar — and the two revenue reports under the Reports menu. Billing, Salary
+and the whole Platform Admin panel still render mock data; those are integrated
+one at a time.
+
+The repository also carries the product's **public website** — home, features,
+subscription, about and contact — at the root of the same app. See
+[The Public Website](#the-public-website).
 
 ## Tech Stack
 
@@ -41,6 +49,7 @@ if needed:
 | --- | --- | --- |
 | `VITE_API_BASE_URL` | `/api` | Prefix added to every API call. |
 | `VITE_API_PROXY_TARGET` | `http://localhost:5000` | Where the dev server forwards `/api`. Dev only. |
+| `VITE_CONTACT_ENQUIRY_PATH` | *(blank)* | Path the public Contact form posts to, under `VITE_API_BASE_URL`. Blank keeps the form switched off and honest — the API has no enquiry endpoint yet. |
 
 The backend has **no CORS middleware**, so a browser cannot call
 `http://localhost:5000` directly from `http://localhost:5173`. The dev server
@@ -55,10 +64,10 @@ same-origin. To bypass the proxy and call the API directly instead, set
 ```
 src/config/env.ts             API base URL
 src/services/httpClient.ts    fetch wrapper — envelope unwrapping, bearer token, ApiError
-src/services/authService.ts   endpoint calls (login, register, OTP, profile, password)
+src/services/*Service.ts      endpoint calls, one service per module
 src/context/AuthContext.tsx   session state, persistence, auto-logout
 src/routes/ProtectedRoute.tsx route guards
-src/types/auth.ts             request / response types mirroring the API
+src/types/*.ts                request / response types mirroring the API
 ```
 
 `httpClient` unwraps the API's `{ success, message, data }` envelope: it returns
@@ -93,6 +102,55 @@ during development that usually means the API is not running.
 | `POST /auth/reset-password` | — | `/reset-password` |
 | `POST /auth/change-password` | token | Change Password dialog |
 | `GET /auth/me` | token | `/app/profile` on mount |
+| `POST /auth/customer` | token | `/app/customers/new` |
+| `GET /auth/customer` | token | `/app/customers` — list, search and stat cards |
+| `PUT /auth/customer/:id` | token | Edit Customer dialog |
+| `POST /auth/vehicle` | token | Add Vehicle, on the customer |
+| `GET /auth/vehicle` | token | `/app/vehicles` — list, search and the fleet count |
+| `PUT /auth/vehicle/:id` | token | Edit Vehicle, on the customer |
+| `POST /auth/staff` | token | Add Staff dialog |
+| `GET /auth/staff` | token | `/app/staff` — list, filters and order |
+| `GET /auth/jobcard/job-number` | token | `/app/job-cards/new` as it opens |
+| `GET /auth/jobcard/customer-search` | token | The job card's customer type-ahead |
+| `POST /auth/jobcard` | token | `/app/job-cards/new`, on save |
+| `GET /auth/jobcard` | token | `/app/job-cards` — list, search and order |
+| `GET /auth/jobcard/:id` | token | Job card details, and the edit form |
+| `PUT /auth/jobcard/:id` | token | Job card edit, and Update Status |
+| `GET /auth/payment/job-card/:id` | token | The payment screen, and the invoice |
+| `POST /auth/payment` | token | Record Payment dialog |
+| `PUT /auth/payment/:id` | token | Correcting a receipt |
+| `DELETE /auth/payment/:id` | token | Cancelling a receipt |
+| `GET /auth/car-selling` | token | `/app/car-selling` — list, search, order and the count |
+| `POST /auth/car-selling` | token | `/app/car-selling/new`, on save |
+| `GET /auth/car-selling/:id` | token | The car details modal, the edit form, and the car picked on a sale |
+| `PUT /auth/car-selling/:id` | token | `/app/car-selling/:id/edit`, on save |
+| `DELETE /auth/car-selling/:id` | token | Delete Car confirmation |
+| `GET /auth/car-selling/dropdown` | token | The car picker on `/app/car-sold/new` |
+| `GET /auth/car-selling/sold` | token | `/app/car-sold` — list, search, order and the count |
+| `POST /auth/car-selling/:id/sold-customer` | token | `/app/car-sold/new`, on save |
+| `GET /auth/car-selling/sold-customer/:id` | token | `/app/car-sold/:id/edit` opened from its address, and the Receipt PDF |
+| `POST /auth/car-selling/sold-customer/:id` | token | `/app/car-sold/:id/edit`, on save |
+| `POST /auth/car-selling/sold-customer/:id/payment` | token | Collect Payment dialog |
+| `POST /auth/car-selling/sold-customer/:id/payment/:paymentId` | token | Edit Payment dialog |
+| `GET /auth/dashboard/summary` | token | `/app` — every tile at the top |
+| `GET /auth/dashboard/new-customers` | token | `/app` — the New Customers list (open on landing) |
+| `GET /auth/dashboard/new-vehicles` | token | `/app` — the New Vehicles list |
+| `GET /auth/dashboard/new-job-cards` | token | `/app` — the New Job Cards list |
+| `GET /auth/dashboard/pending-vehicles` | token | `/app` — the Pending Vehicles list |
+| `GET /auth/dashboard/in-service-vehicles` | token | `/app` — the In Service list |
+| `GET /auth/dashboard/unpaid-bills` | token | `/app` — the Unpaid Bills list |
+| `GET /auth/dashboard/partially-paid-bills` | token | `/app` — the Partially Paid list |
+| `GET /auth/dashboard/monthly` | token | `/app` — the two bar charts, for the year picked |
+| `GET /auth/dashboard/monthly/revenue` | token | `/app` — the popup behind a Revenue Overview bar |
+| `GET /auth/dashboard/monthly/job-cards` | token | `/app` — the popup behind a Vehicle Services bar |
+| `GET /auth/dashboard/reports/total-revenue` | token | `/app/reports/total-revenue` — and its Excel download |
+| `GET /auth/dashboard/reports/revenue-this-month` | token | `/app/reports/revenue-this-month` — and its Excel download |
+| `POST /admin/login` | — | `/admin/login` |
+| `POST /admin/change-password` | admin token | Admin change-password dialog |
+
+The admin endpoints take a **separate** token: the platform admin signs in at
+`/admin/login` and its bearer is stored apart from the garage owner's, so an
+admin request is never sent the owner's token or the other way round.
 
 ### `POST /api/auth/login`
 
@@ -434,7 +492,8 @@ After login the owner's details come from the session, not from mock data:
 
 - **Dashboard** (`src/pages/owner/Dashboard.tsx`) — greeting with `ownerName`,
   `garageName` as the page heading, and an avatar showing the **first letter of
-  the owner's name**, above the subscription banner.
+  the owner's name**, with the plan the garage is on beside it rather than as a
+  band of its own underneath.
 - **Topbar** (`src/components/layout/Topbar.tsx`) — the same initial, the
   owner's first name, and a dropdown showing owner + garage name. **Profile**
   goes to `/app/profile`, **Change Password** opens the dialog below, and
@@ -487,10 +546,10 @@ month name varies with the browser's ICU build (`Sep` vs `Sept`).
 
 Two components read the view, so they can never disagree:
 
-- **`SubscriptionBanner`** on the dashboard — plan name, days remaining, the end
-  date, and a progress bar showing the elapsed share of the plan
-  (*Day 6 of 30*). Every string is data-driven; the expiring and expired states
-  name the actual plan instead of always saying "trial".
+- **`SubscriptionBanner`** beside the garage name on the dashboard — plan name,
+  days remaining, the end date, and a progress bar showing the elapsed share of
+  the plan (*Day 6 of 30*). Every string is data-driven; the expiring and
+  expired states name the actual plan instead of always saying "trial".
 - **`SubscriptionPill`** (`src/components/layout/SubscriptionPill.tsx`) in the
   topbar — the same palette and icons in a compact badge showing the plan and
   days remaining (e.g. *Free Trial · 25 days remaining*), collapsing to just the
@@ -524,7 +583,627 @@ message appears inline and the dialog stays open, still signed in. Typed values
 are wiped whenever the dialog closes, so reopening never shows a previous
 password.
 
+## The Data Modules
+
+The integrated modules share the same shape: one endpoint serves both the
+full list and the search box, the API does the paging and the ordering, and the
+newest request is the only one allowed to write to state — so a slow response
+for an earlier search term can never overwrite what is being typed now.
+
+### Sorting
+
+Ordering is driven from the **table headers**: click a header to sort by it
+ascending, click again for descending, and the arrow beside the field says
+which way it is going. A column with no arrow is not sortable, because the API
+cannot order by it.
+
+Below `lg` the tables become cards, which have no header row, so the same
+fields are offered as a row of buttons (`SortBar`) that behave exactly the same
+way. Staff is cards at every width and uses that row on its own.
+
+The two car boards are the exception: they sort **from the headers only** — a
+second row of sort buttons above rows that already carry an arrow was one
+control too many there.
+
+The order is sent to the API, so it holds across every page rather than
+shuffling the page on screen — with one exception: the Vehicles tab can also
+sort by vehicle type and owner name, which `GET /auth/vehicle` does not accept.
+Those two are ordered in the browser over the page in hand; ask for **All** rows
+to put the whole list in order.
+
+### Details Under a Row
+
+Customers, Vehicles, Job Cards and the two car boards all carry an **arrow** at
+the start of each row (and on each mobile card) that unfolds the rest of the
+record underneath it. Several rows can stand open at once. What opens shows only
+what the row does **not** — nothing the columns already say is repeated, and a
+detail never filled in is left out rather than shown as a dash or "Not added".
+
+Customers, Vehicles and Job Cards open **one sheet**: a strip of equal fact cells
+across the top, bands for chips, warnings and notes, then the main content in
+columns divided by hairlines — so every part lines up on the same edges. The
+two car boards open **panels**: the car's specs as tiles, its papers or the
+sale's standing as a checklist with a coloured verdict per line, the people on
+either side, and the description or the receipts in full.
+
+Alongside the stored fields they show figures worked out from them:
+
+| Where | Worked out |
+| --- | --- |
+| Job card | **Turnaround** — "2 days in garage" while pending (amber past a week), "Done in 1 day" once delivered |
+| Customer | **Customer for** "1 month"; how many vehicles are in service, pending and completed |
+| Customer, Vehicle | **Insurance** — "Insured till …", or amber "ends in 11 days" / "expired …" within 30 days of the date; a customer lists every vehicle due in one warning band |
+| Vehicle | **Last visit** "2 days ago" |
+| Car sold | The **deal** against the asking price — "₹15,000 off", "At asking" — and how much of the price is paid |
+
+A phone gets the same sheet stacked: fact cells two across with their icons
+dropped, so the values have the room, and nothing scrolls sideways.
+
+### Customers
+
+Search by name or mobile number, sort by name, city or when they were added,
+and open any row's arrow for their other contact details, notes, where their
+vehicles stand, an insurance warning, and each vehicle as a card. **View** opens
+the customer: the same kind of sheet with **Edit Customer**, then their vehicles
+two across — each with its chips, what it came in for and how long ago — and the
+forms to edit them or add another vehicle.
+
+### Vehicles
+
+Every vehicle of the garage, with its owner. What a row offers depends on where
+the vehicle is in its life:
+
+- **Completed** — an **Add** button, which opens the owner with the form filled
+  in for that vehicle's next visit. Saving `POST`s a new vehicle: the API keeps
+  a row per visit, so a returning car is a new row, not an edit.
+- **Anything else** — a **View** button, which opens the same form over the
+  vehicle itself. Saving `PUT`s only the fields that changed.
+
+Both land on the same screen and the same form; only the button — **Save
+Vehicle** or **Edit Vehicle** — and the request differ.
+
+Each row's arrow opens the full make, model and variant with its type, fuel and
+colour, the reading on the clock, where the insurance stands, how long ago the
+vehicle last came in, the owner's WhatsApp when it is not their mobile, and what
+it came in for.
+
+### Staff
+
+Category and status chips narrow the list, the search box matches name, role,
+category or mobile, and the sort row orders by name, category, salary, status
+or when they joined. Status is a filter, not a sort: "Active & Inactive" simply
+leaves `?status=` off, which is how the API returns both.
+
+### Job Cards
+
+A card is opened against a **saved vehicle** — the API takes a `vehicleId` and
+cannot create the vehicle on the way — so the form searches customers as it is
+typed, then their fleet is fetched and picked from.
+
+The job number is asked for as the screen opens. It is a *suggestion*, not a
+reservation: two desks asking at the same moment are told the same number, and
+whichever saves second is turned away with a 409, at which point the next
+number is fetched and the save retried once, on its own.
+
+What a row offers depends on the card's status:
+
+- **Pending** — an **Edit** button, opening the same form filled in from
+  `GET /auth/jobcard/:id` with **Edit Job Card** in place of Save. The `PUT`
+  takes the status, the assigned staff, the reading, the complaint and the
+  billable lines; the customer, the vehicle, the number and the service date are
+  shown read-only because the API does not accept new ones.
+- **Anything else** — a **View** button, opening the card read-only: the
+  vehicle, its owner, the complaint, every billed line and the total, with an
+  **Update Status** action.
+
+Line items go out as the whole set the card should end up with. A line the API
+already holds carries its id, a line added here does not, and a line left out is
+dropped — all in one transaction, so the lines can never be saved against a
+total that no longer adds up to them.
+
+The list itself is the job number, the service date, the money, the two
+statuses and the row of actions — **Invoice**, **Collect** / **Receipts** and
+**Edit** / **View**. The vehicle and the customer are read from the **arrow** at
+the start of each row: the vehicle and its facts, the customer with a call link,
+who attended, the turnaround, what was asked for and every billed line — long
+values no column can hold at a readable width, on the row that needs them
+rather than on every row at once.
+
+### Payments & Receipts
+
+A bill is rarely settled in one go — part cash now, the rest on UPI when the
+vehicle is collected — so the money has a screen of its own at
+`/app/job-cards/:id/payment`: the balance, the row of ways to take it, and every
+receipt behind it.
+
+The **card settles itself**. Every payment endpoint answers with the re-settled
+card, so the screen re-renders the money straight from the answer rather than
+asking again: part of the bill leaves it `PARTIAL`, the last of it leaves it
+`PAID` and — nothing being owed any more — marks the card `DELIVERED`. A receipt
+can be corrected or cancelled, and an edit that leaves the bill short puts a
+delivered card back to pending.
+
+Offering more than the balance is a `400` that carries the same money block a
+success does, so the refusal names what is actually left and the screen updates
+from it instead of firing another request.
+
+Each receipt can be sent to the customer on **WhatsApp** — the mark itself, not
+the word — as a `wa.me` link with the message already typed in: the garage, the
+job card, the vehicle, what was taken and how, then the three figures that
+matter — the total, what was just paid, and what is still owing. The chat opens
+straight out of the click that asked for it, since a tab opened after an `await`
+is a pop-up as far as the browser is concerned. Nothing is sent behind the
+owner's back: WhatsApp opens with the message ready and they press send.
+
+### Car Selling
+
+The used cars the garage is selling, at `/app/car-selling`. **Car Selling** is a
+group in the sidebar rather than a page of its own: it opens on click — and on
+its own while one of its pages is current — over **Car Add For Selling** and
+**Car Sold Detail**.
+
+The list keeps to what a garage needs to recognise a car and quote it — the car,
+its number, the seller, the mobile number and the price — and each row carries
+an **arrow** that unfolds the rest underneath it: year, fuel, colour (with a
+swatch) and ownership as tiles; insurance, PUC and accident history as a
+checklist marked Valid / Expired / Missing / Clean / Accidental; the seller and
+the listing; and whatever was written about the car.
+
+The add and edit screens are pages, not dialogs, and the whole form sits in
+three full-width sections — seller details on one row, the car and its price
+over two, then the papers — so a listing is written without scrolling. **Car
+Number**, **Fuel Type**, **Owner Name**, **Mobile Number** and **Selling Price**
+are required; the number is uppercased with spaces and hyphens dropped as it is
+typed, which is how the API stores it. **Car Name** is a searchable pick list
+that still takes free text (it is stored as `carType`). The papers read **PUC**,
+**Accidental**, **Insurance**, in that order; ticking **Insurance** opens the
+calendar for the date it runs until — past days cannot be picked, though an
+older car being edited keeps the lapsed date it already has — and unticking it
+clears the date again. Editing
+`PUT`s only the fields that changed, and a form where nothing changed simply
+says so instead of sending an empty body.
+
+A car leaves this board the moment it is sold: `GET /auth/car-selling` answers
+with the cars still `SALE`, and its exact complement — the sold list below —
+answers with the rest.
+
+### Car Sold
+
+Who bought each car and what has been collected, at `/app/car-sold`.
+
+**Add Car Sold** opens a page that starts from a **searchable car picker** over
+`GET /auth/car-selling/dropdown` — every car still for sale, read once and
+narrowed in the browser as it is typed, by number or body type, with the number
+matched the way it is stored so `gj 01-ab` finds `GJ01AB1234`. A car already
+sold is not on it. Picking one reads the listing back and shows it **read only**
+— the seller, their mobile, the asking price and how many owners the car has
+had — and offers the asking price as the figure the deal closed at.
+
+The deal itself is the buyer, the **Final Selling Price** — what the car
+actually went for, which need not be the asking price — and the **Payment
+Received** at the counter, which is **required** and which the API writes as the
+sale's first receipt. It may not exceed the final price, and the field re-checks
+itself when that price is edited. A car can only be sold once — a second attempt
+is the API's `409`, shown as it comes back with the picker focused again.
+
+Recording a sale always takes the car off the board (`SOLD`). Delivery is the
+desk's to say, with one exception:
+
+| Delivered Status | Payment | Stored |
+| --- | --- | --- |
+| **Delivered** | anything | `DELIVERED`, on the **Delivered Date** — shown only for Delivered, filled in with today, no later than today |
+| **Pending** | part of the price | `PENDING`, no date |
+| **Pending** | the whole price | `DELIVERED`, dated **today** — a car paid for in full has gone |
+
+The same rule holds afterwards: the receipt that pays a sale off delivers a car
+still pending and dates it today, while a part payment never touches delivery.
+
+**Edit** on a row opens the sale at `/app/car-sold/:id/edit` — the same form,
+with the car fixed and no payment box (money only moves through Collect). It
+corrects the buyer, the final price — never below what has been paid — and the
+delivery. Opened from the list it fills in at once from the row; opened from its
+address it reads the sale from `GET /auth/car-selling/sold-customer/:id`.
+
+Each row shows the car, the seller, the buyer, the sale price with what is still
+owing under it, and two badges: the money and the delivery. A sale with nothing
+against it reads **Nothing paid** rather than "Partial" — a car sale has only
+the two statuses, `PARTIAL` and `PAID`, so "nothing paid yet" is the far end of
+the first one. The arrow unfolds the car as tiles, the sale's standing — payment,
+delivery and the deal against the asking price — as a checklist, the buyer and
+the seller with call links, and **every receipt** taken against the sale: the
+final price, what is paid and what is pending, a bar showing how far through
+paying the buyer is, and each receipt numbered with its date.
+
+Each receipt has an **Edit** button for a figure typed wrong. The dialog opens on
+the amount the receipt holds and allows at most that plus what is still pending,
+so the corrected total never passes the price; the API
+(`POST /auth/car-selling/sold-customer/:id/payment/:paymentId`) checks the same
+against the live receipts, re-works the payment status, and delivers a car the
+correction pays off.
+
+A car the garage marked sold by hand, without ever recording a buyer, comes back
+with no sale on it. It is shown as **"No buyer recorded"** instead of being
+filtered out, which would leave the garage wondering where the car went.
+
+**Collect** — offered on any row still owing — takes the balance through
+`POST /auth/car-selling/sold-customer/:id/payment`. The dialog shows the price,
+what is paid and what is **pending**, offers to collect the whole balance in one tap,
+and refuses more than is owing before it asks. The API checks the same thing
+against the live receipts, which is the check that counts, since another desk
+may have taken money since the screen was drawn; its `400` names what is left to
+pay and is shown as it comes back. The list reads itself again afterwards, so
+the row, its badges and the count all move together.
+
+### Invoice PDF
+
+A card that has been paid, in part or in full, offers an **Invoice** button on
+the list. It fetches the card and its receipts, then builds a PDF in the browser
+and hands it over as `invoice-JC-2026-0004.pdf`.
+
+The document carries the garage and its contact details, the customer, the
+vehicle in full — number, make and model, type, fuel, colour, odometer and
+insurance expiry — the complaint, every billed line, the totals with the balance
+due, and every receipt with the balance left after each. Long bills flow onto
+further pages with the table header repeated and a *Page 1 of 2* footer.
+
+Like the Excel export it costs **no dependency**: `src/lib/pdf.ts` writes the
+PDF format by hand — text in the standard Helvetica faces, rules, rectangles and
+as many pages as the content runs to — and `src/lib/invoice.ts` lays the invoice
+out on it. Those faces carry no rupee sign, so the printed figures read `Rs.`
+where the screen shows `₹`.
+
+### Car Sale Receipt PDF
+
+Every sale with a buyer has a **Receipt** button on Car Sold Detail. It reads the
+sale again first — so a payment collected since the page loaded is on it — and
+builds `receipt-GJ01AB1234.pdf` in the browser: the garage, a **RECEIPT** title
+with a Paid / Partial / Nothing paid stamp, the car number, sale and delivery
+dates, the buyer and the car with its seller, the final price, what is paid and
+the balance due, and every receipt with the balance left after it.
+
+It is laid out with the invoice's own building blocks (`src/lib/carSaleReceipt.ts`
+over `src/lib/invoice.ts`), so the two documents read as coming from one garage.
+
+### Excel Export
+
+Customers, Vehicles, Car Selling and Car Sold Detail have a **Download Excel**
+button. It writes a real
+`.xlsx` — a title block naming the data, the search term and the order it was
+taken in, then a frozen, styled header over the rows — with no dependency:
+`src/lib/excel.ts` builds the handful of XML parts and stores them in a ZIP
+uncompressed, which Excel accepts.
+
+It exports **what the list is showing**: this page of it, under the search term
+in the box. Ask for "All" rows first to download everything.
+
+## The Dashboard
+
+`src/pages/owner/Dashboard.tsx`, top to bottom: the greeting and the plan, nine
+figure tiles, the list behind whichever tile is selected, and the year's two bar
+charts.
+
+### The tiles
+
+Nine figures, in **one request** — `GET /auth/dashboard/summary` — so the screen
+does not open with a dozen requests racing each other. Four in the first row,
+five in the second:
+
+| Row | Tiles |
+| --- | --- |
+| **Overview** | Total Revenue · Revenue This Month · New Customers · New Vehicles |
+| **The month & Needs Attention**, named from the answer (*October 2026*) | New Job Cards · Pending Vehicles · In Service · Unpaid Bills · Partially Paid |
+
+Each row fills the width on a desktop; below `xl` the five-tile row wraps to 3 + 2,
+and a phone shows two tiles a row.
+
+"This month" is the month **to date** — midnight on the 1st up to this moment,
+on the server's calendar — and the window comes back with the figures, so the
+heading names the month it is showing rather than working it out from the
+browser's own clock. It is read off the window's **end**: the start is midnight
+on the 1st in the server's timezone, and that instant falls in the previous
+month once a browser somewhere else in the world writes it out.
+
+Pending Vehicles, In Service, Unpaid Bills and Partially Paid are deliberately
+**all time**, not this month: an unpaid bill from March is still owed in
+September, and a month boundary would hide exactly what a garage opens this
+screen to see. The two bill tiles count **job cards** — it is the bill that is
+unpaid, not the vehicle or the customer.
+
+Revenue is money **collected**, counted by the date each payment came in, not
+work billed.
+
+**Total Revenue** and **Revenue This Month** open their report — `/app/reports/total-revenue`
+and `/app/reports/revenue-this-month` — **in a new tab**, so the dashboard tab stays as it
+was. See [Revenue Reports](#revenue-reports).
+
+While the request is out the tiles paint with their labels and a bar in place of
+each figure, so nothing jumps when the numbers land; a failure is **one** message
+with a retry rather than nine tiles each saying the same thing. A brand new
+garage is a `200` with zeros all the way down, never a 404.
+
+### The list behind a tile
+
+Every tile except the two revenue ones opens **its own list** under the tiles,
+instead of linking away. **New Customers** is selected when the dashboard opens.
+The selected tile is highlighted — a coloured border, a strip along its top edge
+and a filled icon — and clicking it again closes its list.
+
+| Tile | List | Endpoint | Order |
+| --- | --- | --- | --- |
+| New Customers | customers added this month, with their vehicle numbers | `/auth/dashboard/new-customers` | newest first |
+| New Vehicles | vehicles added this month, with the owner | `/auth/dashboard/new-vehicles` | newest first |
+| New Job Cards | job cards opened this month, with vehicle, owner, mechanic and paid / due | `/auth/dashboard/new-job-cards` | newest first |
+| Pending Vehicles | vehicles waiting to be worked on | `/auth/dashboard/pending-vehicles` | oldest first |
+| In Service | vehicles on the ramp right now | `/auth/dashboard/in-service-vehicles` | oldest first |
+| Unpaid Bills | job cards with nothing collected | `/auth/dashboard/unpaid-bills` | oldest first |
+| Partially Paid | job cards with a balance still owing | `/auth/dashboard/partially-paid-bills` | oldest first |
+
+- **One API per click.** Only the open list is mounted, so clicking a tile calls
+  that tile's endpoint and nothing else — the tiles, the charts and the other
+  lists are not fetched again.
+- **5 a page**, with the shared `PaginationBar` offering 5, 10, 25 or All.
+  Switching tiles starts the new list on its first page.
+- Each list's total is always the number on its tile: the server counts the list
+  exactly the way it counts the tile.
+- Opening a list **scrolls the page to it**, stopping just under the sticky top
+  bar, so a tap on a phone is never a list that opened out of sight. Landing on
+  the dashboard and closing a list do not scroll.
+- **Everything inside a list opens in a new tab** — a row, its arrow, the
+  "All customers / All vehicles / All job cards" button and the empty state's
+  add button — so the dashboard stays on the same tile, list and page. The
+  session lives in `localStorage`, so the new tab is signed in too. Customer and
+  vehicle rows open the owner's customer page; job card rows open the card.
+- Tables from tablet width up, stacked cards on a phone; loading rows, a retry
+  on failure, and an empty state for a list with nothing in it.
+
+The lists share one frame, `ListPanel` (header, count, states and paging), and
+two row layouts, `VehiclesPanel` and `JobCardsPanel`, each covering three tiles
+by a `variant`.
+
+### The monthly charts
+
+**Year Overview** draws `GET /auth/dashboard/monthly` as two bar charts —
+**Revenue Overview** (money collected each month) and **Vehicle Services** (job
+cards opened each month). The year dropdown offers **the current year and the 4
+before it** — five in all, newest first — and is worked out from today's date,
+so it moves on by itself in January. The current year runs January to this
+month; a past year is all twelve.
+
+**Clicking a bar opens a popup for that month.** The whole month column is
+clickable, not just the bar — a quiet month can be a sliver — and the cursor
+turns to a hand over it. Each popup calls only its own endpoint, 10 rows a page:
+
+| Chart | Popup | Endpoint |
+| --- | --- | --- |
+| Revenue Overview | the month's **total collected** and receipt count, the split by payment method, and every payment — job number, customer, vehicle, date and time, method, received by, amount | `/auth/dashboard/monthly/revenue?year=&month=` |
+| Vehicle Services | the month's **job cards opened** and total billed, the split by status (Pending / Delivered) and by payment (Unpaid / Partially paid / Paid), and every card — customer, vehicle, service date, mechanic, amount | `/auth/dashboard/monthly/job-cards?year=&month=` |
+
+The popup's total is always exactly the bar that was clicked: the server reads
+the month over the same window it drew the bar over. A row in either popup opens
+its job card in a new tab. On a phone the popup is a bottom sheet.
+
+## Revenue Reports
+
+`src/pages/owner/RevenueReport.tsx` — one page, two reports. The left menu has a
+**Reports** group with both under it (`/app/reports` itself redirects to Total Revenue),
+and the two revenue tiles on the dashboard open them in a new tab.
+
+| Menu entry | Route | Endpoint | Window | Trend |
+| --- | --- | --- | --- | --- |
+| Total Revenue | `/app/reports/total-revenue` | `GET /auth/dashboard/reports/total-revenue` | all time, or a from / to date range | month by month |
+| Revenue This Month | `/app/reports/revenue-this-month` | `GET /auth/dashboard/reports/revenue-this-month` | the 1st to now — the tile's own window | day by day |
+
+With no filters the report's total is **always the number on the tile** — the server
+counts both the same way: live receipts on live job cards, by payment date.
+
+Top to bottom:
+
+- **Header** — the report name and the window it covers (*All time — since 28-Apr-2025*,
+  *01-Oct-2026 to 05-Oct-2026*), with **Refresh**, **Excel** and **Print**.
+- **Filters** — a search (job number, customer, mobile or vehicle number, debounced), a
+  payment method, and — Total Revenue only — **from / to dates**. A to date before the
+  from date is flagged on the field and not sent. The filters narrow **everything**
+  together: a report of UPI payments totals UPI. Changing one goes back to page 1, and
+  *Clear filters* resets them.
+- **Four figures** — Total Collected (and from how many customers), Payments (against
+  how many job cards), Average Payment and Largest Payment.
+- **By payment method** — a stacked bar and a row per method with its total, count and
+  share.
+- **Month by month / Day by day** — a bar per month (or day), the empty ones drawn as
+  well, with the best one named; hover a bar for its total. A long run of months scrolls
+  sideways.
+- **Payments** — newest first, 10 a page (10 / 25 / 50 / 100): date and time, job number,
+  customer, vehicle, method and who took it, the bill's payment status and amount, and
+  the amount received. A table on a desktop, cards on a phone. **Clicking a payment
+  opens its job card in a new tab.**
+
+**Excel** downloads **every** payment the filters match, not just the page on screen —
+the report is asked for once more with a page big enough to hold them all — with the
+total, the filters and the split by method in the sheet's title block. **Print** prints
+the page itself: the sidebar, top bar, bottom bar, filters and paging are hidden in
+print, and the payments always print as the table.
+
+## The Public Website
+
+Everything at the root of the site — `/`, `/features`, `/subscription`,
+`/about`, `/contact` — is the marketing site a visitor lands on before they
+have an account. It is branded **GaragePilot**, from `public/GMS_Logo.png` (see
+[Brand, logo and palette](#brand-logo-and-palette)). It shares the app's design
+system (the same Tailwind palette,
+`Button`, `Input`, `Select`, `Textarea`, `WhatsappIcon`, `shadow-card`, Inter)
+but none of its chrome: `PublicLayout` carries a header and a footer of its own
+and no sidebar, bottom bar or session widgets.
+
+It sits **outside** `PublicOnlyRoute`, unlike the auth screens. A signed-in
+owner must still be able to read the pricing page, so instead of bouncing them
+to `/app` the header, hero and closing CTA simply offer **Go to Dashboard**
+where a visitor is offered **Login** / **Start Free Trial**. `/login` and
+`/register` still redirect a signed-in owner exactly as they did.
+
+| Route | Page | Notes |
+| --- | --- | --- |
+| `/` | Home | Hero, features, benefits, how it works, product preview, pricing, FAQ, CTA |
+| `/features` | Features | All twelve capabilities, with what is still being built named explicitly |
+| `/subscription` | Subscription | The three plans, a comparison table, and how paying actually works today |
+| `/about` | About Us | Why the product exists, who it is for, and the decisions behind it |
+| `/contact` | Contact Us | Enquiry form — see *Contact form* below |
+
+`/` used to redirect to `/login`; it is now the home page.
+
+### What the site is allowed to claim
+
+Every feature on the site is a screen that exists and saves to the API. The
+content lives in **`src/lib/publicContent.ts`** so the home and features pages
+cannot drift apart, and it deliberately leaves out **Billing**, **Salary**,
+saving the garage profile and the platform admin panel, which still run on mock
+data. `/features` and `/about` say so in as many words rather than letting a
+visitor find out after signing up. There are no testimonials, customer counts
+or ratings anywhere, because there is nothing to source them from.
+
+The dashboard and bill shown on the home page (`DashboardPreview`,
+`BillPreview`) are drawn from the app's own tile, chart, table and badge shapes
+with **illustrative figures**, captioned as such. Nothing on the public site
+fetches anything.
+
+### Plans and the CTA wiring
+
+`src/lib/publicPlans.ts` holds the three plans and carries the API's own plan
+codes (`FREE_TRIAL`, `MONTHLY`, `YEARLY`), so a choice made on the website is
+spoken in the same vocabulary the app uses.
+
+No new subscription flow was built. The buttons reuse what already exists:
+
+| Button | Signed out | Signed in |
+| --- | --- | --- |
+| Start Free Trial | `/register` — registration already starts the trial | `/app/subscription` |
+| Choose Monthly / Yearly | `/register?plan=monthly` or `?plan=yearly` | `/app/subscription?plan=…` |
+
+`/register` acknowledges `?plan=` with one line — every account starts on the
+free trial, so the choice is only carried, never acted on — and
+`/app/subscription` reads it to mark the plan the visitor picked. Both are
+additive: the registration payload, the OTP step and the subscription screen
+behave exactly as before without the parameter.
+
+**Online checkout does not exist yet**, and the pricing page says so plainly
+instead of linking to a payment page that is not there.
+
+### Contact form
+
+It `POST`s through the usual `httpClient` layer via
+**`src/services/contactService.ts`** — but **the API has no enquiry endpoint
+today**. The path is read from `VITE_CONTACT_ENQUIRY_PATH` and is blank by
+default, so the form renders, validates (the same mobile and email rules the
+auth forms use) and then says *"Message delivery is being set up"* with the
+submit button disabled, rather than accepting a message and reporting a
+delivery that never happened.
+
+Set `VITE_CONTACT_ENQUIRY_PATH=/contact` once the endpoint ships and the form
+starts sending; nothing else needs changing, and `ApiError.fieldErrors` is
+already mapped onto the fields.
+
+No phone number, email address or postal address appears anywhere on the site —
+the codebase holds none, and inventing one would be worse than leaving it out.
+The page offers links that answer the common questions immediately instead.
+
+### Brand, logo and palette
+
+The public site is branded **GaragePilot — Smart Garage Management**, from
+`public/GMS_Logo.png`. The signed-in app, the auth screens, the web manifest
+and the generated PDFs still say *GaragePro*; that rename was deliberately left
+for a separate pass, so the two names coexist today:
+
+| Says GaragePilot | Still says GaragePro |
+| --- | --- |
+| The whole public site and its copy | `/login`, `/register` and the other auth screens |
+| `<title>`, meta description, Open Graph / Twitter tags | The sidebar and top bar (`AppShell`) |
+| The dashboard still on the home page | `public/manifest.webmanifest` |
+| | Invoice and car-sale-receipt PDFs (`src/lib/invoice.ts`) |
+
+Because `index.html` holds the app-wide defaults, the **browser tab reads
+GaragePilot on every screen**, including the auth screens whose own heading
+still says GaragePro.
+
+#### Assets
+
+`public/GMS_Logo.png` is the original artwork (2172 × 724, 843 KB) and is left
+untouched. What the site loads is derived from it:
+
+| File | What it is |
+| --- | --- |
+| `public/brand/garagepilot-logo.png` | The wordmark, trimmed of its transparent margin and resized to 718 × 216 (122 KB) — 6× the 36px it is drawn at, so it is sharp on a retina screen without shipping 843 KB in the header |
+| `public/brand/garagepilot-og.png` | 1200 × 630 share card: the wordmark centred on the brand navy |
+| `public/favicon.svg` | The square app mark — a brand-blue gradient tile, a white garage, and its shutter in the logo's orange. Drawn rather than cropped out of the wordmark, because no part of "GaragePilot" survives being shrunk to 16px |
+
+The logo is a **wordmark** — it carries the name and the tagline itself — so
+`BrandMark` sets no text beside it. On the dark footer it sits on a white
+plate: the navy "Smart Garage Management" line all but vanishes against
+`slate-900`, and recolouring someone's logo is not the site's call to make.
+
+#### Palette
+
+`tailwind.config.js` was retuned onto the logo. The token names and every use
+of them are unchanged — only the hex values moved:
+
+| Token | Was | Now | Sampled from |
+| --- | --- | --- | --- |
+| `primary-500` | `#3366ff` | `#1472e6` | the bright face of the "Garage" letters |
+| `primary-600` | `#1f4ef5` | `#0b5ed7` | — the colour of every primary button |
+| `primary-700` | `#173ce1` | `#0a4bab` | hover and link text |
+| `primary-900` | `#1a308f` | `#0a2a60` | the navy the letters are shaded with |
+
+A new **`accent`** scale carries the orange half of the logo (`#f97316` at 500,
+running to `#c2410c` at 700). It is used in four places only — the hero badge,
+the Best Value chip, the saving on the yearly plan, and the one button on the
+closing call to action — so the orange stays an accent rather than a second
+primary.
+
+Because `primary` is the app's own token, **the signed-in owner and admin
+screens pick up the brand blue too**, with no code change anywhere else.
+
+#### Contrast
+
+The logo's orange is bright, and white text on it is only **2.8:1** — under the
+4.5:1 AA needs. The orange is therefore kept exactly as bright as the logo and
+the *ink* on it is the brand navy (`primary-950`) instead, at **6.25:1**. The
+measured ratios:
+
+| Combination | Ratio |
+| --- | --- |
+| `accent-500` fill + `primary-950` text (badges, CTA button) | 6.25:1 |
+| `accent-700` text on white (the yearly saving) | 5.18:1 |
+| `accent-700` on `accent-50` (hero badge) | 4.88:1 |
+| `primary-600` button + white text | 5.84:1 |
+
+`_audit.cjs`-style checking is described under
+[SEO, accessibility and responsiveness](#seo-accessibility-and-responsiveness);
+every text node on all five pages was measured against its painted background
+and none falls below its threshold.
+
+### SEO, accessibility and responsiveness
+
+- `src/hooks/usePageMeta.ts` sets the title, meta description, canonical link
+  and the Open Graph / Twitter tags per page — no helmet dependency, three
+  `querySelector` calls. `index.html` keeps the app-wide defaults a crawler
+  sees first.
+- One `<h1>` per page, `<h2>` per section, semantic `<section>` / `<article>` /
+  `<nav>` / `<dl>`, a skip link, visible focus rings on every control, and
+  labelled form fields.
+- The FAQ is `<details>` / `<summary>`, so it is keyboard operable and open to
+  search engines without any JavaScript.
+- Checked at **320 / 390 / 768 / 1440 px**: no horizontal overflow on any page,
+  pricing cards stack, the comparison table becomes definition lists on a
+  phone, and the menu collapses to an accessible drawer.
+
 ## Panels & Routes
+
+### Public website (`/`)
+| Route | Screen | Status |
+| --- | --- | --- |
+| `/` | Home | Public — see [The Public Website](#the-public-website) |
+| `/features` | Features | Public |
+| `/subscription` | Subscription & pricing | Public |
+| `/about` | About Us | Public |
+| `/contact` | Contact Us | Public — form disabled until an enquiry endpoint exists |
 
 ### Authentication (`/`)
 | Route | Screen | Status |
@@ -536,16 +1215,38 @@ password.
 | `/reset-password` | Code + new password | **API integrated** |
 
 ### Garage Owner (`/app`) — protected
-Dashboard, Customers, Vehicles, Job Cards, Billing, Staff, Salary, Reports,
-Subscription, Garage Profile and Settings — plus add/edit forms and job-card
-details.
-
-`/app/profile` (Garage Profile) reads from `GET /auth/me`; the rest still use
-mock data.
+| Route | Screen | Status |
+| --- | --- | --- |
+| `/app` | Dashboard | **API integrated** — nine tiles, the list behind each, and the monthly charts with a popup per bar |
+| `/app/customers` | Customer list | **API integrated** |
+| `/app/customers/new` | Add customer | **API integrated** |
+| `/app/customers/:id` | Customer details, vehicles, add/edit forms | **API integrated** |
+| `/app/vehicles` | Vehicle list | **API integrated** |
+| `/app/vehicles/new`, `/app/vehicles/:id` | Older standalone vehicle form | Mock — the live add/edit forms live on the customer |
+| `/app/job-cards` | Job card list | **API integrated** |
+| `/app/job-cards/new` | New job card | **API integrated** |
+| `/app/job-cards/:id` | Job card details | **API integrated** |
+| `/app/job-cards/:id/edit` | Edit a pending job card | **API integrated** |
+| `/app/job-cards/:id/payment` | Collect payment, receipts, WhatsApp | **API integrated** |
+| `/app/staff` | Staff | **API integrated** |
+| `/app/car-selling` | Car Add For Selling — the cars on the board | **API integrated** |
+| `/app/car-selling/new` | Add a car for sale | **API integrated** |
+| `/app/car-selling/:id/edit` | Edit a listing | **API integrated** |
+| `/app/car-sold` | Car Sold Detail — sales, money and Collect | **API integrated** |
+| `/app/car-sold/new` | Add Car Sold — pick the car, record the buyer | **API integrated** |
+| `/app/car-sold/:id/edit` | Edit a recorded sale (`:id` is the sale) | **API integrated** |
+| `/app/profile` | Garage Profile | Reads `GET /auth/me`; Save Changes is still mock |
+| `/app/reports/total-revenue` | Reports › Total Revenue — also opened by the dashboard tile | **API integrated** |
+| `/app/reports/revenue-this-month` | Reports › Revenue This Month — also opened by the dashboard tile | **API integrated** |
+| `/app/reports` | Redirects to Total Revenue | — |
+| `/app/billing`, `/app/salary` | Billing, Salary | Mock |
+| `/app/subscription` | Subscription | Mock |
 
 ### Platform Admin (`/admin`)
-Platform dashboard, Garages, Subscription Plans, Payments and Reports.
-Not behind the owner guard yet.
+Sign-in at `/admin/login` is **API integrated** and holds its own token behind
+its own guard (`AdminProtectedRoute`), separate from the garage owner's. The
+panel behind it — dashboard, Garages, Subscription Plans, Payments and Reports
+— is still mock.
 
 ## Responsive Design
 
@@ -561,33 +1262,117 @@ Reusable components live in `src/components/`:
 
 - **`ui/`** — Button, Input, Select, Textarea, PasswordInput, OtpInput, Card,
   Badge, StatusBadge, Modal (bottom-sheet on mobile), Drawer, ConfirmDialog,
-  Skeleton, EmptyState, ErrorState, LoadingState, Toast.
-- **`common/`** — PageHeader, SearchInput, FilterButton, StatCard, DataTable,
-  ResponsiveList, BarChart, SubscriptionBanner, PWA UI (install prompt +
-  offline/online banners).
+  Skeleton, EmptyState, ErrorState, LoadingState, Toast, WhatsappIcon.
+  Input, Select and Textarea all take a `leftIcon`, and every field in the app
+  carries the mark of what it holds. `WhatsappIcon` is drawn by hand —
+  `lucide-react` carries no WhatsApp mark, and its nearest is a plain speech
+  bubble, which does not say which app the receipt is about to open in.
+- **`common/`** — PageHeader, SearchInput, FilterButton, StatCard, ActionButton,
+  DataTable (sortable headers), ResponsiveList, SortBar, PaginationBar,
+  BarChart, SubscriptionBanner, PWA UI (install prompt + offline/online
+  banners), and **DetailBlocks** — the parts every "details under a row" is
+  built from: `DetailSheet`, `FactStrip` / `FactCell`, `SheetBand`,
+  `SheetSection`, `FactChip`, and the panel set `DetailPanel`, `SpecGrid` /
+  `SpecTile`, `StatusList` / `StatusRow` / `StatusPill`, `InfoLine`, `PhoneLink`.
 - **`layout/`** — Sidebar, Topbar, BottomNav, SubscriptionPill,
   ChangePasswordModal.
+- **`customers/`** — CustomerFields (shared by the add page and the edit
+  dialog), CustomerSummaryCard (the sheet on the customer's page),
+  CustomerMoreDetails (what the row's arrow unfolds), EditCustomerModal.
+- **`vehicles/`** — VehicleFields, VehicleFormCard (adds or edits, depending on
+  what it is given), VehicleSummaryCard, VehicleMoreDetails (the row's arrow),
+  VehicleStatusBadge, and VehicleFacts — the vehicle chips and the one insurance
+  rule (amber within 30 days) every screen shares.
+- **`staff/`** — StaffFormModal (adds or edits, depending on what it is given).
+- **`jobcards/`** — ComboboxInput, CustomerSearchInput (the type-ahead),
+  RecordPickerModal, SectionCard, JobItemsTable, JobItemModal, JobCardSummary,
+  JobCardMoreDetails (the row's arrow).
+- **`payments/`** — PaymentSummary (the balance and the bar), PaymentMethodPicker,
+  PaymentModal (record or correct a receipt), PaymentHistory.
+- **`carSelling/`** — SuggestionCombobox (a searchable pick list that still takes
+  free text, over `ComboboxInput`), CarFlagBadges, CarSellingDetailsModal,
+  CarSellingMoreDetails (what the row's arrow unfolds).
+- **`carSold/`** — CarPickerInput (the car type-ahead over the dropdown
+  endpoint), SelectedCarDetails (the picked listing, read only),
+  SaleStatusBadges, SoldCarMoreDetails (the sale and its receipts),
+  CollectPaymentModal, EditPaymentModal (corrects one receipt's amount).
+- **`dashboard/`** — SummaryCard (one figure with its icon and colour; a link —
+  in a new tab with `newTab` — or a toggle that opens its list and highlights
+  itself), ListPanel (the frame every
+  tile list sits in, plus the new-tab helpers), NewCustomersPanel, VehiclesPanel
+  and JobCardsPanel (the tile lists), MonthlyCharts (the two bar charts and the
+  year picker), RevenueMonthModal and JobCardsMonthModal (the popup behind a
+  bar).
+
+### Rows, cards and their actions
+
+`ActionButton` is the one button at the end of a table row and at the foot of a
+card, shared by Job Cards, Customers, Vehicles, Staff and the two car boards. It
+is drawn as a button — bordered, on its own fill — rather than as a coloured
+word, because a row of links reads as text the desk has to guess is clickable.
+Its **tone** says what the action is for (blue for paperwork, green for money,
+grey for opening the record) and its **layout** sizes it for a row or for a card.
+
+Table columns carry an `align` that the header and its cells share, so a column
+and the word naming it always line up: money sits against the right edge with
+the paise written out and the digits on one width. Where a row can offer an
+action that another row cannot, the gap is held open, so the buttons stay under
+one another down the whole table.
 
 ## Project Structure
 
 ```
 src/
 ├── components/
-│   ├── ui/       primitives — Button, Input, Modal, OtpInput, Toast, ...
-│   ├── common/   shared widgets — PageHeader, StatCard, SubscriptionBanner, ...
-│   └── layout/   app chrome — Sidebar, Topbar, BottomNav, SubscriptionPill,
-│                 ChangePasswordModal
+│   ├── ui/         primitives — Button, Input, Modal, OtpInput, Toast, ...
+│   ├── common/     shared widgets — PageHeader, DataTable, SortBar, StatCard, ...
+│   ├── layout/     app chrome — Sidebar, Topbar, BottomNav, SubscriptionPill,
+│   │               ChangePasswordModal
+│   ├── customers/  customer fields, summary sheet, row details, edit dialog
+│   ├── vehicles/   vehicle fields, the add/edit form card, summary, row details,
+│   │               chips and insurance rule, status badge
+│   ├── staff/      the staff form dialog
+│   ├── jobcards/   the job card form's own parts — type-ahead, pickers, items —
+│   │               and the row details
+│   ├── payments/   balance, method picker, receipt dialog, receipt history
+│   ├── carSelling/ pick lists, flag badges, details modal, row details
+│   ├── carSold/    car picker, picked car, status badges, row details,
+│   │               collect and edit-payment dialogs
+│   ├── public/     the marketing site's own parts — header, footer, section
+│   │               shells, feature cards, pricing cards, FAQ, CTA band and
+│   │               the two illustrative product previews
+│   └── dashboard/  SummaryCard, ListPanel + the tile lists, MonthlyCharts,
+│                   and the two bar popups
 ├── config/       env.ts — API base URL
 ├── context/      AuthContext — session state, persistence, auto-logout
-├── hooks/        useCountdown — OTP resend / validity timers
-├── layouts/      AppShell, OwnerLayout, AdminLayout, AuthLayout, navigation
-├── lib/          utils, validation, subscription,
-│                 authStorage, pendingRegistration, pendingPasswordReset
+├── hooks/        useCountdown (OTP timers), useDebouncedValue, usePageMeta,
+│                 useCustomerSearch, useCustomerVehicles, useAllStaff,
+│                 useJobNumber, useJobCardPayments, useDashboardSummary,
+│                 useDashboardMonthly, useDashboardPage (one page of a
+│                 tile list), useSessionLifecycle
+├── layouts/      AppShell, OwnerLayout, AdminLayout, AuthLayout, PublicLayout,
+│                 navigation
+├── lib/          utils, validation, subscription, dashboard,
+│                 publicPlans, publicContent (what the public site may claim),
+│                 excel, pdf, invoice, carSaleReceipt (the file writers),
+│                 payment, whatsapp (the receipt message),
+│                 carSelling, carSold (form values, labels, payloads),
+│                 customerForm, vehicleForm, staffForm, jobCard,
+│                 vehicleStatus, staff, activeCustomer,
+│                 authStorage, adminAuthStorage,
+│                 pendingRegistration, pendingPasswordReset
 ├── mock/         static mock data (modules not yet integrated)
-├── pages/        auth/ · owner/ · admin/
-├── routes/       route definitions + ProtectedRoute / PublicOnlyRoute
-├── services/     httpClient, authService — API layer
-└── types/        shared types · auth.ts mirrors the API contract
+├── pages/        public/ (the marketing site) · auth/ ·
+│                 owner/ (incl. RevenueReport — both revenue reports) · admin/
+├── routes/       route definitions + Protected / PublicOnly / Admin guards
+├── services/     httpClient, authService, contactService, customerService,
+│                 vehicleService,
+│                 staffService, jobCardService, paymentService,
+│                 carSellingService, carSoldService,
+│                 dashboardService, adminService
+└── types/        shared types · auth, customer, vehicle, staff, jobCard,
+                  payment, carSelling, carSold, dashboard — mirror the API
+                  contract
 ```
 
 ## Adding the Next Endpoint
@@ -600,13 +1385,30 @@ src/
 
 ## Notes
 
-- Everything outside authentication still uses **mock data and mock submission**
-  (simulated latency + toast); nothing is persisted. That includes the
-  dashboard's stat cards and recent job cards — only the greeting, garage name
-  and subscription banner there come from the API.
+- **Billing and Salary still use mock data and mock submission**
+  (simulated latency + toast); nothing is persisted. The dashboard and Reports
+  are not among them any more: every tile on the dashboard, the list behind
+  each tile, the charts, the popup behind each bar, and both revenue reports
+  come from the API.
 - **Garage Profile reads but does not write.** Save Changes is still a mock
   submission; the API has no profile-update endpoint yet.
+- The standalone vehicle form at `/app/vehicles/new` and `/app/vehicles/:id` is
+  the older mock screen. The live add and edit forms are reached from the
+  Vehicles tab, and open on the customer the vehicle belongs to.
+- The job card's **discount** field is display-only: neither the create nor the
+  update contract carries one, so it changes the summary on screen and nothing
+  else.
+- The invoice PDF is written by hand against the standard PDF fonts, which have
+  no rupee sign — printed figures read `Rs. 18,450.50` where the screen shows
+  `₹18,450.50`. Nothing about the file leaves the browser: it is built and
+  downloaded on the spot, and the API is not asked to render it.
+- The **Settings** screen has been removed. Everything it linked to is reached
+  elsewhere: the profile from the topbar's avatar menu, and Subscription from
+  the sidebar.
 - PWA UI (install prompt, offline / back-online banners) is **UI-only** — no
   service worker or sync is implemented.
-- The Platform Admin panel (`/admin`) is entirely mock and is **not** behind the
-  owner route guard.
+- The Platform Admin panel behind `/admin/login` is still mock, though the
+  sign-in itself is real and guarded by its own token.
+- There is no Prettier or ESLint config in the repo. Match the surrounding
+  style — single quotes, no semicolons — rather than running a formatter with
+  its defaults.

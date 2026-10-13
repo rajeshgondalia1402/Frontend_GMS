@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
-import { Phone, ShieldCheck } from 'lucide-react'
+import { Mail, MapPin, Phone, ShieldCheck, Store, User } from 'lucide-react'
 import { Button, Input, PasswordInput } from '@/components/ui'
 import { savePendingRegistration } from '@/lib/pendingRegistration'
 import {
@@ -36,6 +36,12 @@ const FORM_FIELDS: (keyof RegisterForm)[] = [
   'password',
 ]
 
+/** The paid plans the public pricing page can send a visitor here with. */
+const PAID_PLAN_LABELS: Record<string, string> = {
+  monthly: 'Premium Monthly',
+  yearly: 'Premium Yearly',
+}
+
 export function Register() {
   const {
     register,
@@ -50,6 +56,14 @@ export function Register() {
 
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
+
+  // A visitor who picked a paid plan on the public site arrives with
+  // `?plan=monthly|yearly`. Registration itself is unchanged — every account
+  // starts on the free trial — so the choice is only acknowledged here and
+  // carried on to the in-app Subscription screen, which is where plans are
+  // chosen.
+  const pickedPlan = PAID_PLAN_LABELS[searchParams.get('plan') ?? ''] ?? null
 
   // The OTP screen sends the user back here when the API rejects the payload
   // it replayed, so those field errors are surfaced on the form that owns them.
@@ -96,11 +110,20 @@ export function Register() {
         <p className="mt-1 text-sm text-slate-500">Start your 30-day free trial.</p>
       </div>
 
+      {pickedPlan && (
+        <p className="mb-5 rounded-lg border border-primary-200 bg-primary-50 px-3.5 py-2.5 text-xs leading-relaxed text-primary-800">
+          <span className="font-semibold">{pickedPlan}</span> selected. Every account starts on the
+          free trial, so create your garage first — the plan is waiting for you on the
+          Subscription screen inside the app.
+        </p>
+      )}
+
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
         <Input
           label="Owner Name"
           placeholder="Rajesh Patel"
           autoComplete="name"
+          leftIcon={<User className="h-4 w-4" />}
           error={errors.ownerName?.message}
           {...register('ownerName', ownerNameRules)}
         />
@@ -125,6 +148,7 @@ export function Register() {
           label="Garage Name"
           placeholder="ABC Auto Garage"
           autoComplete="organization"
+          leftIcon={<Store className="h-4 w-4" />}
           error={errors.garageName?.message}
           {...register('garageName', garageNameRules)}
         />
@@ -133,6 +157,7 @@ export function Register() {
           label="City"
           placeholder="Ahmedabad"
           autoComplete="address-level2"
+          leftIcon={<MapPin className="h-4 w-4" />}
           error={errors.city?.message}
           {...register('city', cityRules)}
         />
@@ -142,6 +167,7 @@ export function Register() {
           type="email"
           placeholder="you@example.com"
           autoComplete="email"
+          leftIcon={<Mail className="h-4 w-4" />}
           hint="Optional"
           error={errors.email?.message}
           {...register('email', optionalEmailRules)}

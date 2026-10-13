@@ -1,0 +1,5 @@
+export { Home } from './Home'
+export { About } from './About'
+export { Features } from './Features'
+export { Subscription } from './Subscription'
+export { Contact } from './Contact'

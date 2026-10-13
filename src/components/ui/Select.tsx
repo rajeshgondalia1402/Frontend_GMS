@@ -1,18 +1,20 @@
 import { forwardRef } from 'react'
-import type { SelectHTMLAttributes } from 'react'
+import type { ReactNode, SelectHTMLAttributes } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-interface Option { label: string; value: string }
+interface Option { label: string; value: string; disabled?: boolean }
 interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label?: string
   error?: string
   options: Option[]
   placeholder?: string
+  /** Field icon, shown inside the control on the left. */
+  leftIcon?: ReactNode
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ className, label, error, options, placeholder, id, ...props }, ref) => {
+  ({ className, label, error, options, placeholder, leftIcon, id, ...props }, ref) => {
     const selectId = id || props.name
     return (
       <div className="w-full">
@@ -22,11 +24,17 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           </label>
         )}
         <div className="relative">
+          {leftIcon && (
+            <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-slate-400">
+              {leftIcon}
+            </span>
+          )}
           <select
             ref={ref}
             id={selectId}
             className={cn(
               'h-11 w-full appearance-none rounded-lg border bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors focus:outline-none focus:ring-2',
+              Boolean(leftIcon) && 'pl-10',
               error
                 ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
                 : 'border-slate-300 focus:border-primary-400 focus:ring-primary-100',
@@ -36,7 +44,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           >
             {placeholder && <option value="">{placeholder}</option>}
             {options.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+              <option key={o.value} value={o.value} disabled={o.disabled}>{o.label}</option>
             ))}
           </select>
           <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />

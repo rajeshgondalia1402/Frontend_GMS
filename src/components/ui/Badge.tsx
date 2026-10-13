@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
-type Tone = 'neutral' | 'primary' | 'success' | 'warning' | 'danger' | 'info'
+export type Tone = 'neutral' | 'primary' | 'success' | 'warning' | 'danger' | 'info'
 
 const tones: Record<Tone, string> = {
   neutral: 'bg-slate-100 text-slate-700',
