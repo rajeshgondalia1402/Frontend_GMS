@@ -3,7 +3,7 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-type Variant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger'
+type Variant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'accent'
 type Size = 'sm' | 'md' | 'lg'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -21,6 +21,9 @@ const variants: Record<Variant, string> = {
   outline: 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 focus-visible:ring-slate-400',
   ghost: 'text-slate-600 hover:bg-slate-100 focus-visible:ring-slate-400',
   danger: 'bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500 shadow-sm',
+  /** The logo's orange — navy text, since white on orange fails contrast. */
+  accent:
+    'bg-gradient-to-r from-accent-500 to-amber-400 font-semibold text-primary-950 shadow-md shadow-accent-500/25 hover:from-accent-600 hover:to-amber-500 focus-visible:ring-accent-400',
 }
 
 const sizes: Record<Size, string> = {

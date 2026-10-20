@@ -14,9 +14,15 @@ import {
   Wrench,
 } from 'lucide-react'
 import { Button, Input, Select, Textarea } from '@/components/ui'
-import { Section, SectionHeading } from '@/components/public'
+import { ContactCards, PageHero, Section } from '@/components/public'
 import { usePageMeta } from '@/hooks/usePageMeta'
 import { contactEnquiryEnabled } from '@/config/env'
+import {
+  CONTACT_EMAIL,
+  CONTACT_EMAIL_HREF,
+  CONTACT_PHONE_DISPLAY,
+  CONTACT_PHONE_HREF,
+} from '@/lib/publicContact'
 import { contactService } from '@/services/contactService'
 import { ApiError } from '@/services/httpClient'
 import {
@@ -98,7 +104,7 @@ export function Contact() {
   usePageMeta({
     title: 'Contact Us — GaragePilot',
     description:
-      'Questions about GaragePilot, the free trial or a subscription plan? Send us the details of your garage and what you need, and we will come back to you.',
+      `Questions about GaragePilot, the free trial or a subscription plan? Call ${CONTACT_PHONE_DISPLAY}, email ${CONTACT_EMAIL}, or send us the details of your garage.`,
     type: 'article',
   })
 
@@ -166,23 +172,26 @@ export function Contact() {
 
   return (
     <>
-      <Section
-        labelledBy="contact-title"
-        className="bg-gradient-to-b from-primary-50/70 to-white"
-      >
-        <SectionHeading
-          id="contact-title"
-          level={1}
-          eyebrow="Contact us"
-          title="Tell us about your garage"
-          lead="Questions about the free trial, a plan, or whether GaragePilot fits the way you work — send the details and we will come back to you."
-        />
-      </Section>
+      <PageHero
+        id="contact-title"
+        eyebrow="Contact us"
+        title="Tell us about"
+        highlight="your garage"
+        lead="Questions about the free trial, a plan, or whether GaragePilot fits the way you work — call, email or WhatsApp us and we will come back to you."
+        className="pb-24 sm:pb-28"
+      />
 
-      <Section flush="top" labelledBy="contact-form-title">
+      <section aria-label="Ways to reach us" className="relative z-10 -mt-16 sm:-mt-20">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <ContactCards />
+        </div>
+      </section>
+
+      <Section labelledBy="contact-form-title">
         <div className="grid gap-8 lg:grid-cols-[1.5fr_1fr] lg:gap-10">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card sm:p-7">
-            <h2 id="contact-form-title" className="text-lg font-bold text-slate-900">
+          <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-xl shadow-primary-900/5 sm:p-8">
+            <div aria-hidden="true" className="bg-brand-flame absolute inset-x-0 top-0 h-1" />
+            <h2 id="contact-form-title" className="text-xl font-extrabold text-primary-950">
               Send us a message
             </h2>
             <p className="mt-1 text-sm text-slate-500">
@@ -204,14 +213,28 @@ export function Contact() {
                 <p className="text-sm leading-relaxed text-amber-800">
                   <strong className="font-semibold">Message delivery is being set up.</strong> This
                   form is not connected to our inbox yet, so we have left it switched off rather
-                  than tell you a message was sent when it was not. In the meantime,{' '}
+                  than tell you a message was sent when it was not. In the meantime, call us on{' '}
+                  <a
+                    href={CONTACT_PHONE_HREF}
+                    className="whitespace-nowrap font-semibold text-amber-900 underline hover:no-underline"
+                  >
+                    {CONTACT_PHONE_DISPLAY}
+                  </a>{' '}
+                  or email{' '}
+                  <a
+                    href={CONTACT_EMAIL_HREF}
+                    className="[overflow-wrap:anywhere] font-semibold text-amber-900 underline hover:no-underline"
+                  >
+                    {CONTACT_EMAIL}
+                  </a>
+                  {' '}— or{' '}
                   <Link
                     to="/register"
                     className="font-semibold text-amber-900 underline hover:no-underline"
                   >
                     start the free trial
-                  </Link>{' '}
-                  — it needs nothing from us to begin.
+                  </Link>
+                  , which needs nothing from us to begin.
                 </p>
               </div>
             )}
@@ -322,7 +345,7 @@ export function Contact() {
           </div>
 
           <aside aria-labelledby="shortcuts-title" className="space-y-4">
-            <h2 id="shortcuts-title" className="text-lg font-bold text-slate-900">
+            <h2 id="shortcuts-title" className="text-xl font-extrabold text-primary-950">
               Answers right now
             </h2>
             <p className="text-sm leading-relaxed text-slate-600">
@@ -332,21 +355,21 @@ export function Contact() {
             {shortcuts.map((shortcut) => (
               <div
                 key={shortcut.title}
-                className="rounded-xl border border-slate-200 bg-white p-4 shadow-card transition-colors hover:border-primary-200"
+                className="rounded-xl border border-slate-200 bg-white p-4 shadow-card transition-all duration-300 hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-lg"
               >
                 <div className="flex gap-3">
                   <span
                     aria-hidden="true"
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-navy text-amber-300"
                   >
                     <shortcut.icon className="h-4 w-4" />
                   </span>
                   <div className="min-w-0">
-                    <h3 className="text-sm font-semibold text-slate-900">{shortcut.title}</h3>
+                    <h3 className="text-sm font-bold text-primary-950">{shortcut.title}</h3>
                     <p className="mt-1 text-xs leading-relaxed text-slate-600">{shortcut.body}</p>
                     <Link
                       to={shortcut.to}
-                      className="mt-1 inline-block rounded py-1.5 text-xs font-semibold text-primary-600 hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                      className="mt-1 inline-block rounded py-1.5 text-xs font-semibold text-accent-600 hover:text-accent-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
                     >
                       {shortcut.label} →
                     </Link>

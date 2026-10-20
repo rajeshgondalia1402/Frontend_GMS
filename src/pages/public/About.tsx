@@ -8,7 +8,7 @@ import {
   Wrench,
 } from 'lucide-react'
 import { Button } from '@/components/ui'
-import { CtaBand, Section, SectionHeading } from '@/components/public'
+import { ContactCards, CtaBand, PageHero, Section, SectionHeading } from '@/components/public'
 import { usePageMeta } from '@/hooks/usePageMeta'
 
 /**
@@ -72,24 +72,26 @@ export function About() {
 
   return (
     <>
-      <Section
-        labelledBy="about-title"
-        className="bg-gradient-to-b from-primary-50/70 to-white"
-      >
-        <SectionHeading
-          id="about-title"
-          level={1}
-          eyebrow="About us"
-          title="Software that fits how a garage actually runs"
-          lead="GaragePilot is a garage management app built around the one document a workshop already lives by — the job card — and everything a garage has to do with it afterwards."
-        />
-      </Section>
+      <PageHero
+        id="about-title"
+        eyebrow="About us"
+        title="Software that fits how a garage"
+        highlight="actually runs"
+        lead="GaragePilot is a garage management app built around the one document a workshop already lives by — the job card — and everything a garage has to do with it afterwards."
+      />
 
       <Section labelledBy="why-title">
         <div className="grid gap-10 lg:grid-cols-2 lg:gap-14">
           <div>
-            <h2 id="why-title" className="text-2xl font-bold tracking-tight text-slate-900">
-              Why we built it
+            <p className="flex items-center gap-2.5 text-xs font-bold uppercase tracking-[0.18em] text-accent-600">
+              <span aria-hidden="true" className="h-[2px] w-8 rounded-full bg-accent-500" />
+              Our story
+            </p>
+            <h2
+              id="why-title"
+              className="mt-3 text-2xl font-extrabold tracking-tight text-primary-950 sm:text-3xl"
+            >
+              Why we <span className="text-brand-flame">built it</span>
             </h2>
             <div className="mt-4 space-y-4 text-base leading-relaxed text-slate-600">
               <p>
@@ -113,28 +115,29 @@ export function About() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
-            <h2 className="text-base font-semibold text-slate-900">Who it is for</h2>
+          <div className="relative isolate self-start overflow-hidden rounded-2xl bg-brand-navy p-6 text-white shadow-xl shadow-primary-950/20 sm:p-8">
+            <div aria-hidden="true" className="bg-hazard absolute inset-x-0 top-0 h-1.5" />
+            <h2 className="text-lg font-bold text-amber-300">Who it is for</h2>
             <ul className="mt-4 space-y-3">
               {audience.map((item) => (
-                <li key={item} className="flex items-start gap-2.5 text-sm text-slate-600">
+                <li key={item} className="flex items-start gap-2.5 text-sm text-blue-50">
                   <CheckCircle2
                     aria-hidden="true"
-                    className="mt-0.5 h-4 w-4 shrink-0 text-primary-600"
+                    className="mt-0.5 h-4 w-4 shrink-0 text-amber-400"
                   />
                   {item}
                 </li>
               ))}
             </ul>
 
-            <p className="mt-6 border-t border-slate-200 pt-5 text-sm leading-relaxed text-slate-600">
+            <p className="mt-6 border-t border-white/10 pt-5 text-sm leading-relaxed text-blue-100/80">
               One garage account covers the whole workshop — sign in on the office desktop and on
               the phones at the counter at the same time.
             </p>
 
             <div className="mt-5">
               <Link to="/features">
-                <Button fullWidth variant="outline">
+                <Button fullWidth variant="accent">
                   See what is in the app
                 </Button>
               </Link>
@@ -147,24 +150,31 @@ export function About() {
         <SectionHeading
           id="principles-title"
           eyebrow="How we build"
-          title="The decisions behind the product"
+          title="The decisions behind"
+          highlight="the product"
           lead="Each of these is something you can check for yourself inside the app."
         />
 
-        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {principles.map((principle) => (
+        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+          {principles.map((principle, index) => (
             <article
               key={principle.title}
-              className="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-card"
+              className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary-900/10 sm:p-6"
             >
               <span
                 aria-hidden="true"
-                className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-50 text-primary-600 ring-1 ring-primary-100"
+                className="absolute right-4 top-3 text-5xl font-extrabold text-slate-100 transition-colors group-hover:text-accent-100"
+              >
+                {String(index + 1).padStart(2, '0')}
+              </span>
+              <span
+                aria-hidden="true"
+                className="relative flex h-12 w-12 items-center justify-center rounded-xl bg-brand-navy text-amber-300 shadow-md shadow-primary-900/20"
               >
                 <principle.icon className="h-5 w-5" />
               </span>
-              <h3 className="mt-4 text-base font-semibold text-slate-900">{principle.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-slate-600">
+              <h3 className="relative mt-4 text-base font-bold text-primary-950">{principle.title}</h3>
+              <p className="relative mt-2 text-sm leading-relaxed text-slate-600">
                 {principle.description}
               </p>
             </article>
@@ -173,8 +183,8 @@ export function About() {
       </Section>
 
       <Section labelledBy="status-title">
-        <div className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-6 shadow-card sm:p-8">
-          <h2 id="status-title" className="text-xl font-bold tracking-tight text-slate-900">
+        <div className="mx-auto max-w-3xl rounded-2xl border-l-4 border-accent-500 bg-white p-6 shadow-xl shadow-primary-900/5 ring-1 ring-slate-200 sm:p-8">
+          <h2 id="status-title" className="text-xl font-extrabold tracking-tight text-primary-950">
             Where the product stands
           </h2>
           <p className="mt-3 text-base leading-relaxed text-slate-600">
@@ -196,6 +206,17 @@ export function About() {
             </Link>
           </div>
         </div>
+      </Section>
+
+      <Section tone="tinted" labelledBy="about-contact-title">
+        <SectionHeading
+          id="about-contact-title"
+          eyebrow="Get in touch"
+          title="We would love to hear"
+          highlight="about your garage"
+          lead="Reach the GaragePilot team directly — by phone, email or WhatsApp."
+        />
+        <ContactCards className="mt-10" />
       </Section>
 
       <CtaBand

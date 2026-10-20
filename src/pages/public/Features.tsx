@@ -5,6 +5,7 @@ import {
   CtaBand,
   DashboardPreview,
   FeatureCard,
+  PageHero,
   Section,
   SectionHeading,
 } from '@/components/public'
@@ -21,45 +22,57 @@ export function Features() {
 
   return (
     <>
-      <Section labelledBy="features-page-title" className="bg-gradient-to-b from-primary-50/70 to-white">
-        <SectionHeading
-          id="features-page-title"
-          level={1}
-          eyebrow="Features"
-          title="Every screen in GaragePilot today"
-          lead="Twelve capabilities, all of them live in the app. Where something is still being built, it is not on this page."
-        />
+      <PageHero
+        id="features-page-title"
+        eyebrow="Features"
+        title="Every tool your workshop needs,"
+        highlight="in one app"
+        lead={`${features.length} capabilities, all of them live in the app today. Where something is still being built, it is not on this page.`}
+      >
+        <ul className="mx-auto mt-8 flex max-w-3xl flex-wrap justify-center gap-2">
+          {features.map((feature) => (
+            <li
+              key={feature.title}
+              className="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-blue-100/90 backdrop-blur"
+            >
+              {feature.title}
+            </li>
+          ))}
+        </ul>
+      </PageHero>
 
-        <div className="mx-auto mt-10 max-w-4xl">
+      <section aria-label="Dashboard preview" className="relative z-10 -mt-6 bg-transparent">
+        <div className="mx-auto max-w-4xl px-4 pt-12 sm:px-6">
           <DashboardPreview />
         </div>
-      </Section>
+      </section>
 
-      <Section tone="tinted" labelledBy="features-grid-title">
+      <Section labelledBy="features-grid-title">
         <SectionHeading
           id="features-grid-title"
           eyebrow="The detail"
-          title="What each part of the app does"
+          title="What each part of the app"
+          highlight="does for you"
         />
 
-        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
           {features.map((feature) => (
             <FeatureCard key={feature.title} {...feature} />
           ))}
         </div>
       </Section>
 
-      <Section labelledBy="features-honest-title">
-        <div className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-5 shadow-card sm:p-6">
-          <div className="flex gap-4">
+      <Section tone="tinted" labelledBy="features-honest-title">
+        <div className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-5 shadow-card sm:p-7">
+          <div className="flex flex-col gap-4 sm:flex-row">
             <span
               aria-hidden="true"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent-50 text-accent-600 ring-1 ring-accent-100"
             >
               <Info className="h-5 w-5" />
             </span>
             <div className="min-w-0">
-              <h2 id="features-honest-title" className="text-base font-semibold text-slate-900">
+              <h2 id="features-honest-title" className="text-lg font-bold text-primary-950">
                 What is still being built
               </h2>
               <p className="mt-2 text-sm leading-relaxed text-slate-600">
@@ -70,12 +83,12 @@ export function Features() {
               </p>
               <div className="mt-5 flex flex-col gap-3 sm:flex-row">
                 <Link to="/subscription">
-                  <Button fullWidth variant="outline" rightIcon={<ArrowRight className="h-4 w-4" />}>
+                  <Button fullWidth rightIcon={<ArrowRight className="h-4 w-4" />}>
                     See Subscription
                   </Button>
                 </Link>
                 <Link to="/contact">
-                  <Button fullWidth variant="ghost">
+                  <Button fullWidth variant="outline">
                     Ask us a question
                   </Button>
                 </Link>

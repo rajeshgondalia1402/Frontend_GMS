@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom'
-import { Info } from 'lucide-react'
+import { Info, Mail, Phone } from 'lucide-react'
 import {
   CtaBand,
   FaqList,
+  PageHero,
   PricingCards,
   Section,
   SectionHeading,
@@ -16,6 +17,12 @@ import {
   publicPlans,
 } from '@/lib/publicPlans'
 import { formatCurrency } from '@/lib/utils'
+import {
+  CONTACT_EMAIL,
+  CONTACT_EMAIL_HREF,
+  CONTACT_PHONE_DISPLAY,
+  CONTACT_PHONE_HREF,
+} from '@/lib/publicContact'
 
 /** The length of access each plan buys, spelled out for the table. */
 const accessLength: Record<string, string> = {
@@ -66,28 +73,27 @@ export function Subscription() {
 
   return (
     <>
-      <Section
-        labelledBy="pricing-page-title"
-        className="bg-gradient-to-b from-primary-50/70 to-white"
-      >
-        <SectionHeading
-          id="pricing-page-title"
-          level={1}
-          eyebrow="Subscription"
-          title="Simple pricing for one garage"
-          lead="Start on a month of free trial, then pick the billing period that suits you. The plan sets how long your access runs — never which features you get."
-        />
+      <PageHero
+        id="pricing-page-title"
+        eyebrow="Subscription"
+        title="Simple pricing for"
+        highlight="one garage"
+        lead="Start on a month of free trial, then pick the billing period that suits you. The plan sets how long your access runs — never which features you get."
+        className="pb-24 sm:pb-28"
+      />
 
-        <div className="mt-12">
+      <section aria-label="Plans" className="relative z-10 -mt-16 sm:-mt-20">
+        <div className="mx-auto max-w-6xl px-4 pb-16 sm:px-6 sm:pb-20">
           <PricingCards />
         </div>
-      </Section>
+      </section>
 
       <Section tone="tinted" labelledBy="compare-title">
         <SectionHeading
           id="compare-title"
           eyebrow="Side by side"
-          title="The three plans, compared"
+          title="The three plans,"
+          highlight="compared"
           lead="Price, how often you are billed, and how long each plan runs."
         />
 
@@ -97,7 +103,7 @@ export function Subscription() {
           <div className="hidden overflow-x-auto sm:block">
             <table className="w-full min-w-[560px] text-left text-sm">
               <caption className="sr-only">GaragePilot subscription plans compared</caption>
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <thead className="bg-brand-navy text-xs uppercase tracking-wide text-amber-300">
                 <tr>
                   <th scope="col" className="px-5 py-3 font-medium">
                     Plan
@@ -115,11 +121,11 @@ export function Subscription() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {publicPlans.map((plan) => (
-                  <tr key={plan.code} className={plan.highlight ? 'bg-primary-50/40' : undefined}>
+                  <tr key={plan.code} className={plan.highlight ? 'bg-accent-50/60' : undefined}>
                     <th scope="row" className="px-5 py-4 font-semibold text-slate-900">
                       {plan.name}
                       {plan.highlight && (
-                        <span className="ml-2 rounded-full bg-accent-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary-950">
+                        <span className="bg-brand-flame ml-2 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary-950">
                           Best value
                         </span>
                       )}
@@ -142,7 +148,7 @@ export function Subscription() {
                 <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-900">
                   {plan.name}
                   {plan.highlight && (
-                    <span className="rounded-full bg-accent-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary-950">
+                    <span className="bg-brand-flame rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary-950">
                       Best value
                     </span>
                   )}
@@ -169,15 +175,15 @@ export function Subscription() {
         </div>
 
         {/* The one thing a pricing page must not be vague about. */}
-        <div className="mx-auto mt-8 flex max-w-3xl gap-4 rounded-2xl border border-sky-200 bg-sky-50 p-5">
+        <div className="mx-auto mt-8 flex max-w-3xl flex-col gap-4 rounded-2xl border border-primary-100 bg-white p-5 shadow-card sm:flex-row sm:p-6">
           <span
             aria-hidden="true"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-sky-600"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-600"
           >
             <Info className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-slate-900">How paying works today</h3>
+            <h3 className="text-base font-bold text-primary-950">How paying works today</h3>
             <p className="mt-1.5 text-sm leading-relaxed text-slate-600">
               Online checkout is not part of the app yet, and we would rather say so than send you
               to a payment page that does not exist. Every account starts on the free trial, so{' '}
@@ -190,12 +196,28 @@ export function Subscription() {
               </Link>{' '}
               about a plan.
             </p>
+            <div className="mt-4 flex flex-col gap-2 text-sm sm:flex-row sm:gap-5">
+              <a
+                href={CONTACT_PHONE_HREF}
+                className="inline-flex items-center gap-2 font-semibold text-primary-700 hover:text-accent-600"
+              >
+                <Phone aria-hidden="true" className="h-4 w-4 text-accent-500" />
+                {CONTACT_PHONE_DISPLAY}
+              </a>
+              <a
+                href={CONTACT_EMAIL_HREF}
+                className="inline-flex min-w-0 items-center gap-2 [overflow-wrap:anywhere] font-semibold text-primary-700 hover:text-accent-600"
+              >
+                <Mail aria-hidden="true" className="h-4 w-4 shrink-0 text-accent-500" />
+                {CONTACT_EMAIL}
+              </a>
+            </div>
           </div>
         </div>
       </Section>
 
       <Section labelledBy="pricing-faq-title">
-        <SectionHeading id="pricing-faq-title" eyebrow="FAQ" title="About the plans" />
+        <SectionHeading id="pricing-faq-title" eyebrow="FAQ" title="About" highlight="the plans" />
 
         <div className="mx-auto mt-10 max-w-3xl">
           <FaqList items={faqs} />

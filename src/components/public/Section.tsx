@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
+import { Eyebrow, HeroBackdrop } from './PageHero'
 
 /**
  * One band of a public page: a semantic `<section>`, the shared gutter (never
@@ -15,8 +16,11 @@ export function Section({
   flush,
 }: {
   id?: string
-  /** `tinted` for the alternating slate band, `dark` for the inverted ones. */
-  tone?: 'plain' | 'tinted' | 'dark'
+  /**
+   * `tinted` for the alternating cool band, `dark` for the inverted slate one,
+   * `navy` for the logo-blue band with the speed lines behind it.
+   */
+  tone?: 'plain' | 'tinted' | 'dark' | 'navy'
   className?: string
   children: ReactNode
   /** Id of the heading that names this section, for screen readers. */
@@ -32,15 +36,17 @@ export function Section({
       id={id}
       aria-labelledby={labelledBy}
       className={cn(
-        'scroll-mt-20',
-        tone === 'tinted' && 'bg-slate-50',
+        'scroll-mt-28',
+        tone === 'tinted' && 'bg-gradient-to-b from-slate-50 to-primary-50/40',
         tone === 'dark' && 'bg-slate-900',
+        tone === 'navy' && 'relative isolate overflow-hidden bg-brand-navy',
         className,
       )}
     >
+      {tone === 'navy' && <HeroBackdrop />}
       <div
         className={cn(
-          'mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20',
+          'relative mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20',
           flush === 'top' && 'pt-0 sm:pt-0',
           flush === 'bottom' && 'pb-0 sm:pb-0',
         )}
@@ -56,6 +62,7 @@ export function SectionHeading({
   id,
   eyebrow,
   title,
+  highlight,
   lead,
   align = 'center',
   tone = 'dark',
@@ -64,6 +71,8 @@ export function SectionHeading({
   id?: string
   eyebrow?: string
   title: string
+  /** Set after the title in the logo's orange gradient. */
+  highlight?: string
   lead?: string
   align?: 'center' | 'left'
   /** `light` when the section sits on the dark band. */
@@ -84,30 +93,31 @@ export function SectionHeading({
       )}
     >
       {eyebrow && (
-        <p
-          className={cn(
-            'text-xs font-semibold uppercase tracking-wider',
-            tone === 'light' ? 'text-primary-300' : 'text-primary-600',
-          )}
-        >
+        <Eyebrow tone={tone} align={align}>
           {eyebrow}
-        </p>
+        </Eyebrow>
       )}
       <Heading
         id={id}
         className={cn(
-          'mt-2 font-bold tracking-tight',
-          level === 1 ? 'text-3xl sm:text-4xl' : 'text-2xl sm:text-3xl',
-          tone === 'light' ? 'text-white' : 'text-slate-900',
+          'mt-3 font-extrabold tracking-tight',
+          level === 1 ? 'text-3xl sm:text-4xl' : 'text-2xl sm:text-3xl lg:text-4xl',
+          tone === 'light' ? 'text-white' : 'text-primary-950',
         )}
       >
         {title}
+        {highlight && (
+          <>
+            {' '}
+            <span className="text-brand-flame">{highlight}</span>
+          </>
+        )}
       </Heading>
       {lead && (
         <p
           className={cn(
             'mt-3 text-base leading-relaxed',
-            tone === 'light' ? 'text-slate-300' : 'text-slate-600',
+            tone === 'light' ? 'text-blue-100/80' : 'text-slate-600',
           )}
         >
           {lead}

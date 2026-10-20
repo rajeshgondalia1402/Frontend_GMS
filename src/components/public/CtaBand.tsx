@@ -1,7 +1,14 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, LayoutDashboard } from 'lucide-react'
+import { ArrowRight, LayoutDashboard, Mail, Phone } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { useAuth } from '@/context/AuthContext'
+import {
+  CONTACT_EMAIL,
+  CONTACT_EMAIL_HREF,
+  CONTACT_PHONE_DISPLAY,
+  CONTACT_PHONE_HREF,
+} from '@/lib/publicContact'
+import { HeroBackdrop } from './PageHero'
 
 /**
  * The closing call to action. It offers the dashboard instead of a sign-up to
@@ -22,21 +29,19 @@ export function CtaBand({
   const second = secondary ?? { label: 'See Subscription Plans', to: '/subscription' }
 
   return (
-    <section aria-labelledby="final-cta" className="bg-slate-900">
+    <section aria-labelledby="final-cta" className="bg-white">
       <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
-        <div className="relative overflow-hidden rounded-3xl bg-primary-600 px-5 py-12 text-center sm:px-10 sm:py-14">
-          {/* A single soft highlight, so the band has depth without becoming
-              the loudest thing on the page. */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-white/10 blur-2xl"
-          />
+        <div className="relative isolate overflow-hidden rounded-3xl bg-brand-navy px-5 py-12 text-center shadow-2xl shadow-primary-950/25 sm:px-10 sm:py-16">
+          <HeroBackdrop />
 
           <div className="relative mx-auto max-w-2xl">
-            <h2 id="final-cta" className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+            <h2
+              id="final-cta"
+              className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl lg:text-4xl"
+            >
               {title}
             </h2>
-            <p className="mt-3 text-base leading-relaxed text-primary-50">{lead}</p>
+            <p className="mt-3 text-base leading-relaxed text-blue-100/80 sm:text-lg">{lead}</p>
 
             {!initializing && (
               <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
@@ -44,7 +49,8 @@ export function CtaBand({
                   <Link to="/app">
                     <Button
                       size="lg"
-                      className="!bg-accent-500 !text-primary-950 font-semibold shadow-sm hover:!bg-accent-400 focus-visible:ring-white"
+                      variant="accent"
+                      fullWidth
                       leftIcon={<LayoutDashboard className="h-4 w-4" />}
                     >
                       Go to Dashboard
@@ -55,7 +61,7 @@ export function CtaBand({
                     <Button
                       size="lg"
                       fullWidth
-                      className="!bg-accent-500 !text-primary-950 font-semibold shadow-sm hover:!bg-accent-400 focus-visible:ring-white"
+                      variant="accent"
                       rightIcon={<ArrowRight className="h-4 w-4" />}
                     >
                       Start Free Trial
@@ -75,6 +81,23 @@ export function CtaBand({
                 </Link>
               </div>
             )}
+
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 border-t border-white/10 pt-6 text-sm sm:flex-row sm:gap-6">
+              <a
+                href={CONTACT_PHONE_HREF}
+                className="inline-flex items-center gap-2 font-semibold text-white transition-colors hover:text-amber-300"
+              >
+                <Phone aria-hidden="true" className="h-4 w-4 text-amber-400" />
+                {CONTACT_PHONE_DISPLAY}
+              </a>
+              <a
+                href={CONTACT_EMAIL_HREF}
+                className="inline-flex min-w-0 items-center gap-2 [overflow-wrap:anywhere] font-semibold text-white transition-colors hover:text-amber-300"
+              >
+                <Mail aria-hidden="true" className="h-4 w-4 shrink-0 text-amber-400" />
+                {CONTACT_EMAIL}
+              </a>
+            </div>
           </div>
         </div>
       </div>
