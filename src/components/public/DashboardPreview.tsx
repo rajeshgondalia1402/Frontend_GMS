@@ -50,14 +50,14 @@ const stateTones: Record<string, string> = {
 export function DashboardPreview() {
   return (
     <figure className="m-0">
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-primary-950/30">
         {/* Window chrome — says "this is the app" without a screenshot that
             would go stale the next time the dashboard changes. */}
         <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-4 py-2.5">
           <span aria-hidden="true" className="flex gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-slate-300" />
-            <span className="h-2.5 w-2.5 rounded-full bg-slate-300" />
-            <span className="h-2.5 w-2.5 rounded-full bg-slate-300" />
+            <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
+            <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
           </span>
           <span className="ml-1 truncate text-[11px] font-medium text-slate-500">
             GaragePilot · Dashboard

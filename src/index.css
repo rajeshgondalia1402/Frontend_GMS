@@ -57,3 +57,62 @@ input[type='number'] {
 .animate-slide-up { animation: slideUp 0.25s ease-out; }
 .animate-scale-in { animation: scaleIn 0.15s ease-out; }
 .animate-toast-in { animation: toastIn 0.2s ease-out; }
+
+/* ------------------------------------------------------------------ brand
+ * The public site's own surfaces, drawn from the two halves of the logo:
+ * the navy-to-royal blue of "Garage" and the orange-to-amber of "Pilot".
+ */
+@layer components {
+  /* The "Pilot" fill — orange running up into amber. */
+  .bg-brand-flame {
+    background-image: linear-gradient(100deg, #f2400a 0%, #f97316 45%, #ffb020 100%);
+  }
+  .text-brand-flame {
+    background-image: linear-gradient(100deg, #ff5a1f 0%, #f97316 40%, #ffb020 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* The "Garage" fill — the deep navy the wordmark is shaded with. */
+  .bg-brand-navy {
+    background-color: #06183a;
+    background-image:
+      radial-gradient(ellipse 80% 60% at 85% 0%, rgb(11 94 215 / 0.45), transparent 60%),
+      radial-gradient(ellipse 60% 50% at 0% 100%, rgb(249 115 22 / 0.18), transparent 60%),
+      linear-gradient(180deg, #071d47 0%, #06183a 100%);
+  }
+  /* A faint workshop-floor grid behind the dark bands. */
+  .bg-garage-grid {
+    background-image:
+      linear-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px);
+    background-size: 44px 44px;
+    -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+    mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+  }
+  /* Hazard tape — the yellow-and-navy stripe of a service bay. */
+  .bg-hazard {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      #ffb020 0 14px,
+      #0a2a60 14px 28px
+    );
+  }
+}
+
+@keyframes speedLine {
+  0% { transform: translateX(-30%); opacity: 0; }
+  30% { opacity: 1; }
+  100% { transform: translateX(130%); opacity: 0; }
+}
+@keyframes floatY {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.animate-speed-line { animation: speedLine 3.2s ease-in-out infinite; }
+.animate-float { animation: floatY 6s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-speed-line,
+  .animate-float { animation: none; }
+}

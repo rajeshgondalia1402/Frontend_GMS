@@ -32,33 +32,58 @@ export function PricingCards({ includes = true }: { includes?: boolean }) {
           <div
             key={plan.code}
             className={cn(
-              'relative flex flex-col rounded-2xl border bg-white p-5 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-soft sm:p-6',
+              'relative flex flex-col rounded-2xl border p-5 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-xl sm:p-7',
               plan.highlight
-                ? 'border-primary-300 ring-1 ring-primary-200 sm:col-span-2 lg:col-span-1'
-                : 'border-slate-200',
+                ? 'border-primary-800 bg-brand-navy text-white shadow-xl shadow-primary-900/30 ring-2 ring-accent-400/70 sm:col-span-2 lg:col-span-1 lg:-my-3'
+                : 'border-slate-200 bg-white hover:border-primary-200 hover:shadow-primary-900/10',
             )}
           >
             {plan.highlight && (
               <span className="absolute -top-3 left-1/2 -translate-x-1/2">
-                <span className="inline-flex items-center gap-1 rounded-full bg-accent-500 px-3 py-1 text-xs font-bold text-primary-950 shadow-sm">
+                <span className="bg-brand-flame inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold text-primary-950 shadow-md">
                   <Sparkles className="h-3 w-3" aria-hidden="true" /> Best Value
                 </span>
               </span>
             )}
 
-            <h3 className="text-base font-semibold text-slate-900">{plan.name}</h3>
-            <p className="mt-1 text-sm leading-relaxed text-slate-500">{plan.tagline}</p>
+            <h3
+              className={cn(
+                'text-base font-bold uppercase tracking-wide',
+                plan.highlight ? 'text-amber-300' : 'text-primary-700',
+              )}
+            >
+              {plan.name}
+            </h3>
+            <p
+              className={cn(
+                'mt-1 text-sm leading-relaxed',
+                plan.highlight ? 'text-blue-100/80' : 'text-slate-500',
+              )}
+            >
+              {plan.tagline}
+            </p>
 
             <p className="mt-5 flex flex-wrap items-baseline gap-x-1.5">
-              <span className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+              <span
+                className={cn(
+                  'text-4xl font-extrabold tracking-tight sm:text-5xl',
+                  plan.highlight ? 'text-white' : 'text-primary-950',
+                )}
+              >
                 {formatCurrency(plan.price)}
               </span>
-              <span className="text-sm text-slate-500">{plan.period}</span>
+              <span className={cn('text-sm', plan.highlight ? 'text-blue-100/70' : 'text-slate-500')}>
+                {plan.period}
+              </span>
             </p>
             <p
               className={cn(
                 'mt-1.5 min-h-[18px] text-xs font-semibold',
-                plan.noteTone === 'saving' ? 'text-accent-700' : 'text-emerald-700',
+                plan.highlight
+                  ? 'text-amber-300'
+                  : plan.noteTone === 'saving'
+                    ? 'text-accent-700'
+                    : 'text-emerald-700',
               )}
             >
               {plan.note}
@@ -67,7 +92,12 @@ export function PricingCards({ includes = true }: { includes?: boolean }) {
             <div className="mt-5 flex-1" />
 
             <Link to={planHref(plan, isAuthenticated)} className="block">
-              <Button fullWidth size="lg" variant={plan.highlight ? 'primary' : 'outline'}>
+              <Button
+                fullWidth
+                size="lg"
+                variant={plan.highlight ? 'accent' : 'outline'}
+                className={plan.highlight ? undefined : '!border-primary-200 !text-primary-800 hover:!bg-primary-50'}
+              >
                 {plan.cta}
               </Button>
             </Link>
