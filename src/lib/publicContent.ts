@@ -207,7 +207,7 @@ export const howItWorks: HowItWorksStep[] = [
   {
     title: 'Verify your mobile number',
     description:
-      'A 6-digit code goes to the number you registered and is good for 10 minutes. The account is created once it checks out — and that number is how you sign in from then on.',
+      'A 6-digit code goes to the number you registered and is good for 5 minutes. The account is created once it checks out — and that number is how you sign in from then on.',
   },
   {
     title: 'Sign in and set up',

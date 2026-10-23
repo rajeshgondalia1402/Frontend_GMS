@@ -11,7 +11,7 @@ import type { RegisterPayload } from '@/types/auth'
  */
 const PENDING_KEY = 'gms.auth.pendingRegistration'
 
-/** Slightly longer than the API's 10-minute OTP validity. */
+/** Comfortably inside the API's 30-minute window to register after verifying. */
 const PENDING_TTL_MS = 15 * 60 * 1000
 
 interface StoredPending {
@@ -19,11 +19,14 @@ interface StoredPending {
   savedAt: number
   /** Set once the mobile number has passed OTP verification. */
   verified?: boolean
+  /** The single-use id verify-otp returned, replayed to `/auth/register`. */
+  verificationId?: string
 }
 
 export interface PendingRegistration {
   payload: RegisterPayload
   verified: boolean
+  verificationId?: string
 }
 
 function isValid(value: unknown): value is StoredPending {
@@ -60,7 +63,11 @@ export function loadPendingRegistration(now: number = Date.now()): PendingRegist
       clearPendingRegistration()
       return null
     }
-    return { payload: parsed.payload, verified: parsed.verified === true }
+    return {
+      payload: parsed.payload,
+      verified: parsed.verified === true,
+      verificationId: typeof parsed.verificationId === 'string' ? parsed.verificationId : undefined,
+    }
   } catch {
     return null
   }
@@ -70,7 +77,7 @@ export function loadPendingRegistration(now: number = Date.now()): PendingRegist
  * Records that the OTP step is done, so a refresh on the confirmation screen
  * does not send the user back to re-enter a code that was already accepted.
  */
-export function markPendingVerified(): void {
+export function markPendingVerified(verificationId?: string): void {
   try {
     const raw = sessionStorage.getItem(PENDING_KEY)
     if (!raw) return
@@ -78,7 +85,7 @@ export function markPendingVerified(): void {
     const parsed: unknown = JSON.parse(raw)
     if (!isValid(parsed)) return
 
-    sessionStorage.setItem(PENDING_KEY, JSON.stringify({ ...parsed, verified: true }))
+    sessionStorage.setItem(PENDING_KEY, JSON.stringify({ ...parsed, verified: true, verificationId }))
   } catch {
     /* ignore */
   }

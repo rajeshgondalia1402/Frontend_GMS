@@ -4,7 +4,7 @@ import { AlertCircle, CheckCircle2, Loader2, MessageSquare, Pencil } from 'lucid
 import { Button, OtpInput, useToast } from '@/components/ui'
 import { useAuth } from '@/context/AuthContext'
 import { authService } from '@/services/authService'
-import { ApiError, isSubscriptionRequired } from '@/services/httpClient'
+import { ApiError, isSubscriptionRequired, otpErrorData } from '@/services/httpClient'
 import {
   clearPendingRegistration,
   loadPendingRegistration,
@@ -14,10 +14,11 @@ import { OTP_LENGTH, validateOtp } from '@/lib/validation'
 import { useCountdown } from '@/hooks/useCountdown'
 import { formatClock } from '@/lib/utils'
 
-/** Seconds before "Send OTP again" becomes available. */
+// Fallbacks only: the API answers with its own cooldown and validity, and
+// enforces both itself — these timers are just what the user sees.
 const RESEND_COOLDOWN_SECONDS = 60
-/** The API keeps a code valid for 10 minutes. */
-const OTP_VALIDITY_SECONDS = 10 * 60
+const OTP_VALIDITY_SECONDS = 5 * 60
+
 
 /** Whichever request is in flight, if any. */
 type Step = 'idle' | 'verifying' | 'registering' | 'signing-in'
@@ -50,6 +51,10 @@ export function VerifyOtp() {
   const { seconds: resendIn, start: startResend } = useCountdown()
   const { seconds: validityLeft, start: startValidity } = useCountdown()
   const [codeSent, setCodeSent] = useState(false)
+  /** The OTP challenge the code belongs to — verify-otp needs the same id. */
+  const [challengeId, setChallengeId] = useState<string | null>(null)
+  /** Single-use id from verify-otp, replayed to /auth/register. */
+  const [verificationId, setVerificationId] = useState(() => pending?.verificationId)
 
   // Guards the initial send against React StrictMode's double-invoked effect —
   // every call costs a real SMS.
@@ -66,16 +71,28 @@ export function VerifyOtp() {
       setNotice(null)
 
       try {
-        await authService.generateOtp(mobile)
+        const data = await authService.generateOtp(mobile)
+        setChallengeId(data.challengeId)
         setCodeSent(true)
-        startResend(RESEND_COOLDOWN_SECONDS)
-        startValidity(OTP_VALIDITY_SECONDS)
+        startResend(data.resendAfterSeconds ?? RESEND_COOLDOWN_SECONDS)
+        startValidity(data.expiresInSeconds ?? OTP_VALIDITY_SECONDS)
         if (isResend) {
           setCode('')
           setNotice('A new code has been sent to your mobile number.')
           toast('A new code has been sent', 'info')
         }
       } catch (err) {
+        const data = otpErrorData(err)
+
+        if (data.code === 'OTP_SEND_UNCONFIRMED' && data.challengeId) {
+          // The SMS may still arrive: keep the code entry open for it.
+          setChallengeId(data.challengeId)
+          setCodeSent(true)
+          startValidity(data.expiresInSeconds ?? OTP_VALIDITY_SECONDS)
+        }
+        // The server says how long to wait (cooldown, rate limit, failed send).
+        if (data.retryAfterSeconds) startResend(data.retryAfterSeconds)
+
         // 409 means the number is already registered. When its trial or plan has
         // ended the API says the trial is used up — that garage logs in and
         // picks a plan instead; otherwise the form is the place to fix it.
@@ -127,17 +144,23 @@ export function VerifyOtp() {
       setStep('verifying')
 
       try {
-        await authService.verifyOtp(payload.mobileNumber, otp)
-        markPendingVerified()
+        const result = await authService.verifyOtp(payload.mobileNumber, otp, challengeId ?? undefined)
+        markPendingVerified(result.verificationId)
+        setVerificationId(result.verificationId)
         setStep('idle')
         setVerified(true)
       } catch (err) {
         setStep('idle')
         setCode('')
+        const { code: errorCode } = otpErrorData(err)
+        // This code can no longer be accepted — say so under the input too.
+        if (errorCode === 'OTP_EXPIRED' || errorCode === 'OTP_ATTEMPTS_EXCEEDED' || errorCode === 'OTP_SUPERSEDED') {
+          startValidity(0)
+        }
         setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.')
       }
     },
-    [payload, busy],
+    [payload, busy, challengeId, startValidity],
   )
 
   /**
@@ -151,7 +174,7 @@ export function VerifyOtp() {
 
     try {
       setStep('registering')
-      await authService.register(payload)
+      await authService.register({ ...payload, verificationId })
 
       setStep('signing-in')
       const session = await login({
@@ -175,7 +198,7 @@ export function VerifyOtp() {
       }
       setError(err.message)
     }
-  }, [payload, busy, login, navigate, toast, bounceToForm])
+  }, [payload, busy, verificationId, login, navigate, toast, bounceToForm])
 
   if (!payload) return null
 
@@ -315,7 +338,7 @@ export function VerifyOtp() {
           ? 'Your code has expired — request a new one.'
           : validityLeft > 0
             ? `Code expires in ${formatClock(validityLeft)}`
-            : 'The code is valid for 10 minutes.'}
+            : 'The code is valid for 5 minutes.'}
       </p>
 
       <div className="my-6 border-t border-slate-100" />
