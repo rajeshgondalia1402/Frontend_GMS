@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form'
 import { AlertCircle, KeyRound, Phone } from 'lucide-react'
 import { Button, Input } from '@/components/ui'
 import { authService } from '@/services/authService'
-import { ApiError } from '@/services/httpClient'
+import { ApiError, otpErrorData } from '@/services/httpClient'
 import { savePendingReset } from '@/lib/pendingPasswordReset'
 import { mobileNumberRules, normalizeMobileInput } from '@/lib/validation'
 
@@ -47,12 +47,19 @@ export function ForgotPassword() {
     setError(null)
 
     try {
-      await authService.forgotPassword(mobile)
-      // Remember when the code went out so the reset screen's cooldown and
-      // validity timers are correct even after a refresh.
-      savePendingReset(mobile)
+      const data = await authService.forgotPassword(mobile)
+      // Remember the challenge and when the code went out so the reset screen's
+      // cooldown and validity timers are correct even after a refresh.
+      savePendingReset(mobile, data)
       navigate('/reset-password')
     } catch (err) {
+      const data = otpErrorData(err)
+      // The SMS may still arrive — continue to the code entry for it.
+      if (data.code === 'OTP_SEND_UNCONFIRMED' && data.challengeId) {
+        savePendingReset(mobile, data)
+        navigate('/reset-password')
+        return
+      }
       // 404 means the number is not registered — the API says so plainly here,
       // unlike login, because you must already have an account to reset one.
       setError(err instanceof ApiError ? err.message : 'Could not send the code. Please try again.')

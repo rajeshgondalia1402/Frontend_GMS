@@ -1,7 +1,7 @@
 import { env } from '@/config/env'
 import { getStoredToken } from '@/lib/authStorage'
 import { getStoredAdminToken } from '@/lib/adminAuthStorage'
-import type { ApiFieldError, ApiResponse } from '@/types/auth'
+import type { ApiFieldError, ApiResponse, OtpErrorData } from '@/types/auth'
 
 /** Error carrying the HTTP status and the API's `{ success, message }` body. */
 export class ApiError extends Error {
@@ -79,6 +79,15 @@ export function isSubscriptionRequired(error: unknown): error is ApiError {
   if (!(error instanceof ApiError)) return false
   const data = (error.payload as { data?: { code?: unknown } } | null)?.data
   return data?.code === SUBSCRIPTION_REQUIRED
+}
+
+/**
+ * The `data` of an OTP error response (`code`, `retryAfterSeconds`, ...), or `{}`.
+ * Shared by the signup and forgot-password OTP screens.
+ */
+export function otpErrorData(error: unknown): OtpErrorData {
+  if (!(error instanceof ApiError)) return {}
+  return ((error.payload as { data?: OtpErrorData } | null)?.data ?? {}) as OtpErrorData
 }
 
 /**

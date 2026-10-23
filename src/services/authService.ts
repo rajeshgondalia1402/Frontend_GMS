@@ -50,9 +50,10 @@ export function renewSubscription(payload: RenewSubscriptionPayload): Promise<Lo
 }
 
 /**
- * `POST /api/auth/generate-otp` — sends a fresh 6-digit code by SMS, valid for
- * 10 minutes. Calling it again replaces the previous code ("Send OTP again").
- * Rejects with 409 when the mobile number is already registered.
+ * `POST /api/auth/generate-otp` — the API asks 2Factor to SMS a 6-digit code,
+ * valid for 5 minutes. Calling it again replaces the previous code ("Send OTP
+ * again") once the server's cooldown has passed. Rejects with 409 when the
+ * number is already registered and 429 when rate limited (`data.retryAfterSeconds`).
  */
 export function generateOtp(mobileNumber: string): Promise<GenerateOtpData> {
   return apiRequest<GenerateOtpData>('/auth/generate-otp', {
@@ -62,11 +63,11 @@ export function generateOtp(mobileNumber: string): Promise<GenerateOtpData> {
   })
 }
 
-/** `POST /api/auth/verify-otp` — checks the code against the newest one issued. */
-export function verifyOtp(mobileNumber: string, otp: string): Promise<VerifyOtpData> {
+/** `POST /api/auth/verify-otp` — checks the code of that challenge (5 attempts). */
+export function verifyOtp(mobileNumber: string, otp: string, challengeId?: string): Promise<VerifyOtpData> {
   return apiRequest<VerifyOtpData>('/auth/verify-otp', {
     method: 'POST',
-    body: { mobileNumber, otp },
+    body: { mobileNumber, otp, challengeId },
     auth: false,
   })
 }
@@ -85,7 +86,8 @@ export function register(payload: RegisterPayload): Promise<RegisterData> {
 
 /**
  * `POST /api/auth/forgot-password` — step 1 of the reset flow. Sends an OTP to
- * a number that is already registered; 404 when it is not.
+ * a number that is already registered; 404 when it is not. Same limits as
+ * `generateOtp`.
  * Calling it again is "Send OTP again" — the new code replaces the old one.
  */
 export function forgotPassword(mobileNumber: string): Promise<ForgotPasswordData> {

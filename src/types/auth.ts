@@ -99,6 +99,8 @@ export interface RegisterPayload {
   garageName: string
   city: string
   email?: string
+  /** From verify-otp; single use. Sent on register, never parked with the form. */
+  verificationId?: string
 }
 
 /** Registration returns the new user, but no token — we log in right after. */
@@ -109,11 +111,29 @@ export interface RegisterData {
 
 export interface GenerateOtpData {
   mobileNumber: string
+  /** Identifies this OTP; verify-otp must be sent the same id. */
+  challengeId: string
+  /** Server-side validity of the code. */
+  expiresInSeconds: number
+  /** Server-enforced wait before "Send OTP again". */
+  resendAfterSeconds: number
 }
 
 export interface VerifyOtpData {
   mobileNumber: string
   verified: boolean
+  /** Pass to `/auth/register` — proves this number was just verified. */
+  verificationId: string
+}
+
+/** `data` on an OTP error response — `code` says what went wrong. */
+export interface OtpErrorData {
+  code?: string
+  retryAfterSeconds?: number
+  attemptsLeft?: number
+  /** Present on OTP_SEND_UNCONFIRMED: the SMS may still arrive. */
+  challengeId?: string
+  expiresInSeconds?: number
 }
 
 /** `POST /api/auth/change-password` — the user id comes from the token. */
@@ -129,15 +149,15 @@ export interface ChangePasswordData {
 }
 
 /** `POST /api/auth/forgot-password` — step 1, sends an OTP to a known number. */
-export interface ForgotPasswordData {
-  mobileNumber: string
-}
+export type ForgotPasswordData = GenerateOtpData
 
 /** `POST /api/auth/reset-password` — step 2, the OTP is the proof. */
 export interface ResetPasswordPayload {
   mobileNumber: string
   otp: string
   newPassword: string
+  /** From forgot-password; ties the code to this reset. */
+  challengeId?: string
 }
 
 export interface ResetPasswordData {
