@@ -24,6 +24,9 @@ export function AppShell({ nav, brand, variant = 'owner' }: AppShellProps) {
 
   // A page filed under a group is titled by its own label, not the group's.
   const current = findNavItem(nav, location.pathname)?.label ?? brand
+  const isAdmin = variant === 'admin'
+  const homePath = isAdmin ? '/admin' : '/app'
+  const badge = isAdmin ? 'Admin' : undefined
 
   // Close overlays on route change
   useEffect(() => {
@@ -37,12 +40,12 @@ export function AppShell({ nav, brand, variant = 'owner' }: AppShellProps) {
 
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 border-r border-slate-200 bg-white lg:block print:hidden">
-        <Sidebar items={nav} brand={brand} />
+        <Sidebar items={nav} homePath={homePath} badge={badge} />
       </aside>
 
       {/* Mobile drawer */}
       <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} side="left">
-        <Sidebar items={nav} brand={brand} onNavigate={() => setDrawerOpen(false)} />
+        <Sidebar items={nav} homePath={homePath} badge={badge} onNavigate={() => setDrawerOpen(false)} />
       </Drawer>
 
       {/* Content column */}

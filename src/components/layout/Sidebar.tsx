@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { ChevronDown, Wrench } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
+import { BrandMark } from '@/components/public/BrandMark'
 import type { NavItem } from '@/layouts/navigation'
 import { cn } from '@/lib/utils'
 
 interface SidebarProps {
   items: NavItem[]
-  brand: string
+  /** Where the logo leads: the panel's own dashboard. */
+  homePath: string
+  /** Short label set beside the logo, e.g. "Admin". */
+  badge?: string
   onNavigate?: () => void
 }
 
@@ -77,14 +81,16 @@ function NavGroup({ item, onNavigate }: { item: NavItem; onNavigate?: () => void
   )
 }
 
-export function Sidebar({ items, brand, onNavigate }: SidebarProps) {
+export function Sidebar({ items, homePath, badge, onNavigate }: SidebarProps) {
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-16 items-center gap-2.5 border-b border-slate-100 px-5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600 text-white">
-          <Wrench className="h-5 w-5" />
-        </div>
-        <span className="text-lg font-bold text-slate-900">{brand}</span>
+      <div className="flex h-16 items-center gap-2 border-b border-slate-100 px-4">
+        <BrandMark to={homePath} height={40} />
+        {badge && (
+          <span className="rounded-md bg-primary-50 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-primary-700">
+            {badge}
+          </span>
+        )}
       </div>
       <nav className="scrollbar-thin flex-1 space-y-1 overflow-y-auto px-3 py-4">
         {items.map((item) =>

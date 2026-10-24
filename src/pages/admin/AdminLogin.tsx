@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { AlertCircle, Phone, ShieldCheck } from 'lucide-react'
 import { Button, Input, PasswordInput, useToast } from '@/components/ui'
+import { BrandMark } from '@/components/public/BrandMark'
 import { useAdminAuth } from '@/context/AdminAuthContext'
 import { ApiError } from '@/services/httpClient'
 import {
@@ -77,11 +78,10 @@ export function AdminLogin() {
       <div className="flex flex-1 flex-col items-center justify-center px-5 py-8">
         <div className="w-full max-w-sm">
           <div className="mb-8 flex flex-col items-center text-center">
-            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 text-white ring-1 ring-white/20">
-              <ShieldCheck className="h-6 w-6" />
-            </div>
-            <span className="text-xl font-bold text-white">GaragePro Admin</span>
-            <p className="mt-1 text-sm text-slate-400">Platform administration</p>
+            <BrandMark tone="light" height={48} />
+            <p className="mt-3 flex items-center gap-1.5 text-sm text-slate-400">
+              <ShieldCheck className="h-4 w-4" /> Platform administration
+            </p>
           </div>
 
           <div className="rounded-2xl bg-white p-6 shadow-card">
@@ -135,7 +135,7 @@ export function AdminLogin() {
           </div>
 
           <p className="mt-6 text-center text-xs text-slate-500">
-            © 2026 GaragePro. All rights reserved.
+            © 2026 GaragePilot. All rights reserved.
           </p>
         </div>
       </div>
