@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form'
 import { AlertCircle, Loader2, Pencil, ShieldCheck } from 'lucide-react'
 import { Button, OtpInput, PasswordInput, useToast } from '@/components/ui'
 import { authService } from '@/services/authService'
-import { ApiError } from '@/services/httpClient'
+import { ApiError, otpErrorData } from '@/services/httpClient'
 import { clearPendingReset, loadPendingReset, savePendingReset } from '@/lib/pendingPasswordReset'
 import { useCountdown } from '@/hooks/useCountdown'
 import {
@@ -17,19 +17,20 @@ import {
 } from '@/lib/validation'
 import { formatClock } from '@/lib/utils'
 
-/** Seconds before "Send OTP again" becomes available. */
+// Fallbacks only: the API answers with its own cooldown and validity, and
+// enforces both itself — these timers are just what the user sees.
 const RESEND_COOLDOWN_SECONDS = 60
-/** The API keeps a code valid for 10 minutes. */
-const OTP_VALIDITY_SECONDS = 10 * 60
+const OTP_VALIDITY_SECONDS = 5 * 60
 
 interface ResetForm {
   newPassword: string
   confirmPassword: string
 }
 
-/** Messages that mean the typed code is unusable, so the boxes are cleared. */
-function isOtpProblem(message: string): boolean {
-  return /otp/i.test(message)
+/** Errors that mean the typed code is unusable, so the boxes are cleared. */
+function isOtpProblem(err: ApiError): boolean {
+  const { code } = otpErrorData(err)
+  return code ? code.startsWith('OTP_') : /otp/i.test(err.message)
 }
 
 export function ResetPassword() {
@@ -46,10 +47,16 @@ export function ResetPassword() {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [otpError, setOtpError] = useState(false)
+  /** The OTP challenge the code belongs to — reset-password needs the same id. */
+  const [challengeId, setChallengeId] = useState(() => pending?.challengeId)
 
   const elapsed = pending ? Math.floor((Date.now() - pending.sentAt) / 1000) : 0
-  const { seconds: resendIn, start: startResend } = useCountdown(Math.max(0, RESEND_COOLDOWN_SECONDS - elapsed))
-  const { seconds: validityLeft, start: startValidity } = useCountdown(Math.max(0, OTP_VALIDITY_SECONDS - elapsed))
+  const { seconds: resendIn, start: startResend } = useCountdown(
+    Math.max(0, (pending?.resendAfterSeconds ?? RESEND_COOLDOWN_SECONDS) - elapsed),
+  )
+  const { seconds: validityLeft, start: startValidity } = useCountdown(
+    Math.max(0, (pending?.expiresInSeconds ?? OTP_VALIDITY_SECONDS) - elapsed),
+  )
 
   const {
     register,
@@ -87,11 +94,12 @@ export function ResetPassword() {
     setOtpError(false)
 
     try {
-      await authService.forgotPassword(mobileNumber)
-      savePendingReset(mobileNumber)
+      const data = await authService.forgotPassword(mobileNumber)
+      savePendingReset(mobileNumber, data)
+      setChallengeId(data.challengeId)
       setCode('')
-      startResend(RESEND_COOLDOWN_SECONDS)
-      startValidity(OTP_VALIDITY_SECONDS)
+      startResend(data.resendAfterSeconds ?? RESEND_COOLDOWN_SECONDS)
+      startValidity(data.expiresInSeconds ?? OTP_VALIDITY_SECONDS)
       setNotice('A new code has been sent to your mobile number.')
       toast('A new code has been sent', 'info')
     } catch (err) {
@@ -99,6 +107,16 @@ export function ResetPassword() {
         backToStart(err.message)
         return
       }
+      const data = otpErrorData(err)
+      if (data.code === 'OTP_SEND_UNCONFIRMED' && data.challengeId) {
+        // The SMS may still arrive: the code entry stays open for it.
+        savePendingReset(mobileNumber, data)
+        setChallengeId(data.challengeId)
+        setCode('')
+        startValidity(data.expiresInSeconds ?? OTP_VALIDITY_SECONDS)
+      }
+      // The server says how long to wait (cooldown, rate limit, failed send).
+      if (data.retryAfterSeconds) startResend(data.retryAfterSeconds)
       setError(err instanceof ApiError ? err.message : 'Could not send the code. Please try again.')
     } finally {
       setSendingOtp(false)
@@ -119,7 +137,7 @@ export function ResetPassword() {
     setOtpError(false)
 
     try {
-      await authService.resetPassword({ mobileNumber, otp: code, newPassword })
+      await authService.resetPassword({ mobileNumber, otp: code, newPassword, challengeId })
 
       clearPendingReset()
       toast('Password reset successfully. Please login with your new password.', 'success')
@@ -139,10 +157,15 @@ export function ResetPassword() {
 
       setError(err.message)
       // Invalid / expired / already-used codes are worth retyping; a rejected
-      // password is not, so the boxes are only cleared for OTP problems.
-      if (isOtpProblem(err.message)) {
+      // password is not — the API keeps that verified code usable for another
+      // password, so the boxes are only cleared for OTP problems.
+      if (isOtpProblem(err)) {
         setOtpError(true)
         setCode('')
+        const { code: errorCode } = otpErrorData(err)
+        if (errorCode === 'OTP_EXPIRED' || errorCode === 'OTP_ATTEMPTS_EXCEEDED' || errorCode === 'OTP_SUPERSEDED') {
+          startValidity(0)
+        }
       }
     }
   }

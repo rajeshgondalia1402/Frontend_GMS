@@ -1,20 +1,29 @@
 /**
  * Carries the mobile number from the "forgot password" screen to the reset
- * screen, together with the moment the OTP was sent so the resend cooldown and
- * validity countdown survive a refresh.
+ * screen, together with the OTP challenge and the moment it was sent, so the
+ * resend cooldown and validity countdown survive a refresh.
  *
- * No password is ever stored here — only the number and a timestamp.
+ * No password is ever stored here — only the number, the challenge id and the
+ * timings the API returned.
  */
 const PENDING_KEY = 'gms.auth.pendingPasswordReset'
 
-/** Slightly longer than the API's 10-minute OTP validity. */
+/** Covers the API's 5-minute OTP validity plus its 10-minute retry window. */
 const PENDING_TTL_MS = 15 * 60 * 1000
 
 export interface PendingPasswordReset {
   mobileNumber: string
   /** Epoch ms of the last successful `forgot-password` call. */
   sentAt: number
+  /** The challenge reset-password must be sent. */
+  challengeId?: string
+  /** Server-side validity of the code, in seconds. */
+  expiresInSeconds?: number
+  /** Server-enforced wait before "Send OTP again", in seconds. */
+  resendAfterSeconds?: number
 }
+
+export type PendingResetDetails = Pick<PendingPasswordReset, 'challengeId' | 'expiresInSeconds' | 'resendAfterSeconds'>
 
 function isValid(value: unknown): value is PendingPasswordReset {
   if (!value || typeof value !== 'object') return false
@@ -22,9 +31,13 @@ function isValid(value: unknown): value is PendingPasswordReset {
   return typeof entry.mobileNumber === 'string' && typeof entry.sentAt === 'number'
 }
 
-export function savePendingReset(mobileNumber: string, sentAt: number = Date.now()): void {
+export function savePendingReset(
+  mobileNumber: string,
+  details: PendingResetDetails = {},
+  sentAt: number = Date.now(),
+): void {
   try {
-    sessionStorage.setItem(PENDING_KEY, JSON.stringify({ mobileNumber, sentAt }))
+    sessionStorage.setItem(PENDING_KEY, JSON.stringify({ mobileNumber, sentAt, ...details }))
   } catch {
     /* storage blocked — the caller falls back to the form */
   }
