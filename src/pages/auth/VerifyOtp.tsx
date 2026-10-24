@@ -16,8 +16,8 @@ import { formatClock } from '@/lib/utils'
 
 // Fallbacks only: the API answers with its own cooldown and validity, and
 // enforces both itself — these timers are just what the user sees.
-const RESEND_COOLDOWN_SECONDS = 60
 const OTP_VALIDITY_SECONDS = 5 * 60
+const RESEND_COOLDOWN_SECONDS = OTP_VALIDITY_SECONDS
 
 
 /** Whichever request is in flight, if any. */
