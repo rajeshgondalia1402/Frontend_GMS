@@ -4,9 +4,11 @@ import { PageHeader, SearchInput, StatCard, FilterButton } from '@/components/co
 import type { Column } from '@/components/common'
 import { ResponsiveList } from '@/components/common'
 import { EmptyState, StatusBadge, Button, useToast } from '@/components/ui'
-import { invoices as allInvoices } from '@/mock/invoices'
 import { formatCurrency } from '@/lib/utils'
 import type { Invoice } from '@/types'
+
+// No billing API yet: the page stays empty until invoices come from the backend.
+const allInvoices: Invoice[] = []
 
 const filters = [
   { label: 'All', value: 'all' },
@@ -32,6 +34,15 @@ export function Billing() {
     [query, status],
   )
 
+  const totals = useMemo(() => {
+    const sum = (list: Invoice[]) => list.reduce((total, i) => total + i.amount, 0)
+    return {
+      revenue: sum(allInvoices),
+      paid: sum(allInvoices.filter((i) => i.status === 'paid')),
+      pending: sum(allInvoices.filter((i) => i.status !== 'paid')),
+    }
+  }, [])
+
   const columns: Column<Invoice>[] = [
     { header: 'Invoice', accessor: (i) => <span className="font-semibold text-slate-900">{i.code}</span> },
     { header: 'Customer', accessor: (i) => i.customerName },
@@ -50,9 +61,9 @@ export function Billing() {
       <PageHeader title="Billing" subtitle="Invoices & revenue" />
 
       <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <StatCard label="Total Revenue" value="₹85,000" icon={Wallet} tone="primary" />
-        <StatCard label="Paid" value="₹72,500" icon={TrendingUp} tone="success" />
-        <StatCard label="Pending" value="₹12,500" icon={Clock} tone="warning" />
+        <StatCard label="Total Revenue" value={formatCurrency(totals.revenue)} icon={Wallet} tone="primary" />
+        <StatCard label="Paid" value={formatCurrency(totals.paid)} icon={TrendingUp} tone="success" />
+        <StatCard label="Pending" value={formatCurrency(totals.pending)} icon={Clock} tone="warning" />
       </div>
 
       <div className="mb-3">
@@ -63,7 +74,11 @@ export function Billing() {
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyState icon={FileText} title="No invoices found" description="Invoices will appear here once created." />
+        <EmptyState
+          icon={FileText}
+          title={allInvoices.length === 0 ? 'No invoices yet' : 'No invoices found'}
+          description="Invoices will appear here once created."
+        />
       ) : (
         <ResponsiveList
           data={filtered}
