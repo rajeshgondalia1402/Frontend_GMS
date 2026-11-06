@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
+import { AuthHeader } from '@/components/auth/AuthHeader'
 import { AlertCircle, AlertTriangle, Phone } from 'lucide-react'
-import { RenewPlanPanel } from '@/components/auth/RenewPlanPanel'
 import { Button, Input, PasswordInput, useToast } from '@/components/ui'
 import { useAuth } from '@/context/AuthContext'
-import { ApiError, isSubscriptionRequired } from '@/services/httpClient'
+import { accessOf } from '@/context/AuthContext'
+import { ApiError } from '@/services/httpClient'
 import {
   PASSWORD_MAX_LENGTH,
   mobileNumberRules,
@@ -18,19 +19,12 @@ interface LoginForm {
   password: string
 }
 
-/**
- * A login the API refused because the free trial or plan has ended. The
- * password was right, so it is kept for the renewal call — only in memory, for
- * as long as the plan picker is open.
- */
-interface PendingRenewal extends LoginForm {
-  message: string
-}
-
 export function Login() {
   const {
     register,
     handleSubmit,
+    setValue,
+    setFocus,
     formState: { errors },
   } = useForm<LoginForm>({
     mode: 'onTouched',
@@ -40,15 +34,24 @@ export function Login() {
   const [formError, setFormError] = useState<string | null>(null)
   /** Shown in amber rather than red: nothing was typed wrong, a plan is needed. */
   const [subscriptionNotice, setSubscriptionNotice] = useState<string | null>(null)
-  const [renewal, setRenewal] = useState<PendingRenewal | null>(null)
 
   const navigate = useNavigate()
   const location = useLocation()
   const { toast } = useToast()
-  const { login, renew, logoutReason, logoutMessage, clearLogoutReason } = useAuth()
+  const { login, logoutReason, logoutMessage, clearLogoutReason } = useAuth()
 
   // Where the user was headed before the guard bounced them here.
-  const redirectTo = (location.state as { from?: string } | null)?.from ?? '/app'
+  const routeState = location.state as { from?: string; mobileNumber?: string; fromRegister?: boolean } | null
+  const redirectTo = routeState?.from ?? '/app'
+
+  // Sent here by the register screen because the number already has an
+  // account: fill it in, the password is all that is left.
+  useEffect(() => {
+    if (!routeState?.mobileNumber) return
+    setValue('mobileNumber', routeState.mobileNumber)
+    setFocus('password')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Explain an automatic sign-out instead of silently landing here: the token
   // ran out, or the free trial / plan did (signing in then offers the plans).
@@ -74,15 +77,18 @@ export function Login() {
     try {
       const session = await login({ mobileNumber: mobileNumber.trim(), password })
       toast(`Welcome back, ${session.user.ownerName}!`, 'success')
-      navigate(redirectTo, { replace: true })
-    } catch (error) {
-      // Right password, but the free trial or plan has ended: offer the plans.
-      if (isSubscriptionRequired(error)) {
-        setRenewal({ mobileNumber: mobileNumber.trim(), password, message: error.message })
-        return
-      }
 
+      // Signed in either way. No live subscription (expired, cancelled, never
+      // bought) opens the renewal / plan page instead of the dashboard.
+      if (accessOf(session)?.hasAccess) {
+        navigate(redirectTo, { replace: true })
+      } else {
+        const query = redirectTo.includes('?') ? redirectTo.slice(redirectTo.indexOf('?')) : ''
+        navigate(`/plans${query}`, { replace: true })
+      }
+    } catch (error) {
       // 401 carries the API's deliberately vague "Invalid mobile number or password."
+      // 403 ACCOUNT_SUSPENDED / ACCOUNT_DELETION_PENDING carries its own message.
       const message =
         error instanceof ApiError
           ? error.message
@@ -94,33 +100,21 @@ export function Login() {
     }
   }
 
-  const handleRenew = async (planId: number) => {
-    if (!renewal) return
-    const session = await renew({
-      mobileNumber: renewal.mobileNumber,
-      password: renewal.password,
-      planId,
-    })
-    toast(`Subscription activated. Welcome back, ${session.user.ownerName}!`, 'success')
-    navigate(redirectTo, { replace: true })
-  }
-
-  if (renewal) {
-    return (
-      <RenewPlanPanel
-        message={renewal.message}
-        onRenew={handleRenew}
-        onBack={() => setRenewal(null)}
-      />
-    )
-  }
-
   return (
     <div>
-      <div className="mb-6 text-center">
-        <h1 className="text-lg font-bold text-slate-900">Manage Your Garage Effortlessly</h1>
-        <p className="mt-1 text-sm text-slate-500">Sign in to continue</p>
-      </div>
+      <AuthHeader
+        title="Sign in to your garage"
+        subtitle="Use your registered mobile number and password. No OTP needed to log in."
+      />
+
+      {routeState?.fromRegister && !formError && (
+        <div className="mb-4 rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm text-sky-800">
+          <p className="font-medium">Welcome back! This number already has a garage account.</p>
+          <p className="mt-0.5 text-xs text-sky-700">
+            Your data is safe. If your plan has ended, you can renew it right after you log in.
+          </p>
+        </div>
+      )}
 
       {subscriptionNotice && (
         <div
@@ -179,14 +173,18 @@ export function Login() {
         </Button>
       </form>
 
-      <div className="my-6 border-t border-slate-100" />
+      <div className="my-7 flex items-center gap-3 text-xs font-medium uppercase tracking-wider text-slate-400">
+        <span className="h-px flex-1 bg-slate-200" />
+        New to GaragePilot?
+        <span className="h-px flex-1 bg-slate-200" />
+      </div>
 
-      <p className="text-center text-sm text-slate-500">
-        Don't have an account?{' '}
-        <Link to="/register" className="font-semibold text-primary-600 hover:text-primary-700">
-          Create Garage Account
-        </Link>
-      </p>
+      <Link
+        to="/register"
+        className="flex min-h-11 w-full items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-center text-sm font-semibold text-slate-700 transition-colors hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700"
+      >
+        Create garage account<span className="hidden sm:inline">&nbsp;— free for 30 days</span>
+      </Link>
     </div>
   )
 }
