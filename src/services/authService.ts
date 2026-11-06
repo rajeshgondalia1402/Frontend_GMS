@@ -5,21 +5,20 @@ import type {
   ResetPasswordData,
   ResetPasswordPayload,
   ChangePasswordPayload,
+  CheckMobileData,
   GenerateOtpData,
   LoginData,
   LoginPayload,
   ProfileData,
   RegisterData,
   RegisterPayload,
-  RenewalPlan,
-  RenewSubscriptionPayload,
   VerifyOtpData,
 } from '@/types/auth'
 
 /**
- * `POST /api/auth/login` — returns the token, its expiry and the owner profile.
- * Rejects with 403 SUBSCRIPTION_REQUIRED when the free trial or plan has
- * ended (see `isSubscriptionRequired`); the garage then renews instead.
+ * `POST /api/auth/login` — returns the token, its expiry, the owner profile and
+ * `access`. A garage whose plan has ended still signs in (`access.hasAccess`
+ * false) and is sent to the plans; a suspended account is refused with 403.
  */
 export function login(payload: LoginPayload): Promise<LoginData> {
   return apiRequest<LoginData>('/auth/login', {
@@ -29,22 +28,15 @@ export function login(payload: LoginPayload): Promise<LoginData> {
   })
 }
 
-/** `GET /api/auth/subscription/plans` — public; the paid plans to renew on. */
-export async function getRenewalPlans(): Promise<RenewalPlan[]> {
-  const data = await apiRequest<{ plans: RenewalPlan[] }>('/auth/subscription/plans', {
-    auth: false,
-  })
-  return data.plans ?? []
-}
-
 /**
- * `POST /api/auth/subscription/renew` — public; starts the chosen plan now and
- * answers exactly like a login, so the garage is signed straight in.
+ * `POST /api/auth/check-mobile` — registration step 1. No SMS is sent: a new
+ * number continues to the garage details and OTP, a registered one is sent to
+ * login (one account per number, for life).
  */
-export function renewSubscription(payload: RenewSubscriptionPayload): Promise<LoginData> {
-  return apiRequest<LoginData>('/auth/subscription/renew', {
+export function checkMobile(mobileNumber: string): Promise<CheckMobileData> {
+  return apiRequest<CheckMobileData>('/auth/check-mobile', {
     method: 'POST',
-    body: payload,
+    body: { mobileNumber },
     auth: false,
   })
 }
@@ -129,8 +121,7 @@ export function getProfile(): Promise<ProfileData> {
 }
 
 export const authService = {
-  getRenewalPlans,
-  renewSubscription,
+  checkMobile,
   login,
   generateOtp,
   verifyOtp,

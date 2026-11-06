@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
+import { AuthHeader } from '@/components/auth/AuthHeader'
 import { AlertCircle, Loader2, Pencil, ShieldCheck } from 'lucide-react'
 import { Button, OtpInput, PasswordInput, useToast } from '@/components/ui'
 import { authService } from '@/services/authService'
@@ -176,25 +177,23 @@ export function ResetPassword() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-col items-center text-center">
-        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary-50 text-primary-600">
-          <ShieldCheck className="h-6 w-6" />
-        </div>
-        <h1 className="text-lg font-bold text-slate-900">Create New Password</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Enter the {OTP_LENGTH}-digit code we sent to
-        </p>
-        <div className="mt-1 flex items-center gap-1.5">
-          <span className="text-sm font-semibold text-slate-900">+91 {mobileNumber}</span>
-          <Link
-            to="/forgot-password"
-            aria-label="Change mobile number"
-            className="text-slate-400 transition-colors hover:text-primary-600"
-          >
-            <Pencil className="h-3.5 w-3.5" />
-          </Link>
-        </div>
-      </div>
+      <AuthHeader
+        icon={<ShieldCheck className="h-5 w-5" />}
+        title="Create a new password"
+        subtitle={
+          <span className="inline-flex flex-wrap items-center gap-1.5">
+            Enter the {OTP_LENGTH}-digit code we sent to
+            <span className="font-semibold text-slate-900">+91 {mobileNumber}</span>
+            <Link
+              to="/forgot-password"
+              aria-label="Change mobile number"
+              className="text-slate-400 transition-colors hover:text-primary-600"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Link>
+          </span>
+        }
+      />
 
       {error && (
         <div role="alert" className="mb-4 flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3">

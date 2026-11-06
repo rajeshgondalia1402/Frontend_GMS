@@ -11,9 +11,15 @@ function AuthSplash() {
   )
 }
 
-/** Blocks the owner panel until a valid (non-expired) session exists. */
+/**
+ * Blocks the owner panel until a valid (non-expired) session exists AND the
+ * garage has a live subscription. A signed-in garage without one (expired,
+ * cancelled, never bought) goes to the plan page instead of being signed out.
+ * The API enforces the same rule on every paid endpoint; this only saves the
+ * garage a screen full of errors.
+ */
 export function ProtectedRoute() {
-  const { isAuthenticated, initializing } = useAuth()
+  const { isAuthenticated, initializing, hasAccess } = useAuth()
   const location = useLocation()
 
   if (initializing) return <AuthSplash />
@@ -21,6 +27,29 @@ export function ProtectedRoute() {
   if (!isAuthenticated) {
     return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />
   }
+
+  if (!hasAccess) {
+    return <Navigate to={`/plans${location.search}`} replace />
+  }
+
+  return <Outlet />
+}
+
+/**
+ * Signed in, subscription or not — the plan / renewal page. A garage that does
+ * have access is sent to its billing screen instead, where it can renew early.
+ */
+export function AccountRoute() {
+  const { isAuthenticated, initializing, hasAccess } = useAuth()
+  const location = useLocation()
+
+  if (initializing) return <AuthSplash />
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />
+  }
+
+  if (hasAccess) return <Navigate to={`/app/subscription${location.search}`} replace />
 
   return <Outlet />
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
+import { AuthHeader } from '@/components/auth/AuthHeader'
 import { AlertCircle, KeyRound, Phone } from 'lucide-react'
 import { Button, Input } from '@/components/ui'
 import { authService } from '@/services/authService'
@@ -69,15 +70,11 @@ export function ForgotPassword() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-col items-center text-center">
-        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary-50 text-primary-600">
-          <KeyRound className="h-6 w-6" />
-        </div>
-        <h1 className="text-lg font-bold text-slate-900">Forgot Password?</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Enter your registered mobile number and we'll send you a verification code.
-        </p>
-      </div>
+      <AuthHeader
+        icon={<KeyRound className="h-5 w-5" />}
+        title="Forgot your password?"
+        subtitle="Enter your registered mobile number and we'll send you a verification code."
+      />
 
       {error && (
         <div role="alert" className="mb-4 flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3">

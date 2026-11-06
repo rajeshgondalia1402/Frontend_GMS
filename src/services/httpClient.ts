@@ -70,7 +70,7 @@ export function setUnauthorizedHandler(
 
 /**
  * The `data.code` the API puts on a 403 when the garage's free trial or plan
- * has ended — on login, and on every garage endpoint once it ends mid-session.
+ * has ended — on every paid garage endpoint. Login itself still succeeds.
  */
 export const SUBSCRIPTION_REQUIRED = 'SUBSCRIPTION_REQUIRED'
 
@@ -92,8 +92,8 @@ export function otpErrorData(error: unknown): OtpErrorData {
 
 /**
  * Called when an authenticated garage request comes back SUBSCRIPTION_REQUIRED,
- * with the API's message ("Your free trial has ended..."). AuthContext signs
- * the garage out and the login page shows the message and the plans.
+ * with the API's message ("Your free trial has ended..."). AuthContext drops the
+ * access (the garage stays signed in) and the route guard opens /plans.
  */
 type SubscriptionRequiredHandler = (message: string) => void
 
@@ -155,8 +155,8 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
     const error = new ApiError(message, response.status, payload, payload?.errors ?? [])
 
-    // The trial or plan ran out while the garage was signed in: every garage
-    // endpoint now refuses, so sign out rather than show an error per screen.
+    // The trial or plan ran out while the garage was signed in: every paid
+    // endpoint now refuses, so go to the plans rather than show an error per screen.
     if (auth && authScope === 'user' && isSubscriptionRequired(error)) {
       subscriptionRequiredHandler?.(message)
     }

@@ -4,7 +4,7 @@ import { AuthLayout } from '@/layouts/AuthLayout'
 import { PublicLayout } from '@/layouts/PublicLayout'
 import { OwnerLayout } from '@/layouts/OwnerLayout'
 import { AdminLayout } from '@/layouts/AdminLayout'
-import { ProtectedRoute, PublicOnlyRoute } from './ProtectedRoute'
+import { AccountRoute, ProtectedRoute, PublicOnlyRoute } from './ProtectedRoute'
 import { AdminProtectedRoute, AdminPublicOnlyRoute } from './AdminRoute'
 
 import {
@@ -17,9 +17,9 @@ import {
 
 import { Login } from '@/pages/auth/Login'
 import { Register } from '@/pages/auth/Register'
-import { VerifyOtp } from '@/pages/auth/VerifyOtp'
 import { ForgotPassword } from '@/pages/auth/ForgotPassword'
 import { ResetPassword } from '@/pages/auth/ResetPassword'
+import { ChoosePlan } from '@/pages/auth/ChoosePlan'
 
 import { Dashboard } from '@/pages/owner/Dashboard'
 import { Customers } from '@/pages/owner/Customers'
@@ -76,7 +76,8 @@ export const router = createBrowserRouter([
         children: [
           { path: '/login', element: <Login /> },
           { path: '/register', element: <Register /> },
-          { path: '/verify-otp', element: <VerifyOtp /> },
+          // OTP is now step 2 of /register; old links land there.
+          { path: '/verify-otp', element: <Navigate to="/register" replace /> },
           { path: '/forgot-password', element: <ForgotPassword /> },
           { path: '/reset-password', element: <ResetPassword /> },
         ],
@@ -84,7 +85,20 @@ export const router = createBrowserRouter([
     ],
   },
 
-  // Garage owner panel — requires a valid, non-expired token.
+  // Plan selection / renewal — signed in, but no live subscription (expired,
+  // cancelled or never bought). The account is kept; paying opens /app again.
+  {
+    element: <AccountRoute />,
+    children: [
+      {
+        element: <AuthLayout />,
+        children: [{ path: '/plans', element: <ChoosePlan /> }],
+      },
+    ],
+  },
+
+  // Garage owner panel — requires a valid, non-expired token and a live
+  // subscription (otherwise ProtectedRoute sends the garage to /plans).
   {
     element: <ProtectedRoute />,
     children: [
