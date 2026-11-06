@@ -1,18 +1,19 @@
-import { createContext, useCallback, useContext, useEffect, useMemo } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { AUTH_STORAGE_KEY, clearSession, loadSession, saveSession } from '@/lib/authStorage'
 import { useSessionLifecycle } from '@/hooks/useSessionLifecycle'
 import type { LogoutReason } from '@/hooks/useSessionLifecycle'
 import { authService } from '@/services/authService'
+import { subscriptionService } from '@/services/subscriptionService'
 import { setSubscriptionRequiredHandler } from '@/services/httpClient'
 import type {
+  AuthAccess,
   AuthSession,
   AuthSubscription,
   AuthUser,
   LoginData,
   LoginPayload,
   ProfileUser,
-  RenewSubscriptionPayload,
 } from '@/types/auth'
 
 export type { LogoutReason }
@@ -28,11 +29,34 @@ const OWNER_SESSION_STORE = {
 /** `setTimeout` truncates delays above 2^31-1 ms (~24.8 days). */
 const MAX_TIMEOUT_MS = 2_147_483_647
 
-/** The same words the API uses, for a sign-out the client notices first. */
-function subscriptionEndedMessage(subscription: AuthSubscription): string {
+/** The same words the API uses, for an end the client notices first. */
+function subscriptionEndedMessage(subscription: AuthSubscription | null): string {
+  if (!subscription) return 'No active subscription found. Please choose a subscription plan to continue.'
   return subscription.plan === 'FREE_TRIAL'
     ? 'Your free trial has ended. Please choose a subscription plan to continue.'
     : 'Your subscription has expired. Please renew your subscription to continue.'
+}
+
+/**
+ * The access state of a session. Sessions stored before the billing flow
+ * existed carry no `access`, so it is worked out from the subscription dates
+ * until the next refresh from the API replaces it.
+ */
+export function accessOf(session: AuthSession | null): AuthAccess | null {
+  if (!session) return null
+  if (session.access) return session.access
+
+  const subscription = session.subscription
+  const live =
+    !!subscription && subscription.status === 'ACTIVE' && Date.parse(subscription.endDate) > Date.now()
+
+  return {
+    hasAccess: live,
+    status: live ? 'ACTIVE' : subscription ? 'EXPIRED' : 'NO_SUBSCRIPTION',
+    message: live ? null : subscriptionEndedMessage(subscription),
+    subscription,
+    upcoming: [],
+  }
 }
 
 function toSession(data: LoginData): AuthSession {
@@ -42,6 +66,7 @@ function toSession(data: LoginData): AuthSession {
     expiresAt: data.expiresAt,
     user: data.user,
     subscription: data.subscription ?? null,
+    access: data.access ?? null,
   }
 }
 
@@ -51,15 +76,20 @@ interface AuthContextValue {
   isAuthenticated: boolean
   /** True until the stored session has been read on first render. */
   initializing: boolean
+  /** Whether the garage has a live subscription (the paid screens). */
+  access: AuthAccess | null
+  hasAccess: boolean
   login: (payload: LoginPayload) => Promise<AuthSession>
-  /** Starts a new plan for a garage whose trial or plan has ended, and signs it in. */
-  renew: (payload: RenewSubscriptionPayload) => Promise<AuthSession>
   logout: (reason?: LogoutReason) => void
+  /** Re-reads the access state from GET /api/subscription/current. */
+  refreshAccess: () => Promise<AuthAccess | null>
+  /** Stores an access state the API just returned (e.g. after a payment). */
+  applyAccess: (access: AuthAccess) => void
   /** Folds fresher profile data (e.g. from GET /auth/me) into the session. */
-  syncProfile: (user: ProfileUser, subscription: AuthSubscription | null) => void
-  /** Set when the session ended on its own — the token or the subscription ran out. */
+  syncProfile: (user: ProfileUser, subscription: AuthSubscription | null, access?: AuthAccess) => void
+  /** Set when the session ended on its own — the token ran out. */
   logoutReason: LogoutReason | null
-  /** The API's words for that sign-out, e.g. "Your free trial has ended...". */
+  /** The API's words for that sign-out. */
   logoutMessage: string | null
   clearLogoutReason: () => void
 }
@@ -87,36 +117,80 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [startSession],
   )
 
-  const renew = useCallback(
-    async (payload: RenewSubscriptionPayload) => {
-      const next = toSession(await authService.renewSubscription(payload))
-      startSession(next)
-      return next
-    },
-    [startSession],
-  )
-
-  /** Merges the fuller profile from GET /auth/me into the stored session. */
-  const syncProfile = useCallback(
-    (user: ProfileUser, subscription: AuthSubscription | null) => {
-      updateSession((current) => ({ ...current, user, subscription }))
+  const applyAccess = useCallback(
+    (access: AuthAccess) => {
+      updateSession((current) => ({ ...current, subscription: access.subscription, access }))
     },
     [updateSession],
   )
 
-  // The API refused a call because the trial or plan has ended: every garage
-  // screen would now fail, so sign out and let the login page offer the plans.
-  useEffect(() => {
-    setSubscriptionRequiredHandler((message) => logout('subscription', message))
-    return () => setSubscriptionRequiredHandler(null)
-  }, [logout])
+  const refreshAccess = useCallback(async () => {
+    try {
+      const current = await subscriptionService.getCurrent()
+      const access: AuthAccess = {
+        hasAccess: current.hasAccess,
+        status: current.status,
+        message: current.message,
+        isFreeTrial: current.isFreeTrial,
+        subscription: current.subscription,
+        upcoming: current.upcoming ?? [],
+        freeTrialUsed: current.freeTrialUsed,
+      }
+      applyAccess(access)
+      return access
+    } catch {
+      // 401 already signed out; anything else keeps the access we had.
+      return null
+    }
+  }, [applyAccess])
 
-  // Sign out the moment the subscription's end date is reached, even on a
-  // screen that is not making requests — and re-check when a sleeping tab wakes.
-  const subscription = session?.subscription ?? null
-  const endDate = subscription?.endDate
+  /** Merges the fuller profile from GET /auth/me into the stored session. */
+  const syncProfile = useCallback(
+    (user: ProfileUser, subscription: AuthSubscription | null, access?: AuthAccess) => {
+      updateSession((current) => ({ ...current, user, subscription, access: access ?? current.access }))
+    },
+    [updateSession],
+  )
+
+  // The API refused a paid screen because the trial or plan has ended. The
+  // account is still signed in: drop the access, and the route guard sends the
+  // garage to the plans.
   useEffect(() => {
-    if (!subscription || !endDate) return
+    setSubscriptionRequiredHandler((message) => {
+      updateSession((current) => {
+        const access = accessOf(current)
+        return {
+          ...current,
+          access: {
+            hasAccess: false,
+            status: access?.status === 'ACTIVE' ? 'EXPIRED' : (access?.status ?? 'EXPIRED'),
+            message,
+            subscription: current.subscription,
+            upcoming: access?.upcoming ?? [],
+          },
+        }
+      })
+    })
+    return () => setSubscriptionRequiredHandler(null)
+  }, [updateSession])
+
+  // Once per signed-in boot: read the real access state (an old stored session
+  // has none, and a renewal bought early may have taken over meanwhile).
+  const userId = session?.user.id
+  const refreshedFor = useRef<string | null>(null)
+  useEffect(() => {
+    if (!userId || refreshedFor.current === userId) return
+    refreshedFor.current = userId
+    void refreshAccess()
+  }, [userId, refreshAccess])
+
+  // When the live period's end date is reached - even on a screen that makes no
+  // requests - ask the API again: a SCHEDULED renewal may take over, otherwise
+  // the access goes and the guard opens the renewal page.
+  const access = useMemo(() => accessOf(session), [session])
+  const endDate = access?.hasAccess ? access.subscription?.endDate : undefined
+  useEffect(() => {
+    if (!endDate) return
     const endsAt = new Date(endDate).getTime()
     if (Number.isNaN(endsAt)) return
 
@@ -124,7 +198,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const check = () => {
       const remaining = endsAt - Date.now()
       if (remaining <= 0) {
-        logout('subscription', subscriptionEndedMessage(subscription))
+        void refreshAccess().then((fresh) => {
+          if (fresh === null) {
+            updateSession((current) => ({
+              ...current,
+              access: {
+                hasAccess: false,
+                status: 'EXPIRED',
+                message: subscriptionEndedMessage(current.subscription),
+                subscription: current.subscription,
+                upcoming: [],
+              },
+            }))
+          }
+        })
         return
       }
       timer = setTimeout(check, Math.min(remaining, MAX_TIMEOUT_MS))
@@ -142,10 +229,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (timer !== null) clearTimeout(timer)
       document.removeEventListener('visibilitychange', onVisibility)
     }
-    // `subscription` changes identity on every profile sync; the end date is
-    // what decides when the timer fires.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [endDate, logout])
+  }, [endDate, refreshAccess, updateSession])
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -153,9 +237,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: session?.user ?? null,
       isAuthenticated: Boolean(session),
       initializing,
+      access,
+      hasAccess: Boolean(access?.hasAccess),
       login: signIn,
-      renew,
       logout,
+      refreshAccess,
+      applyAccess,
       syncProfile,
       logoutReason,
       logoutMessage,
@@ -164,9 +251,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [
       session,
       initializing,
+      access,
       signIn,
-      renew,
       logout,
+      refreshAccess,
+      applyAccess,
       syncProfile,
       logoutReason,
       logoutMessage,

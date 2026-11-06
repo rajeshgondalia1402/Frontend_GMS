@@ -6,8 +6,8 @@ export interface LoginPayload {
 }
 
 /**
- * One plan from `GET /api/auth/subscription/plans` — what a garage whose trial
- * or plan has ended can renew on. The free trial is never in the list.
+ * One plan from `GET /api/subscription/plans` — what a garage can buy. The free
+ * trial is never in the list (each number gets it once, at registration).
  */
 export interface RenewalPlan {
   planId: number
@@ -15,15 +15,16 @@ export interface RenewalPlan {
   name: string
   price: number
   durationDays: number
+  currency?: string
 }
 
-/**
- * `POST /api/auth/subscription/renew`. The garage has no token (login refused
- * it), so the credentials come again with the chosen plan.
- */
-export interface RenewSubscriptionPayload extends LoginPayload {
-  planId: number
-}
+/** Account lifecycle, separate from the subscription. */
+export type AccountStatus =
+  | 'PENDING_VERIFICATION'
+  | 'ACTIVE'
+  | 'SUSPENDED'
+  | 'DELETION_PENDING'
+  | 'DELETED'
 
 export interface AuthUser {
   id: string
@@ -32,15 +33,38 @@ export interface AuthUser {
   garageName: string
   city?: string
   email?: string
+  countryCode?: string
+  accountStatus?: AccountStatus
 }
 
 export interface AuthSubscription {
+  id?: string
   planID: number
   plan: string
   price: number
+  durationDays?: number
+  /** ACTIVE | SCHEDULED | EXPIRED | CANCELLED | ... */
   status: string
   startDate: string
   endDate: string
+  autoRenew?: boolean
+}
+
+/** What the garage may do right now — `access` on login, /me and /subscription/current. */
+export type AccessStatus = 'ACTIVE' | 'EXPIRED' | 'CANCELLED' | 'NO_SUBSCRIPTION'
+
+export interface AuthAccess {
+  /** True only with a live subscription; false sends the garage to the plans. */
+  hasAccess: boolean
+  status: AccessStatus
+  /** Why there is no access, e.g. "Your free trial has ended...". */
+  message: string | null
+  isFreeTrial?: boolean
+  /** The live period, or the last one that ran. */
+  subscription: AuthSubscription | null
+  /** Paid periods that start later (a renewal bought before the end date). */
+  upcoming: AuthSubscription[]
+  freeTrialUsed?: boolean
 }
 
 export interface LoginData {
@@ -51,6 +75,7 @@ export interface LoginData {
   expiresAt: string
   user: AuthUser
   subscription?: AuthSubscription | null
+  access?: AuthAccess
 }
 
 /** Envelope used by every endpoint of the API. */
@@ -69,6 +94,8 @@ export interface AuthSession {
   expiresAt: string
   user: AuthUser
   subscription: AuthSubscription | null
+  /** Missing on sessions stored before the billing flow existed. */
+  access?: AuthAccess | null
 }
 
 /** The fuller profile returned by `GET /api/auth/me` (adds garage details). */
@@ -83,6 +110,7 @@ export interface ProfileUser extends AuthUser {
 export interface ProfileData {
   user: ProfileUser
   subscription: AuthSubscription | null
+  access?: AuthAccess
 }
 
 /** One entry of the `errors` array on a 400 "Validation failed." response. */
@@ -99,14 +127,23 @@ export interface RegisterPayload {
   garageName: string
   city: string
   email?: string
-  /** From verify-otp; single use. Sent on register, never parked with the form. */
-  verificationId?: string
+  /** From verify-otp in this same registration; single use, never stored. */
+  verificationId: string
 }
 
 /** Registration returns the new user, but no token — we log in right after. */
 export interface RegisterData {
   user: AuthUser
   subscription?: AuthSubscription | null
+}
+
+/** `POST /api/auth/check-mobile` */
+export interface CheckMobileData {
+  mobileNumber: string
+  registered: boolean
+  /** REGISTER: continue sign-up. LOGIN: the number already has an account. */
+  nextStep: 'REGISTER' | 'LOGIN'
+  message?: string
 }
 
 export interface GenerateOtpData {

@@ -116,11 +116,11 @@ export function GarageProfile() {
     setError(null)
 
     try {
-      const { user, subscription } = await authService.getProfile()
+      const { user, subscription, access } = await authService.getProfile()
       reset(toFormValues(user))
       setLogo(user.logo ?? null)
       // Keep the topbar, dashboard and subscription pill on the same data.
-      syncProfile(user, subscription)
+      syncProfile(user, subscription, access)
     } catch (err) {
       // A 401 already triggers a global sign-out; anything else is shown here.
       setError(err instanceof ApiError ? err.message : 'Could not load your profile.')
