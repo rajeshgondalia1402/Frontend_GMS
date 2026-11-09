@@ -29,7 +29,15 @@
       name="twitter:description"
       content="Customers, vehicles, job cards, payments, invoices and used car sales in one app. Free for 1 month, then ₹149/month."
     />
-    <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- PWA: the web app manifest link is injected at build time by
+         vite-plugin-pwa (see vite.config.ts). These cover iOS Safari, which
+         ignores most of the manifest. -->
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon-180x180.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="GaragePilot" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="application-name" content="GaragePilot" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />

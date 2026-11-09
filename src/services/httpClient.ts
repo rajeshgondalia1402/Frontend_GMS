@@ -125,6 +125,9 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   let response: Response
   try {
     response = await fetch(`${env.apiBaseUrl}${path}`, {
+      // API responses are private (they are fetched with the user's token), so
+      // the browser must not keep a copy on disk for the next user of the device.
+      cache: 'no-store',
       ...init,
       headers: requestHeaders,
       body: body === undefined ? undefined : JSON.stringify(body),

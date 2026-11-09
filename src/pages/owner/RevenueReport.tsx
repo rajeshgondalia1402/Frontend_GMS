@@ -4,12 +4,9 @@ import {
   CalendarDays,
   Car,
   Download,
-  FileText,
   IndianRupee,
-  Printer,
   Receipt,
   RefreshCw,
-  TrendingUp,
   User,
   Wallet,
   X,
@@ -371,6 +368,9 @@ function PaymentList({ rows }: { rows: RevenueReportPayment[] }) {
 export function RevenueReport({ kind }: { kind: RevenueReportKind }) {
   const { toast } = useToast()
   const { title } = REPORTS[kind]
+  // The total revenue report is the payment list only; the two summary cards,
+  // method split and trend chart stay on the month report.
+  const showCards = kind !== 'total'
 
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search)
@@ -493,7 +493,7 @@ export function RevenueReport({ kind }: { kind: RevenueReportKind }) {
   return (
     <div className="space-y-5">
       {/* Title, the window it covers, and what can be done with it. */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white">
             {kind === 'total' ? <Wallet className="h-5 w-5" /> : <IndianRupee className="h-5 w-5" />}
@@ -509,27 +509,11 @@ export function RevenueReport({ kind }: { kind: RevenueReportKind }) {
         <div className="flex shrink-0 gap-2 print:hidden">
           <button
             type="button"
-            onClick={() => setAttempt((n) => n + 1)}
-            disabled={loading}
-            className={cn(headerButton, 'flex-1 sm:flex-none')}
-          >
-            <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} /> Refresh
-          </button>
-          <button
-            type="button"
             onClick={() => void exportExcel()}
             disabled={exporting || !data || data.pagination.total === 0}
-            className={cn(headerButton, 'flex-1 sm:flex-none')}
+            className={headerButton}
           >
             <Download className="h-4 w-4" /> {exporting ? 'Preparing…' : 'Excel'}
-          </button>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            disabled={!data}
-            className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary-600 px-3 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50 sm:flex-none"
-          >
-            <Printer className="h-4 w-4" /> Print
           </button>
         </div>
       </div>
@@ -606,7 +590,8 @@ export function RevenueReport({ kind }: { kind: RevenueReportKind }) {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
+          {showCards && (
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
             <AdminStatCard
               icon={IndianRupee}
               label="Total Collected"
@@ -623,44 +608,33 @@ export function RevenueReport({ kind }: { kind: RevenueReportKind }) {
               tone="primary"
               loading={firstLoad}
             />
-            <AdminStatCard
-              icon={TrendingUp}
-              label="Average Payment"
-              value={summary ? formatCurrency(summary.average) : '—'}
-              hint="Per receipt"
-              tone="info"
-              loading={firstLoad}
-            />
-            <AdminStatCard
-              icon={FileText}
-              label="Largest Payment"
-              value={summary ? formatCurrency(summary.highest) : '—'}
-              hint="Single receipt"
-              tone="violet"
-              loading={firstLoad}
-            />
           </div>
+          )}
 
           {firstLoad || !data ? (
             <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-                <Skeleton className="h-56 rounded-xl lg:col-span-2" />
-                <Skeleton className="h-56 rounded-xl lg:col-span-3" />
-              </div>
+              {showCards && (
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+                  <Skeleton className="h-56 rounded-xl lg:col-span-2" />
+                  <Skeleton className="h-56 rounded-xl lg:col-span-3" />
+                </div>
+              )}
               {[0, 1, 2].map((row) => (
                 <Skeleton key={row} className="h-16 w-full rounded-xl" />
               ))}
             </div>
           ) : (
             <div className={cn('space-y-4 transition-opacity', loading && 'opacity-60')}>
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-5 print:grid-cols-5">
-                <div className="lg:col-span-2 print:col-span-2">
-                  <MethodSplit data={data} />
+              {showCards && (
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-5 print:grid-cols-5">
+                  <div className="lg:col-span-2 print:col-span-2">
+                    <MethodSplit data={data} />
+                  </div>
+                  <div className="min-w-0 lg:col-span-3 print:col-span-3">
+                    <TrendChart points={data.trend} unit={data.trendUnit} />
+                  </div>
                 </div>
-                <div className="min-w-0 lg:col-span-3 print:col-span-3">
-                  <TrendChart points={data.trend} unit={data.trendUnit} />
-                </div>
-              </div>
+              )}
 
               <section>
                 <div className="mb-3 flex items-baseline gap-2">

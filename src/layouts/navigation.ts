@@ -3,7 +3,6 @@ import {
   Users,
   Car,
   Wrench,
-  FileText,
   UsersRound,
   Wallet,
   BarChart3,
@@ -46,7 +45,6 @@ export const ownerNav: NavItem[] = [
   { label: 'Customers', to: '/app/customers', icon: Users, primary: true },
   { label: 'Vehicles', to: '/app/vehicles', icon: Car },
   { label: 'Job Cards', to: '/app/job-cards', icon: Wrench, primary: true },
-  { label: 'Billing', to: '/app/billing', icon: FileText },
   { label: 'Staff', to: '/app/staff', icon: UsersRound },
   {
     label: 'Car Selling',

@@ -5,7 +5,7 @@ import { Topbar } from '@/components/layout/Topbar'
 import type { ShellVariant } from '@/components/layout/Topbar'
 import { BottomNav } from '@/components/layout/BottomNav'
 import { Drawer, Modal } from '@/components/ui'
-import { InstallPrompt, NetworkBanner } from '@/components/common/PwaUI'
+import { InstallPrompt, NetworkBanner, UpdateBanner } from '@/components/common/PwaUI'
 import { findNavItem, flattenNav } from './navigation'
 import type { NavItem } from './navigation'
 import { cn } from '@/lib/utils'
@@ -37,6 +37,7 @@ export function AppShell({ nav, brand, variant = 'owner' }: AppShellProps) {
   return (
     <div className="min-h-screen bg-slate-50">
       <NetworkBanner />
+      <UpdateBanner />
 
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 border-r border-slate-200 bg-white lg:block print:hidden">
