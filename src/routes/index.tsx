@@ -31,7 +31,6 @@ import { JobCards } from '@/pages/owner/JobCards'
 import { JobCardForm } from '@/pages/owner/JobCardForm'
 import { JobCardDetails } from '@/pages/owner/JobCardDetails'
 import { JobCardPayment } from '@/pages/owner/JobCardPayment'
-import { Billing } from '@/pages/owner/Billing'
 import { Staff } from '@/pages/owner/Staff'
 import { CarSelling } from '@/pages/owner/CarSelling'
 import { CarSellingForm } from '@/pages/owner/CarSellingForm'
@@ -118,7 +117,8 @@ export const router = createBrowserRouter([
           { path: 'job-cards/:id', element: <JobCardDetails /> },
           { path: 'job-cards/:id/edit', element: <JobCardForm /> },
           { path: 'job-cards/:id/payment', element: <JobCardPayment /> },
-          { path: 'billing', element: <Billing /> },
+          // Billing was an empty placeholder; payments live on the job cards.
+          { path: 'billing', element: <Navigate to="/app/job-cards" replace /> },
           { path: 'staff', element: <Staff /> },
           { path: 'car-selling', element: <CarSelling /> },
           { path: 'car-selling/new', element: <CarSellingForm /> },
