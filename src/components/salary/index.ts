@@ -1,0 +1,1 @@
+export { SalaryFormModal } from './SalaryFormModal'

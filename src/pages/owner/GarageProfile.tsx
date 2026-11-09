@@ -13,6 +13,7 @@ import {
   User,
 } from 'lucide-react'
 import { PageHeader } from '@/components/common'
+import { InstallAppCard } from '@/components/pwa/InstallApp'
 import { Button, Input, Textarea, Card, ErrorState, Skeleton, useToast } from '@/components/ui'
 import { useAuth } from '@/context/AuthContext'
 import { authService } from '@/services/authService'
@@ -145,6 +146,9 @@ export function GarageProfile() {
   return (
     <div>
       <PageHeader title="Garage Profile" subtitle="Your garage details" />
+
+      {/* Install entry point inside the app (hidden once installed). */}
+      <InstallAppCard className="mb-4" />
 
       {loading ? (
         <ProfileSkeleton />

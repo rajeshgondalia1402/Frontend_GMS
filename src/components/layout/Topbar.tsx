@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Menu, Search, KeyRound, LogOut, User } from 'lucide-react'
+import { Menu, Search, KeyRound, LogOut, User, Download } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useAdminAuth } from '@/context/AdminAuthContext'
 import { SubscriptionPill } from './SubscriptionPill'
 import { ChangePasswordModal } from './ChangePasswordModal'
 import { useToast } from '@/components/ui'
+import { useInstallAction } from '@/components/pwa/InstallApp'
 import { getFirstName, getInitial } from '@/lib/utils'
 
 /** Which account the shell is signed in as. */
@@ -25,6 +26,7 @@ export function Topbar({ title, onMenuClick, showSearch = true, variant = 'owner
   const { user, logout } = useAuth()
   const { admin, logout: adminLogout } = useAdminAuth()
   const { toast } = useToast()
+  const { installable, install, iosHelp } = useInstallAction()
 
   const isAdmin = variant === 'admin'
 
@@ -112,6 +114,17 @@ export function Topbar({ title, onMenuClick, showSearch = true, variant = 'owner
                 >
                   <KeyRound className="h-4 w-4 text-slate-400" /> Change Password
                 </button>
+                {installable && (
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false)
+                      void install()
+                    }}
+                    className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    <Download className="h-4 w-4 text-slate-400" /> Install App
+                  </button>
+                )}
                 <button
                   onClick={handleLogout}
                   className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
@@ -123,6 +136,7 @@ export function Topbar({ title, onMenuClick, showSearch = true, variant = 'owner
           )}
         </div>
       </div>
+      {iosHelp}
       <ChangePasswordModal
         open={passwordOpen}
         variant={variant}
