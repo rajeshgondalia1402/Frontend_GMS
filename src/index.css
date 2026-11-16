@@ -18,6 +18,19 @@ body {
   overflow-x: hidden;
 }
 
+/* Stop mobile browsers (iOS Safari especially) from auto-zooming the page
+ * when a form field gets focus. Safari zooms in on any field whose text is
+ * smaller than 16px — and on submit, react-hook-form focuses the first
+ * invalid field, so every validation error was zooming the form. Keeping
+ * fields at 16px on phones/tablets leaves the layout exactly as it is. */
+@media (max-width: 1023px), (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 /* Hide number input spinners */
 input[type='number']::-webkit-outer-spin-button,
 input[type='number']::-webkit-inner-spin-button {
