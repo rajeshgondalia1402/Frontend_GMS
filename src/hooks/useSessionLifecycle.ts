@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { millisecondsUntilExpiry } from '@/lib/authStorage'
+import { purgePrivateCaches } from '@/lib/pwa'
 import { setUnauthorizedHandler } from '@/services/httpClient'
 import type { AuthScope } from '@/services/httpClient'
 
@@ -78,6 +79,8 @@ export function useSessionLifecycle<S extends ExpiringSession>(
     (reason: LogoutReason = 'manual', message?: string) => {
       cancelExpiryTimer()
       storeRef.current.clear()
+      // The API is never cached, but make sure nothing private outlives the session.
+      void purgePrivateCaches()
       setSession(null)
       setLogoutReason(reason)
       setLogoutMessage(message ?? null)

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { AuthHeader } from '@/components/auth/AuthHeader'
+import { InstallAppCard } from '@/components/pwa/InstallApp'
 import { AlertCircle, AlertTriangle, Phone } from 'lucide-react'
 import { Button, Input, PasswordInput, useToast } from '@/components/ui'
 import { useAuth } from '@/context/AuthContext'
@@ -185,6 +186,9 @@ export function Login() {
       >
         Create garage account<span className="hidden sm:inline">&nbsp;— free for 30 days</span>
       </Link>
+
+      {/* Only renders where the browser can install the app (or on iPhone). */}
+      <InstallAppCard className="mt-5" />
     </div>
   )
 }
