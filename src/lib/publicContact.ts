@@ -5,9 +5,9 @@
 export const CONTACT_EMAIL = 'logikshubsolution@gmail.com'
 
 /** Ten-digit Indian mobile number, as it is dialled locally. */
-export const CONTACT_PHONE = '9723657967'
+export const CONTACT_PHONE = '7096766373'
 
-/** `97236 57967` — split the way the number is read aloud. */
+/** `70967 66373` — split the way the number is read aloud. */
 export const CONTACT_PHONE_DISPLAY = `+91 ${CONTACT_PHONE.slice(0, 5)} ${CONTACT_PHONE.slice(5)}`
 
 export const CONTACT_EMAIL_HREF = `mailto:${CONTACT_EMAIL}`
