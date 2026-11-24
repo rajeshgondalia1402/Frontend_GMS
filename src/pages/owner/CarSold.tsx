@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BadgeIndianRupee, ChevronDown, Download, Phone, Plus, Wallet } from 'lucide-react'
+import { BadgeIndianRupee, ChevronDown, Download, Phone, Plus } from 'lucide-react'
 import {
   ActionButton,
   DEFAULT_PAGE_SIZE,
@@ -10,7 +10,6 @@ import {
   SearchInput,
 } from '@/components/common'
 import type { Column, SortOrder } from '@/components/common'
-import { AdminStatCard } from '@/components/admin/AdminStatCard'
 import { Button, EmptyState, ErrorState, LoadingState, useToast } from '@/components/ui'
 import {
   CollectPaymentModal,
@@ -518,7 +517,7 @@ export function CarSold() {
     <div>
       <PageHeader
         title="Car Sold Detail"
-        subtitle="Cars your garage has sold and who bought them"
+        subtitle={`Cars your garage has sold and who bought them${total === null ? '' : ` · ${total} sold`}`}
         action={
           <Button
             leftIcon={<Plus className="h-4 w-4" />}
@@ -529,15 +528,6 @@ export function CarSold() {
           </Button>
         }
       />
-
-      <div className="mb-4 grid grid-cols-1 gap-3 sm:max-w-[15rem]">
-        <AdminStatCard
-          label="Cars Sold"
-          value={total === null ? '—' : String(total)}
-          icon={Wallet}
-          tone="primary"
-        />
-      </div>
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row">
         <SearchInput

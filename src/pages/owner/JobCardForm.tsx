@@ -127,6 +127,9 @@ export function JobCardForm() {
   } = useCustomerVehicles({
     search: customer.mobile.trim() || customer.name.trim(),
     customerId: customer.id,
+    // A new card is only opened against a vehicle still waiting for service.
+    // Edit keeps the old behaviour: its vehicle is fixed and may have moved on.
+    status: isEdit ? undefined : 'PENDING',
   })
 
   const [staffId, setStaffId] = useState('')
@@ -875,7 +878,7 @@ export function JobCardForm() {
         error={vehiclesError}
         emptyLabel={
           customer.id
-            ? 'This customer has no vehicles on file yet — type the vehicle on the card instead.'
+            ? 'This customer has no pending vehicles — type the vehicle on the card instead.'
             : 'Choose a customer to see their vehicles.'
         }
         onSelect={selectVehicleOption}

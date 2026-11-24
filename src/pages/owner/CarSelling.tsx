@@ -10,7 +10,6 @@ import {
   SearchInput,
 } from '@/components/common'
 import type { Column, SortOrder } from '@/components/common'
-import { AdminStatCard } from '@/components/admin/AdminStatCard'
 import { Button, EmptyState, ErrorState, LoadingState, Modal, useToast } from '@/components/ui'
 import { CarSellingDetailsModal, CarSellingMoreDetails } from '@/components/carSelling'
 import { useAuth } from '@/context/AuthContext'
@@ -434,7 +433,7 @@ export function CarSelling() {
     <div>
       <PageHeader
         title="Car Selling"
-        subtitle="Used cars your garage is selling"
+        subtitle={`Used cars your garage is selling${total === null ? '' : ` · ${total} for sale`}`}
         action={
           <Button leftIcon={<Plus className="h-4 w-4" />} onClick={openAdd}>
             <span className="hidden sm:inline">Add Car</span>
@@ -442,15 +441,6 @@ export function CarSelling() {
           </Button>
         }
       />
-
-      <div className="mb-4 grid grid-cols-1 gap-3 sm:max-w-[15rem]">
-        <AdminStatCard
-          label="Cars for Sale"
-          value={total === null ? '—' : String(total)}
-          icon={CarFront}
-          tone="primary"
-        />
-      </div>
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row">
         <SearchInput

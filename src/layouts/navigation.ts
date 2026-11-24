@@ -45,7 +45,15 @@ export const ownerNav: NavItem[] = [
   { label: 'Customers', to: '/app/customers', icon: Users, primary: true },
   { label: 'Vehicles', to: '/app/vehicles', icon: Car },
   { label: 'Job Cards', to: '/app/job-cards', icon: Wrench, primary: true },
-  { label: 'Staff', to: '/app/staff', icon: UsersRound },
+  {
+    label: 'Staff',
+    to: '/app/staff',
+    icon: UsersRound,
+    children: [
+      { label: 'Manage Staff', to: '/app/staff', icon: UsersRound },
+      { label: 'Manage Salary', to: '/app/salary', icon: Wallet },
+    ],
+  },
   {
     label: 'Car Selling',
     to: '/app/car-selling',
@@ -55,7 +63,6 @@ export const ownerNav: NavItem[] = [
       { label: 'Car Sold Detail', to: '/app/car-sold', icon: BadgeIndianRupee },
     ],
   },
-  { label: 'Salary', to: '/app/salary', icon: Wallet },
   {
     label: 'Reports',
     to: '/app/reports',
