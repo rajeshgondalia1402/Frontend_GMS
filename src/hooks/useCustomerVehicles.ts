@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { listAllVehicles } from '@/services/vehicleService'
 import { ApiError } from '@/services/httpClient'
-import type { VehicleWithCustomer } from '@/types/vehicle'
+import type { VehicleStatus, VehicleWithCustomer } from '@/types/vehicle'
 
 export interface CustomerVehiclesState {
   vehicles: VehicleWithCustomer[]
@@ -20,6 +20,11 @@ interface CustomerVehiclesQuery {
    * reads as part of another, can never put someone else's car on the card.
    */
   customerId: string
+  /**
+   * Only vehicles in this status (e.g. `PENDING` for a new job card). Left
+   * out, every status is returned - the behaviour other callers rely on.
+   */
+  status?: VehicleStatus
 }
 
 /**
@@ -28,7 +33,7 @@ interface CustomerVehiclesQuery {
  * There is no paging here on purpose: `listAllVehicles` walks the pages so the
  * picker offers the customer's whole fleet, however many that is.
  */
-export function useCustomerVehicles({ search, customerId }: CustomerVehiclesQuery): CustomerVehiclesState {
+export function useCustomerVehicles({ search, customerId, status }: CustomerVehiclesQuery): CustomerVehiclesState {
   const [state, setState] = useState<CustomerVehiclesState>(IDLE)
 
   useEffect(() => {
@@ -41,7 +46,7 @@ export function useCustomerVehicles({ search, customerId }: CustomerVehiclesQuer
     let cancelled = false
     setState({ vehicles: [], loading: true, error: null })
 
-    listAllVehicles({ search: search.trim(), sortBy: 'vehicleNumber', sortOrder: 'asc' })
+    listAllVehicles({ search: search.trim(), status, sortBy: 'vehicleNumber', sortOrder: 'asc' })
       .then((rows) => {
         if (cancelled) return
         const owned = rows.filter((vehicle) => !vehicle.customer || vehicle.customer.id === customerId)
@@ -59,7 +64,7 @@ export function useCustomerVehicles({ search, customerId }: CustomerVehiclesQuer
     return () => {
       cancelled = true
     }
-  }, [search, customerId])
+  }, [search, customerId, status])
 
   return state
 }

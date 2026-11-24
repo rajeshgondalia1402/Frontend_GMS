@@ -20,7 +20,15 @@ import {
   SortBar,
 } from '@/components/common'
 import type { Column, SortBarField, SortOrder } from '@/components/common'
-import { Badge, Button, EmptyState, ErrorState, LoadingState, useToast } from '@/components/ui'
+import {
+  Badge,
+  Button,
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  WhatsappIcon,
+  useToast,
+} from '@/components/ui'
 import { useAuth } from '@/context/AuthContext'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { getJobCard, jobCardService } from '@/services/jobCardService'
@@ -32,10 +40,12 @@ import {
   formatServiceDate,
   jobCardStatusLabel,
   jobCardStatusTone,
+  vehicleDisplayName,
 } from '@/lib/jobCard'
 import { paymentStatusLabel, paymentStatusTone } from '@/lib/payment'
 import { datedFileName, downloadExcel } from '@/lib/excel'
 import { downloadInvoice } from '@/lib/invoice'
+import { customerWhatsappNumber, paymentReceiptMessage, whatsappLink } from '@/lib/whatsapp'
 import { JobCardMoreDetails } from '@/components/jobcards'
 import { cn } from '@/lib/utils'
 import type { Pagination } from '@/types/auth'
@@ -80,6 +90,7 @@ const ACTION_WIDTH = {
   invoice: 'w-[4.25rem]',
   money: 'w-[4.75rem]',
   open: 'w-[3.5rem]',
+  whatsapp: 'w-8',
 }
 
 /** What was billed, in the desk's words — the line descriptions. */
@@ -94,6 +105,16 @@ function itemsLine(job: JobCardRecord): string {
  */
 function hasInvoice(job: JobCardRecord): boolean {
   return job.paymentStatus === 'PARTIAL' || job.paymentStatus === 'PAID'
+}
+
+/**
+ * Where the customer's receipt goes, or `null` when it cannot be sent: an
+ * unpaid card has no receipt yet, and a card with no number on file has nobody
+ * to send it to.
+ */
+function receiptWhatsappNumber(job: JobCardRecord): string | null {
+  if (job.paymentStatus === 'UNPAID') return null
+  return customerWhatsappNumber(job.vehicle?.customer)
 }
 
 export function JobCards() {
@@ -115,6 +136,8 @@ export function JobCards() {
   const [error, setError] = useState<string | null>(null)
   /** The card whose invoice is being put together, if any. */
   const [invoicing, setInvoicing] = useState<string | null>(null)
+  /** The card whose WhatsApp receipt is being put together, if any. */
+  const [whatsapping, setWhatsapping] = useState<string | null>(null)
   /** The rows opened to show who the card is for. */
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
 
@@ -214,6 +237,66 @@ export function JobCards() {
       )
     } finally {
       setInvoicing(null)
+    }
+  }
+
+  /**
+   * Sends the customer the same receipt the Receipts screen sends: the latest
+   * payment on the card, with the bill and what is left as they stand now.
+   *
+   * The row knows nothing of the payments, so they are fetched first. The tab
+   * is opened before that fetch, straight out of the click: a tab opened after
+   * an `await` is a pop-up as far as the browser is concerned and gets blocked.
+   */
+  const sendWhatsappReceipt = async (job: JobCardRecord) => {
+    const number = receiptWhatsappNumber(job)
+    if (!number) return
+
+    const tab = window.open('', '_blank')
+    if (tab) tab.opener = null
+    setWhatsapping(job.id)
+
+    try {
+      const [card, money] = await Promise.all([
+        getJobCard(job.id).catch(() => job),
+        paymentService.getJobCardPayments(job.id),
+      ])
+      const payments = money.payments ?? []
+      const latest = payments[payments.length - 1]
+
+      if (!latest) {
+        tab?.close()
+        toast('There is no receipt on this card to send yet.', 'error')
+        return
+      }
+
+      const vehicle = card.vehicle ?? job.vehicle
+      const link = whatsappLink(
+        customerWhatsappNumber(vehicle?.customer) ?? number,
+        paymentReceiptMessage({
+          garageName: user?.garageName,
+          garageMobile: user?.mobileNumber,
+          customerName: vehicle?.customer?.fullName,
+          vehicleName: vehicle ? vehicleDisplayName(vehicle) : null,
+          vehicleNumber: vehicle?.vehicleNumber,
+          jobNumber: money.jobCard.jobNumber ?? job.jobNumber,
+          amount: latest.amount,
+          paymentMethod: latest.paymentMethod,
+          paymentDate: latest.paymentDate,
+          money: money.jobCard,
+        }),
+      )
+
+      if (tab) tab.location.href = link
+      else window.open(link, '_blank', 'noopener,noreferrer')
+    } catch (err) {
+      tab?.close()
+      toast(
+        err instanceof ApiError ? err.message : 'Could not prepare the WhatsApp receipt.',
+        'error',
+      )
+    } finally {
+      setWhatsapping(null)
     }
   }
 
@@ -340,9 +423,24 @@ export function JobCards() {
     {
       header: 'Actions',
       align: 'right',
-      className: 'w-[14.5rem]',
+      className: 'w-[16.75rem]',
       accessor: (job) => (
         <div className="flex items-center justify-end gap-1.5">
+          {receiptWhatsappNumber(job) ? (
+            <ActionButton
+              tone="money"
+              title="Send the receipt on WhatsApp"
+              aria-label={`Send the receipt of ${job.jobNumber} on WhatsApp`}
+              loading={whatsapping === job.id}
+              onClick={() => void sendWhatsappReceipt(job)}
+              className={ACTION_WIDTH.whatsapp}
+            >
+              {whatsapping === job.id ? null : <WhatsappIcon className="h-4 w-4" />}
+            </ActionButton>
+          ) : (
+            // Unpaid: no receipt to send. The gap keeps the buttons aligned.
+            <span className={cn('shrink-0', ACTION_WIDTH.whatsapp)} aria-hidden="true" />
+          )}
           {hasInvoice(job) ? (
             <ActionButton
               tone="primary"
@@ -498,6 +596,19 @@ export function JobCards() {
                         onClick={() => void downloadJobInvoice(job)}
                       >
                         Invoice
+                      </ActionButton>
+                    )}
+                    {receiptWhatsappNumber(job) && (
+                      <ActionButton
+                        layout="card"
+                        tone="money"
+                        className="min-w-[5.5rem]"
+                        title="Send the receipt on WhatsApp"
+                        loading={whatsapping === job.id}
+                        icon={<WhatsappIcon className="h-4 w-4" />}
+                        onClick={() => void sendWhatsappReceipt(job)}
+                      >
+                        WhatsApp
                       </ActionButton>
                     )}
                     <ActionButton
