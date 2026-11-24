@@ -53,6 +53,8 @@ export interface CustomerListParams {
   limit?: number
   /** Customer name, mobile number or WhatsApp number. Omitted lists everyone. */
   search?: string
+  /** Only customers created in the current month (`1`) up to the last `12` months. Omitted is all time. */
+  months?: number
   /** Default `createdAt`. */
   sortBy?: 'createdAt' | 'updatedAt' | 'fullName' | 'city'
   /** Default `desc`. */
@@ -63,4 +65,9 @@ export interface CustomerListParams {
 export interface CustomerListData {
   customers: CustomerWithVehicles[]
   pagination: Pagination
+  /** Garage-wide counts, unaffected by `search` / `months`. */
+  summary?: {
+    totalCustomers: number
+    newThisMonth: number
+  }
 }

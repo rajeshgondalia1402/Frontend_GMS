@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Car, ChevronDown, Download, Eye, Phone, Plus, Users } from 'lucide-react'
+import { CalendarDays, Car, ChevronDown, Download, Eye, Phone, Plus, Users } from 'lucide-react'
 import {
   ActionButton,
   DEFAULT_PAGE_SIZE,
@@ -10,8 +10,7 @@ import {
 } from '@/components/common'
 import type { Column, SortBarField, SortOrder } from '@/components/common'
 import { ResponsiveList, SortBar } from '@/components/common'
-import { AdminStatCard } from '@/components/admin/AdminStatCard'
-import { Button, EmptyState, ErrorState, LoadingState } from '@/components/ui'
+import { Button, EmptyState, ErrorState, LoadingState, Select } from '@/components/ui'
 import { CustomerMoreDetails } from '@/components/customers'
 import { useAuth } from '@/context/AuthContext'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
@@ -20,12 +19,18 @@ import { ApiError } from '@/services/httpClient'
 import { datedFileName, downloadExcel } from '@/lib/excel'
 import type { ExportColumn } from '@/lib/excel'
 import { formatDate } from '@/lib/utils'
+import {
+  ALL_TIME,
+  CREATED_PERIOD_OPTIONS,
+  periodLabel,
+  periodMonths,
+} from '@/lib/createdPeriod'
+import type { CreatedPeriod } from '@/lib/createdPeriod'
 import type { Pagination } from '@/types/auth'
 import type { CustomerListParams, CustomerWithVehicles } from '@/types/customer'
 
-/** The API caps `limit` at 100 — both for a page of the list and for the stats. */
+/** The API caps `limit` at 100 for a page of the list. */
 const MAX_LIMIT = 100
-const STATS_LIMIT = MAX_LIMIT
 
 /** How many vehicles the customer has, e.g. "3 vehicles". */
 function vehicleLabel(customer: CustomerWithVehicles): string {
@@ -33,16 +38,6 @@ function vehicleLabel(customer: CustomerWithVehicles): string {
   if (count === 0) return 'No vehicles'
 
   return `${count} ${count === 1 ? 'vehicle' : 'vehicles'}`
-}
-
-function countCreatedThisMonth(customers: CustomerWithVehicles[], now: Date = new Date()): number {
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
-
-  return customers.filter((c) => {
-    if (!c.createdAt) return false
-    const created = new Date(c.createdAt).getTime()
-    return !Number.isNaN(created) && created >= startOfMonth
-  }).length
 }
 
 /** Every field the API returns for a customer, bar the ids. */
@@ -92,7 +87,7 @@ const sortValue = (sort: SortState) => `${sort.field}:${sort.order}`
 const SORT_FIELDS: SortBarField[] = [
   { key: 'fullName', label: 'Name' },
   { key: 'city', label: 'City' },
-  { key: 'createdAt', label: 'Added' },
+  { key: 'createdAt', label: 'Created Date' },
 ]
 
 /** What the current order is called, for the exported sheet's header. */
@@ -103,8 +98,22 @@ const sortLabel = (sort: SortState) =>
 interface CustomerStats {
   total: number
   newThisMonth: number
-  /** True when the month's count is a floor — every row read was this month. */
-  partial: boolean
+}
+
+/** A label and its number side by side — small enough to read at a glance. */
+function StatChip({ label, value, tone }: { label: string; value: string; tone: 'primary' | 'success' }) {
+  const toneClass =
+    tone === 'primary'
+      ? 'border-primary-100 bg-primary-50 text-primary-700'
+      : 'border-emerald-100 bg-emerald-50 text-emerald-700'
+  return (
+    <span
+      className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm ${toneClass}`}
+    >
+      <span className="font-medium">{label}</span>
+      <span className="text-base font-bold tabular-nums">{value}</span>
+    </span>
+  )
 }
 
 export function Customers() {
@@ -114,6 +123,8 @@ export function Customers() {
   const [query, setQuery] = useState('')
   // One request per pause in typing, not one per keystroke.
   const search = useDebouncedValue(query.trim(), 350)
+  /** "Created in" filter — all time, the current month or the last 2-12 months. */
+  const [period, setPeriod] = useState<CreatedPeriod>(ALL_TIME)
 
   const [customers, setCustomers] = useState<CustomerWithVehicles[]>([])
   const [pagination, setPagination] = useState<Pagination | null>(null)
@@ -130,12 +141,12 @@ export function Customers() {
   // search term must not overwrite the results of the one being typed now.
   const latestRequest = useRef(0)
 
-  // A new search term, a different page size or a different order always
+  // A new search term, period, page size or order always
   // starts from page one:
   // page 4 of the old result set says nothing about the new one. Resetting
   // during the render that changes them keeps the stale page from being asked
   // for at all, rather than fetching it and then correcting.
-  const queryKey = `${search}|${limit}|${sortValue(sort)}`
+  const queryKey = `${search}|${period}|${limit}|${sortValue(sort)}`
   const [lastQueryKey, setLastQueryKey] = useState(queryKey)
   if (lastQueryKey !== queryKey) {
     setLastQueryKey(queryKey)
@@ -156,12 +167,20 @@ export function Customers() {
         sortBy: sort.field,
         sortOrder: sort.order,
         ...(search ? { search } : {}),
+        ...periodMonths(period),
       })
 
       if (requestId !== latestRequest.current) return
 
       setCustomers(data.customers ?? [])
       setPagination(data.pagination ?? null)
+      // The header counts come with the list, so no separate request is needed.
+      if (data.summary) {
+        setStats({
+          total: data.summary.totalCustomers,
+          newThisMonth: data.summary.newThisMonth,
+        })
+      }
     } catch (err) {
       if (requestId !== latestRequest.current) return
 
@@ -171,45 +190,12 @@ export function Customers() {
     } finally {
       if (requestId === latestRequest.current) setLoading(false)
     }
-  }, [search, page, limit, sort])
+  }, [search, period, page, limit, sort])
 
-  // Re-runs whenever the search term, page, page size or order changes.
+  // Re-runs whenever the search term, period, page, page size or order changes.
   useEffect(() => {
     void fetchPage()
   }, [fetchPage])
-
-  /**
-   * The stat cards describe the whole garage, so they are read once without a
-   * search term and left alone while the box is used. The list comes back
-   * newest first, so the customers added this month are the leading rows —
-   * counting them off one page of 100 is exact unless every row read is from
-   * this month, in which case the count is shown as a floor ("100+").
-   */
-  const loadStats = useCallback(async () => {
-    try {
-      const data = await customerService.listCustomers({
-        page: 1,
-        limit: STATS_LIMIT,
-        sortBy: 'createdAt',
-        sortOrder: 'desc',
-      })
-
-      const found = data.customers ?? []
-      const newThisMonth = countCreatedThisMonth(found)
-      setStats({
-        total: data.pagination?.total ?? found.length,
-        newThisMonth,
-        partial: newThisMonth === found.length && Boolean(data.pagination?.hasNextPage),
-      })
-    } catch {
-      // The list below already surfaces a failed request; the cards just wait.
-      setStats(null)
-    }
-  }, [])
-
-  useEffect(() => {
-    void loadStats()
-  }, [loadStats])
 
   const openCustomer = (customer: CustomerWithVehicles) =>
     navigate(`/app/customers/${customer.id}`, { state: { customer } })
@@ -266,6 +252,11 @@ export function Customers() {
     { header: 'Vehicles', accessor: (c) => vehicleLabel(c) },
     { header: 'City', sortKey: 'city', accessor: (c) => c.city || '—' },
     {
+      header: 'Created Date',
+      sortKey: 'createdAt',
+      accessor: (c) => (c.createdAt ? formatDate(c.createdAt) : '—'),
+    },
+    {
       header: 'Actions',
       align: 'right',
       className: 'w-[6.5rem]',
@@ -299,6 +290,7 @@ export function Customers() {
         // What the sheet is a snapshot of, so a saved file explains itself.
         meta: [
           { label: 'Search', value: search || 'All customers' },
+          { label: 'Created', value: periodLabel(period) },
           { label: 'Sorted By', value: sortLabel(sort) },
         ],
       },
@@ -321,17 +313,11 @@ export function Customers() {
         action={addButton}
       />
 
-      <div className="mb-4 grid grid-cols-2 gap-3 sm:max-w-md">
-        <AdminStatCard
-          label="Total Customers"
-          value={stats ? String(stats.total) : '—'}
-          icon={Users}
-          tone="primary"
-        />
-        <AdminStatCard
-          label="New this month"
-          value={stats ? `${stats.newThisMonth}${stats.partial ? '+' : ''}` : '—'}
-          icon={Plus}
+      <div className="mb-4 flex flex-wrap gap-2">
+        <StatChip label="Total Customers" value={stats ? String(stats.total) : '—'} tone="primary" />
+        <StatChip
+          label="New This Month"
+          value={stats ? String(stats.newThisMonth) : '—'}
           tone="success"
         />
       </div>
@@ -343,6 +329,16 @@ export function Customers() {
           placeholder="Search name or mobile number..."
           className="sm:flex-1"
         />
+        <div className="sm:w-48">
+          <Select
+            aria-label="Created date"
+            title="Created date"
+            leftIcon={<CalendarDays className="h-4 w-4" />}
+            options={CREATED_PERIOD_OPTIONS}
+            value={period}
+            onChange={(e) => setPeriod(e.target.value as CreatedPeriod)}
+          />
+        </div>
         <Button
           variant="outline"
           leftIcon={<Download className="h-4 w-4" />}
@@ -375,8 +371,8 @@ export function Customers() {
           icon={Users}
           title="No customers found"
           description={
-            search
-              ? 'Try a different search, or add your first customer.'
+            search || period
+              ? 'Try a different search or created date, or add a new customer.'
               : 'Add your first customer to start creating job cards.'
           }
           action={
@@ -416,8 +412,18 @@ export function Customers() {
                   </div>
                 </div>
                 <div className="mt-3 border-t border-slate-100 pt-3">
-                  <p className="text-xs text-slate-400">Vehicles</p>
-                  <p className="truncate text-sm text-slate-600">{vehicleLabel(c)}</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs text-slate-400">Vehicles</p>
+                      <p className="truncate text-sm text-slate-600">{vehicleLabel(c)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400">Created Date</p>
+                      <p className="text-sm text-slate-600">
+                        {c.createdAt ? formatDate(c.createdAt) : '—'}
+                      </p>
+                    </div>
+                  </div>
 
                   <div className="mt-3 flex items-stretch gap-2">
                     <ActionButton

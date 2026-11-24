@@ -1,7 +1,11 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" translate="no" class="notranslate">
   <head>
     <meta charset="UTF-8" />
+    <!-- Browser auto-translate (Chrome / Google Translate) swaps the page's text
+         nodes for translated ones; React then crashes with "NotFoundError:
+         Failed to execute 'insertBefore' on 'Node'" on its next update. -->
+    <meta name="google" content="notranslate" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
     <meta name="theme-color" content="#0b5ed7" />
