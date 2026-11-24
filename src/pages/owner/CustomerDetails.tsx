@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { AlertTriangle, ArrowLeft, Car, Plus } from 'lucide-react'
 import { Button, Card, ErrorState, Skeleton } from '@/components/ui'
@@ -130,6 +130,19 @@ export function CustomerDetails() {
   useEffect(() => {
     void load()
   }, [load])
+
+  /**
+   * A customer with no vehicle yet — typically one just created — gets the
+   * vehicle form opened for them, since adding the vehicle is the next step
+   * anyway. Decided once, after the first load settles, so Cancel or Save
+   * closes it for good instead of it popping back open.
+   */
+  const autoOpenDecided = useRef(false)
+  useEffect(() => {
+    if (loading || !customer || autoOpenDecided.current) return
+    autoOpenDecided.current = true
+    if (vehicles.length === 0) setFormOpen(true)
+  }, [loading, customer, vehicles.length])
 
   // Keeps the parked copy in step with the server and with every edit, so a
   // refresh shows the details the owner last saved.
