@@ -63,6 +63,7 @@ const PAID_PLAN_LABELS: Record<string, string> = {
 
 /** Fallbacks only: the API answers with its own cooldown and validity. */
 const OTP_VALIDITY_SECONDS = 5 * 60
+const OTP_RESEND_COOLDOWN_SECONDS = 30
 
 /** Left behind by the old flow (it held the form, password included). */
 const LEGACY_PENDING_KEY = 'gms.auth.pendingRegistration'
@@ -147,10 +148,14 @@ export function Register() {
       setSendingOtp(true)
       setOtpError(null)
       setOtpNotice(null)
+      // Drop the previous challenge immediately: from here on only the newest
+      // code counts. The API resolves the number's latest challenge on verify,
+      // so sending no id is correct while this one is in flight.
+      if (isResend) setChallengeId(null)
       try {
         const data = await authService.generateOtp(mobile)
         setChallengeId(data.challengeId)
-        startResend(data.resendAfterSeconds ?? OTP_VALIDITY_SECONDS)
+        startResend(data.resendAfterSeconds ?? OTP_RESEND_COOLDOWN_SECONDS)
         startValidity(data.expiresInSeconds ?? OTP_VALIDITY_SECONDS)
         if (isResend) {
           setCode('')
