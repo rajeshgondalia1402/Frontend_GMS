@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Car, ChevronDown, Download, Eye, Phone, Plus } from 'lucide-react'
+import { CalendarDays, Car, ChevronDown, Download, Eye, Phone, Plus } from 'lucide-react'
 import {
   ActionButton,
   DEFAULT_PAGE_SIZE,
@@ -10,14 +10,20 @@ import {
 } from '@/components/common'
 import type { Column, SortBarField, SortOrder } from '@/components/common'
 import { ResponsiveList, SortBar } from '@/components/common'
-import { AdminStatCard } from '@/components/admin/AdminStatCard'
-import { Badge, Button, EmptyState, ErrorState, LoadingState } from '@/components/ui'
+import { Badge, Button, EmptyState, ErrorState, LoadingState, Select } from '@/components/ui'
 import { VehicleMoreDetails } from '@/components/vehicles'
 import { useAuth } from '@/context/AuthContext'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { vehicleService } from '@/services/vehicleService'
 import { ApiError } from '@/services/httpClient'
 import { formatDate } from '@/lib/utils'
+import {
+  ALL_TIME,
+  CREATED_PERIOD_OPTIONS,
+  periodLabel,
+  periodMonths,
+} from '@/lib/createdPeriod'
+import type { CreatedPeriod } from '@/lib/createdPeriod'
 import { vehicleStatusLabel, vehicleStatusTone } from '@/lib/vehicleStatus'
 import { datedFileName, downloadExcel } from '@/lib/excel'
 import type { ExportColumn } from '@/lib/excel'
@@ -136,14 +142,14 @@ export function Vehicles() {
   const [query, setQuery] = useState('')
   // One request per pause in typing, not one per keystroke.
   const search = useDebouncedValue(query.trim(), 350)
+  /** "Created in" filter — all time, the current month or the last 2-12 months. */
+  const [period, setPeriod] = useState<CreatedPeriod>(ALL_TIME)
 
   const [vehicles, setVehicles] = useState<VehicleWithCustomer[]>([])
   const [pagination, setPagination] = useState<Pagination | null>(null)
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE)
   const [sort, setSort] = useState<SortState>(DEFAULT_SORT)
-  /** The garage's whole fleet, read once without a search term. */
-  const [total, setTotal] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   /** Ids of the vehicles whose details are open under their row. */
@@ -153,14 +159,14 @@ export function Vehicles() {
   // search term must not overwrite the results of the one being typed now.
   const latestRequest = useRef(0)
 
-  // A new search term or a different page size always starts from page one:
+  // A new search term, period or page size always starts from page one:
   // page 4 of the old result set says nothing about the new one. Resetting
   // during the render that changes them keeps the stale page from being asked
   // for at all, rather than fetching it and then correcting.
   // Only the order the API is asked for belongs in the key: re-ordering a page
   // in the browser neither refetches it nor sends the reader back to page one.
   const order = listOrder(sort)
-  const queryKey = `${search}|${limit}|${order.sortBy}:${order.sortOrder}`
+  const queryKey = `${search}|${period}|${limit}|${order.sortBy}:${order.sortOrder}`
   const [lastQueryKey, setLastQueryKey] = useState(queryKey)
   if (lastQueryKey !== queryKey) {
     setLastQueryKey(queryKey)
@@ -181,6 +187,7 @@ export function Vehicles() {
         sortBy: order.sortBy,
         sortOrder: order.sortOrder,
         ...(search ? { search } : {}),
+        ...periodMonths(period),
       })
 
       if (requestId !== latestRequest.current) return
@@ -196,32 +203,13 @@ export function Vehicles() {
     } finally {
       if (requestId === latestRequest.current) setLoading(false)
     }
-  }, [search, page, limit, order.sortBy, order.sortOrder])
+  }, [search, period, page, limit, order.sortBy, order.sortOrder])
 
-  // Re-runs whenever the search term, the page, the page size or the API's
-  // share of the order changes.
+  // Re-runs whenever the search term, the period, the page, the page size or
+  // the API's share of the order changes.
   useEffect(() => {
     void fetchPage()
   }, [fetchPage])
-
-  /**
-   * The count describes the whole garage, so it is read once without a search
-   * term and left alone while the box is used. Only `pagination.total` is
-   * wanted, so the smallest possible page is asked for.
-   */
-  const loadTotal = useCallback(async () => {
-    try {
-      const data = await vehicleService.listVehicles({ page: 1, limit: 1 })
-      setTotal(data.pagination?.total ?? (data.vehicles ?? []).length)
-    } catch {
-      // The list below already surfaces a failed request; the count just waits.
-      setTotal(null)
-    }
-  }, [])
-
-  useEffect(() => {
-    void loadTotal()
-  }, [loadTotal])
 
   /** What is on screen: the fetched page, in the chosen order. */
   const rows = useMemo(() => sortRows(vehicles, sort), [vehicles, sort])
@@ -273,6 +261,7 @@ export function Vehicles() {
         // What the sheet is a snapshot of, so a saved file explains itself.
         meta: [
           { label: 'Search', value: search || 'All vehicles' },
+          { label: 'Created', value: periodLabel(period) },
           { label: 'Sorted By', value: sortLabel(sort) },
         ],
       },
@@ -379,15 +368,6 @@ export function Vehicles() {
     <div>
       <PageHeader title="Vehicles" subtitle="All registered vehicles" />
 
-      <div className="mb-4 grid grid-cols-1 gap-3 sm:max-w-[15rem]">
-        <AdminStatCard
-          label="Total Vehicles"
-          value={total === null ? '—' : String(total)}
-          icon={Car}
-          tone="primary"
-        />
-      </div>
-
       <div className="mb-4 flex flex-col gap-3 sm:flex-row">
         <SearchInput
           value={query}
@@ -395,6 +375,16 @@ export function Vehicles() {
           placeholder="Search number, brand, model or owner..."
           className="sm:flex-1"
         />
+        <div className="sm:w-48">
+          <Select
+            aria-label="Created date"
+            title="Created date"
+            leftIcon={<CalendarDays className="h-4 w-4" />}
+            options={CREATED_PERIOD_OPTIONS}
+            value={period}
+            onChange={(e) => setPeriod(e.target.value as CreatedPeriod)}
+          />
+        </div>
         <Button
           variant="outline"
           leftIcon={<Download className="h-4 w-4" />}
@@ -427,8 +417,8 @@ export function Vehicles() {
           icon={Car}
           title="No vehicles found"
           description={
-            search
-              ? 'Try a different search.'
+            search || period
+              ? 'Try a different search or created date.'
               : 'Vehicles are added from a customer, and show up here once they are.'
           }
         />

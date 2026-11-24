@@ -12,6 +12,7 @@ import type {
 function customerQuery(params: CustomerListParams): string {
   const query = new URLSearchParams()
   if (params.search) query.set('search', params.search)
+  if (params.months) query.set('months', String(params.months))
   if (params.page) query.set('page', String(params.page))
   if (params.limit) query.set('limit', String(params.limit))
   if (params.sortBy) query.set('sortBy', params.sortBy)

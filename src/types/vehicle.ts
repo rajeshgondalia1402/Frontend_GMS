@@ -85,6 +85,8 @@ export interface VehicleListParams {
   /** Vehicle number, brand, model, customer name or customer mobile number. */
   search?: string
   status?: VehicleStatus
+  /** Only vehicles created in the current month (`1`) up to the last `12` months. Omitted is all time. */
+  months?: number
   /** Default `createdAt`. */
   sortBy?: 'createdAt' | 'updatedAt' | 'vehicleNumber' | 'status'
   /** Default `desc`. */
