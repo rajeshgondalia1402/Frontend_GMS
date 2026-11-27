@@ -174,3 +174,47 @@ input[type='number'] {
   .animate-pulse-ring,
   .animate-shimmer { animation: none; }
 }
+
+/* ------------------------------------------------------------ guide tour
+ * The animated "how to use" player on /guide. Every piece starts after its
+ * own `--g-delay`, so one screen plays like a short clip: things appear, a
+ * finger taps a button, the next thing appears.
+ */
+@keyframes guideIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes guideFinger {
+  0% { opacity: 0; transform: translate(18px, 22px); }
+  30% { opacity: 1; transform: translate(0, 0); }
+  42% { transform: scale(0.82); }
+  55% { transform: scale(1); }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: none; }
+}
+@keyframes guideRipple {
+  0% { opacity: 0.55; transform: scale(0.3); }
+  100% { opacity: 0; transform: scale(2.6); }
+}
+@keyframes guidePress {
+  0%, 100% { transform: none; }
+  50% { transform: scale(0.95); }
+}
+@keyframes guideBar {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+@keyframes guideBlink {
+  50% { opacity: 0; }
+}
+.g-in { animation: guideIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) var(--g-delay, 0ms) both; }
+.g-finger { animation: guideFinger 1.5s ease-out var(--g-delay, 0ms) both; }
+.g-ripple { animation: guideRipple 0.8s ease-out calc(var(--g-delay, 0ms) + 600ms) both; }
+.g-press { animation: guidePress 0.3s ease-in-out calc(var(--g-delay, 0ms) + 600ms) both; }
+.g-bar { transform-origin: left; animation: guideBar var(--g-duration, 5s) linear both; }
+.g-caret { animation: guideBlink 1s step-end infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .g-in, .g-press { animation: none; }
+  .g-ripple, .g-finger { display: none; }
+}
