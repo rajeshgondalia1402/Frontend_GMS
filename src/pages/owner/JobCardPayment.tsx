@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { JobCardStatusBadge } from '@/components/common/StatusBadges'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -9,7 +10,6 @@ import {
   User,
 } from 'lucide-react'
 import {
-  Badge,
   Button,
   Card,
   ConfirmDialog,
@@ -27,8 +27,6 @@ import { paymentBalanceFromError, paymentService } from '@/services/paymentServi
 import { ApiError } from '@/services/httpClient'
 import {
   formatMoney,
-  jobCardStatusLabel,
-  jobCardStatusTone,
   vehicleDisplayName,
 } from '@/lib/jobCard'
 import {
@@ -242,7 +240,7 @@ export function JobCardPayment() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Badge tone={jobCardStatusTone(money.status)}>{jobCardStatusLabel(money.status)}</Badge>
+          <JobCardStatusBadge status={money.status} payment={money.paymentStatus} />
           <Button
             size="sm"
             variant="outline"

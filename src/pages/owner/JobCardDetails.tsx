@@ -1,17 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
+import { CollectPaymentModal } from '@/components/payments'
+import { JobCardStatusBadge, PaymentStatusBadge } from '@/components/common/StatusBadges'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Car, IndianRupee, User, UsersRound } from 'lucide-react'
-import { Badge, Button, Card, ErrorState, LoadingState } from '@/components/ui'
+import { Button, Card, ErrorState, LoadingState } from '@/components/ui'
 import { jobCardService } from '@/services/jobCardService'
 import { ApiError } from '@/services/httpClient'
 import {
   formatServiceDate,
-  jobCardStatusLabel,
-  jobCardStatusTone,
   vehicleDisplayName,
 } from '@/lib/jobCard'
 import { staffCategoryLabel } from '@/lib/staff'
-import { paymentStatusLabel, paymentStatusTone } from '@/lib/payment'
 import { formatCurrency } from '@/lib/utils'
 import type { JobCardRecord } from '@/types/jobCard'
 import type { StaffCategory } from '@/types/staff'
@@ -30,6 +29,7 @@ export function JobCardDetails() {
   const seeded = handed?.id === id ? handed : undefined
 
   const [job, setJob] = useState<JobCardRecord | null>(seeded ?? null)
+  const [collecting, setCollecting] = useState(false)
   const [loading, setLoading] = useState(!seeded)
   const [error, setError] = useState<string | null>(null)
 
@@ -97,7 +97,7 @@ export function JobCardDetails() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-3">
-          <Badge tone={jobCardStatusTone(job.status)}>{jobCardStatusLabel(job.status)}</Badge>
+          <JobCardStatusBadge status={job.status} payment={job.paymentStatus} />
         </div>
       </div>
 
@@ -201,24 +201,36 @@ export function JobCardDetails() {
                 place a receipt can be taken. */}
             <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4">
               <span className="text-sm text-slate-600">Payment</span>
-              <Badge tone={paymentStatusTone(job.paymentStatus)}>
-                {paymentStatusLabel(job.paymentStatus)}
-              </Badge>
+              <PaymentStatusBadge payment={job.paymentStatus} status={job.status} />
             </div>
             <Button
               fullWidth
               className="mt-3"
               variant={job.paymentStatus === "PAID" ? "outline" : "primary"}
               leftIcon={<IndianRupee className="h-4 w-4" />}
-              onClick={() =>
-                navigate(`/app/job-cards/${job.id}/payment`, { state: { jobCard: job } })
-              }
+              onClick={() => setCollecting(true)}
             >
-              {job.paymentStatus === "PAID" ? "View receipts" : "Collect payment"}
+              {job.paymentStatus === "PAID" ? "View payments" : "Collect payment"}
             </Button>
           </Card>
         </div>
       </div>
+
+      <CollectPaymentModal
+        jobCard={collecting ? job : null}
+        onClose={() => setCollecting(false)}
+        onChanged={(money) =>
+          setJob((current) =>
+            current
+              ? { ...current, status: money.status, paymentStatus: money.paymentStatus }
+              : current,
+          )
+        }
+        onAddItems={(card) => {
+          setCollecting(false)
+          navigate(`/app/job-cards/${card.id}/edit`, { state: { jobCard: card } })
+        }}
+      />
     </div>
   )
 }

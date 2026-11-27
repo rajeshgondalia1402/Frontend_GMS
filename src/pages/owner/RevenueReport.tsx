@@ -3,7 +3,6 @@ import {
   AlertCircle,
   CalendarDays,
   Car,
-  Download,
   IndianRupee,
   Receipt,
   RefreshCw,
@@ -18,7 +17,10 @@ import { openInNewTab } from '@/components/dashboard/ListPanel'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { getRevenueReport } from '@/services/dashboardService'
 import { ApiError } from '@/services/httpClient'
-import { datedFileName, downloadExcel } from '@/lib/excel'
+import { downloadReport } from '@/lib/report'
+import type { ReportFormat } from '@/lib/report'
+import { ExportButtons } from '@/components/common/ExportButtons'
+import { useAuth } from '@/context/AuthContext'
 import type { ExportColumn } from '@/lib/excel'
 import {
   PAYMENT_METHOD_OPTIONS,
@@ -74,6 +76,23 @@ const EXPORT_COLUMNS: ExportColumn<RevenueReportPayment>[] = [
   { header: 'Amount (₹)', value: (row) => row.amount },
   { header: 'Bill Amount (₹)', value: (row) => row.serviceJob.totalAmount },
   { header: 'Bill Status', value: (row) => paymentStatusLabel(row.serviceJob.paymentStatus) },
+  { header: 'Note', value: (row) => row.note ?? '', wrap: true },
+]
+
+/**
+ * The PDF's columns: the Excel ones minus "Received By" (always the garage)
+ * and the make/model, so the table fits an A4 page — and amounts as money.
+ */
+const PDF_COLUMNS: ExportColumn<RevenueReportPayment>[] = [
+  { header: 'Date', value: (row) => formatPaymentDate(row.paymentDate) },
+  { header: 'Job No.', value: (row) => row.serviceJob.jobNumber },
+  { header: 'Customer', value: (row) => row.serviceJob.vehicle.customer.fullName },
+  { header: 'Mobile', value: (row) => row.serviceJob.vehicle.customer.mobileNumber },
+  { header: 'Vehicle No.', value: (row) => row.serviceJob.vehicle.vehicleNumber },
+  { header: 'Method', value: (row) => paymentMethodLabel(row.paymentMethod) },
+  { header: 'Amount', value: (row) => formatCurrency(row.amount), align: 'right' },
+  { header: 'Bill Amount', value: (row) => formatCurrency(row.serviceJob.totalAmount), align: 'right' },
+  { header: 'Bill Status', value: (row) => paymentStatusLabel(row.serviceJob.paymentStatus), align: 'center' },
   { header: 'Note', value: (row) => row.note ?? '', wrap: true },
 ]
 
@@ -367,6 +386,8 @@ function PaymentList({ rows }: { rows: RevenueReportPayment[] }) {
  */
 export function RevenueReport({ kind }: { kind: RevenueReportKind }) {
   const { toast } = useToast()
+  // The garage's own name and contact go on the PDF's letterhead.
+  const { user } = useAuth()
   const { title } = REPORTS[kind]
   // The total revenue report is the payment list only; the two summary cards,
   // method split and trend chart stay on the month report.
@@ -384,7 +405,6 @@ export function RevenueReport({ kind }: { kind: RevenueReportKind }) {
   const [data, setData] = useState<RevenueReportData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [exporting, setExporting] = useState(false)
 
   // A range that ends before it starts is not sent: the API would only refuse it.
   const rangeError = fromDate && toDate && fromDate > toDate ? 'To date is before the from date.' : ''
@@ -443,9 +463,8 @@ export function RevenueReport({ kind }: { kind: RevenueReportKind }) {
    * Downloads every receipt the filters match, not just the page on screen —
    * the report is asked for once more with a page big enough to hold them all.
    */
-  const exportExcel = async () => {
+  const exportReport = async (format: ReportFormat) => {
     if (!data || data.pagination.total === 0) return
-    setExporting(true)
     try {
       const all = await getRevenueReport(kind, {
         page: 1,
@@ -456,8 +475,8 @@ export function RevenueReport({ kind }: { kind: RevenueReportKind }) {
         toDate,
       })
 
-      downloadExcel(
-        datedFileName(kind === 'total' ? 'total-revenue' : 'revenue-this-month'),
+      const baseName = kind === 'total' ? 'total-revenue' : 'revenue-this-month'
+      const info =
         {
           title: `${title} Report`,
           subtitle: periodLabel(kind, all, fromDate, toDate),
@@ -472,14 +491,63 @@ export function RevenueReport({ kind }: { kind: RevenueReportKind }) {
               value: `${formatCurrency(row.total)} (${row.count})`,
             })),
           ],
+        }
+      const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
+      const sum = all.summary
+
+      if (format === 'excel') {
+        await downloadReport('excel', baseName, info, EXPORT_COLUMNS, all.payments)
+        return
+      }
+
+      await downloadReport(
+        'pdf',
+        baseName,
+        {
+          ...info,
+          // The money breakdown gets its own table in the PDF, so the band
+          // above it keeps only what the report was filtered by.
+          meta: [
+            { label: 'Period', value: periodLabel(kind, all, fromDate, toDate) },
+            { label: 'Payment Method', value: method ? paymentMethodLabel(method) : 'All' },
+            { label: 'Search', value: debouncedSearch.trim() || 'None' },
+          ],
         },
-        EXPORT_COLUMNS,
+        PDF_COLUMNS,
         all.payments,
+        {
+          garageName: user?.garageName,
+          ownerName: user?.ownerName,
+          mobileNumber: user?.mobileNumber,
+          city: user?.city,
+          email: user?.email,
+        },
+        {
+          cards: [
+            { label: 'Total Collected', value: formatCurrency(sum.total), hint: `From ${plural(sum.customers, 'customer')}` },
+            { label: 'Payments', value: sum.count.toLocaleString('en-IN'), hint: `Against ${plural(sum.jobCards, 'job card')}` },
+            { label: 'Average Payment', value: formatCurrency(Math.round(sum.average)) },
+            { label: 'Highest Payment', value: formatCurrency(sum.highest) },
+          ],
+          breakdown: {
+            title: 'By payment method',
+            headers: ['Method', 'Payments', 'Amount', 'Share'],
+            rows: all.byMethod.map((row) => [
+              paymentMethodLabel(row.paymentMethod),
+              String(row.count),
+              formatCurrency(row.total),
+              sum.total > 0 ? `${Math.round((row.total / sum.total) * 100)}%` : '0%',
+            ]),
+          },
+          tableTitle: 'Payment details',
+          totals: {
+            label: `Total (${plural(all.payments.length, 'payment')})`,
+            values: { Amount: formatCurrency(sum.total) },
+          },
+        },
       )
     } catch (cause) {
       toast(cause instanceof ApiError ? cause.message : 'Could not download the report.', 'error')
-    } finally {
-      setExporting(false)
     }
   }
 
@@ -487,8 +555,6 @@ export function RevenueReport({ kind }: { kind: RevenueReportKind }) {
   const summary = data?.summary
   const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`
 
-  const headerButton =
-    'inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50'
 
   return (
     <div className="space-y-5">
@@ -507,14 +573,10 @@ export function RevenueReport({ kind }: { kind: RevenueReportKind }) {
         </div>
 
         <div className="flex shrink-0 gap-2 print:hidden">
-          <button
-            type="button"
-            onClick={() => void exportExcel()}
-            disabled={exporting || !data || data.pagination.total === 0}
-            className={headerButton}
-          >
-            <Download className="h-4 w-4" /> {exporting ? 'Preparing…' : 'Excel'}
-          </button>
+          <ExportButtons
+            onExport={exportReport}
+            disabled={!data || data.pagination.total === 0}
+          />
         </div>
       </div>
 

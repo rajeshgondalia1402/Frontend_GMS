@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CalendarDays, Car, ChevronDown, Download, Eye, Phone, Plus, Users } from 'lucide-react'
+import { CalendarDays, Car, ChevronDown, Eye, Phone, Plus, Users } from 'lucide-react'
 import {
   ActionButton,
   DEFAULT_PAGE_SIZE,
@@ -16,7 +16,9 @@ import { useAuth } from '@/context/AuthContext'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { customerService } from '@/services/customerService'
 import { ApiError } from '@/services/httpClient'
-import { datedFileName, downloadExcel } from '@/lib/excel'
+import { downloadReport } from '@/lib/report'
+import type { ReportFormat } from '@/lib/report'
+import { ExportButtons } from '@/components/common/ExportButtons'
 import type { ExportColumn } from '@/lib/excel'
 import { formatDate } from '@/lib/utils'
 import {
@@ -279,9 +281,10 @@ export function Customers() {
    * search term in the box. Asking for "All" rows first is what downloads
    * everything.
    */
-  const exportExcel = () =>
-    downloadExcel(
-      datedFileName('customers'),
+  const exportList = (format: ReportFormat) =>
+    downloadReport(
+      format,
+      'customers',
       {
         title: 'Customer List',
         subtitle: user?.garageName ?? 'Garage Management System',
@@ -296,6 +299,7 @@ export function Customers() {
       },
       EXPORT_COLUMNS,
       customers,
+      { garageName: user?.garageName, ownerName: user?.ownerName, mobileNumber: user?.mobileNumber, city: user?.city, email: user?.email },
     )
 
   const addButton = (
@@ -339,14 +343,7 @@ export function Customers() {
             onChange={(e) => setPeriod(e.target.value as CreatedPeriod)}
           />
         </div>
-        <Button
-          variant="outline"
-          leftIcon={<Download className="h-4 w-4" />}
-          disabled={customers.length === 0}
-          onClick={exportExcel}
-        >
-          Download Excel
-        </Button>
+        <ExportButtons onExport={exportList} disabled={customers.length === 0} />
       </div>
 
       {/* The table sorts from its headers; the cards get the same fields here. */}

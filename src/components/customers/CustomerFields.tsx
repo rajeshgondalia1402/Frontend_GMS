@@ -1,7 +1,8 @@
 import type { ChangeEvent } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
-import { Home, Mail, MapPin, MessageCircle, Phone, StickyNote, User } from 'lucide-react'
-import { Checkbox, Input, Textarea } from '@/components/ui'
+import { Home, Mail, MapPin, MessageCircle, Phone, StickyNote, User, UserPlus } from 'lucide-react'
+import { Input, Textarea } from '@/components/ui'
+import { FormSection } from '@/components/common/FormSection'
 import { cn } from '@/lib/utils'
 import type { CustomerFormValues } from '@/lib/customerForm'
 import {
@@ -21,15 +22,20 @@ import {
 
 interface CustomerFieldsProps {
   form: UseFormReturn<CustomerFormValues>
-  /** Single column inside the edit dialog, three across the full page. */
+  /** Column count of the plain (un-sectioned) layout used in the edit dialog. */
   columns?: 1 | 2 | 3
+  /**
+   * The full "Add Customer" page: the must-have contact details in one card
+   * and the extras folded away in a second, so a walk-in is added in seconds.
+   */
+  sectioned?: boolean
 }
 
 /**
  * The customer fields shared by the add page and the edit dialog, including
  * the "same as mobile" mirroring, so both collect exactly what the API takes.
  */
-export function CustomerFields({ form, columns = 3 }: CustomerFieldsProps) {
+export function CustomerFields({ form, columns = 3, sectioned = false }: CustomerFieldsProps) {
   const {
     register,
     setValue,
@@ -71,13 +77,162 @@ export function CustomerFields({ form, columns = 3 }: CustomerFieldsProps) {
     if (e.target.checked) mirrorToWhatsapp(getValues('mobileNumber'))
   }
 
-  const three = columns === 3
+  const nameInput = (
+    <Input
+      label="Customer Name *"
+      placeholder="e.g. Rahul Patel"
+      autoComplete="name"
+      maxLength={FULL_NAME_MAX_LENGTH}
+      leftIcon={<User className="h-4 w-4" />}
+      error={errors.fullName?.message}
+      {...register('fullName', fullNameRules)}
+    />
+  )
 
-  /** Takes the whole row at every width the grid is more than one column wide. */
-  const fullRow = three ? 'md:col-span-2 xl:col-span-3' : 'md:col-span-2'
-  /** Takes the whole row only until a third column exists to sit in. */
-  const untilThird = three ? 'md:col-span-2 xl:col-span-1' : undefined
+  const mobileInput = (
+    <Input
+      label="Mobile Number *"
+      type="tel"
+      inputMode="numeric"
+      autoComplete="tel"
+      placeholder="10-digit mobile number"
+      maxLength={MOBILE_LENGTH}
+      leftIcon={<Phone className="h-4 w-4" />}
+      error={errors.mobileNumber?.message}
+      {...mobileField}
+      onChange={onMobileChange}
+    />
+  )
 
+  /** A tappable row rather than a bare checkbox — it is the common case. */
+  const sameAsMobileToggle = (
+    <label
+      htmlFor="sameAsMobile"
+      className={cn(
+        'flex min-h-[44px] cursor-pointer select-none items-center gap-3 rounded-lg border px-3 py-2 text-sm transition-colors',
+        sameAsMobile
+          ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+          : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100',
+      )}
+    >
+      <input
+        id="sameAsMobile"
+        type="checkbox"
+        className="h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 accent-emerald-600"
+        {...sameAsMobileField}
+        onChange={onSameAsMobileChange}
+      />
+      <MessageCircle className="h-4 w-4 shrink-0" />
+      <span className="font-medium">WhatsApp is on this same mobile number</span>
+    </label>
+  )
+
+  /** Only asked for when it differs — kept mounted so its rules still run. */
+  const whatsappInput = (
+    <div className={cn(sameAsMobile && 'hidden')}>
+      <Input
+        label="WhatsApp Number *"
+        type="tel"
+        inputMode="numeric"
+        placeholder="10-digit WhatsApp number"
+        maxLength={MOBILE_LENGTH}
+        leftIcon={<MessageCircle className="h-4 w-4" />}
+        hint="Bills and reminders are sent here"
+        error={errors.whatsappNumber?.message}
+        {...whatsappField}
+        onChange={onWhatsappChange}
+      />
+    </div>
+  )
+
+  const emailInput = (
+    <Input
+      label="Email"
+      type="email"
+      placeholder="rahul@example.com"
+      autoComplete="email"
+      maxLength={EMAIL_MAX_LENGTH}
+      leftIcon={<Mail className="h-4 w-4" />}
+      error={errors.email?.message}
+      {...register('email', optionalEmailRules)}
+    />
+  )
+
+  const cityInput = (
+    <Input
+      label="City"
+      placeholder="e.g. Ahmedabad"
+      autoComplete="address-level2"
+      maxLength={CITY_MAX_LENGTH}
+      leftIcon={<MapPin className="h-4 w-4" />}
+      error={errors.city?.message}
+      {...register('city', optionalCityRules)}
+    />
+  )
+
+  const addressInput = (
+    <Textarea
+      label="Address"
+      placeholder="House no., street, area"
+      rows={2}
+      maxLength={ADDRESS_MAX_LENGTH}
+      leftIcon={<Home className="h-4 w-4" />}
+      error={errors.address?.message}
+      {...register('address', optionalAddressRules)}
+    />
+  )
+
+  const notesInput = (
+    <Textarea
+      label="Notes"
+      placeholder="e.g. Regular customer, prefers weekend service"
+      rows={2}
+      leftIcon={<StickyNote className="h-4 w-4" />}
+      {...register('notes')}
+    />
+  )
+
+  if (sectioned) {
+    const optionalHasError = Boolean(errors.email || errors.city || errors.address || errors.notes)
+
+    return (
+      <div className="space-y-4">
+        <FormSection
+          title="Customer contact"
+          description="Only the name and mobile number are needed to get started."
+          icon={UserPlus}
+        >
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {nameInput}
+            <div className="space-y-3">
+              {mobileInput}
+              {sameAsMobileToggle}
+            </div>
+            {whatsappInput}
+          </div>
+        </FormSection>
+
+        <FormSection
+          title="More details"
+          badge="Optional"
+          description="Email, city, address and notes — add now or any time later."
+          icon={StickyNote}
+          collapsible
+          defaultOpen={false}
+          forceOpen={optionalHasError}
+        >
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {emailInput}
+            {cityInput}
+            {addressInput}
+            {notesInput}
+          </div>
+        </FormSection>
+      </div>
+    )
+  }
+
+  const multi = columns > 1
   return (
     <div
       className={cn(
@@ -86,95 +241,16 @@ export function CustomerFields({ form, columns = 3 }: CustomerFieldsProps) {
         columns === 3 && 'md:grid-cols-2 xl:grid-cols-3',
       )}
     >
-      <div className={untilThird ?? fullRow}>
-        <Input
-          label="Customer Name *"
-          placeholder="Rahul Patel"
-          autoComplete="name"
-          maxLength={FULL_NAME_MAX_LENGTH}
-          leftIcon={<User className="h-4 w-4" />}
-          error={errors.fullName?.message}
-          {...register('fullName', fullNameRules)}
-        />
+      {nameInput}
+      <div className="space-y-3">
+        {mobileInput}
+        {sameAsMobileToggle}
       </div>
-
-      <Input
-        label="Mobile Number *"
-        type="tel"
-        inputMode="numeric"
-        autoComplete="tel"
-        placeholder="9876543210"
-        maxLength={MOBILE_LENGTH}
-        leftIcon={<Phone className="h-4 w-4" />}
-        error={errors.mobileNumber?.message}
-        {...mobileField}
-        onChange={onMobileChange}
-      />
-
-      <Input
-        label="WhatsApp Number *"
-        type="tel"
-        inputMode="numeric"
-        placeholder="9876543210"
-        maxLength={MOBILE_LENGTH}
-        leftIcon={<MessageCircle className="h-4 w-4" />}
-        readOnly={sameAsMobile}
-        className={sameAsMobile ? 'bg-slate-50 text-slate-500' : undefined}
-        error={errors.whatsappNumber?.message}
-        {...whatsappField}
-        onChange={onWhatsappChange}
-      />
-
-      <div className={cn('-mt-1', fullRow)}>
-        <Checkbox
-          label="WhatsApp number is the same as the mobile number"
-          {...sameAsMobileField}
-          onChange={onSameAsMobileChange}
-        />
-      </div>
-
-      <Input
-        label="Email"
-        type="email"
-        placeholder="rahul@example.com"
-        autoComplete="email"
-        maxLength={EMAIL_MAX_LENGTH}
-        hint="Optional"
-        leftIcon={<Mail className="h-4 w-4" />}
-        error={errors.email?.message}
-        {...register('email', optionalEmailRules)}
-      />
-
-      <Input
-        label="City"
-        placeholder="Ahmedabad"
-        autoComplete="address-level2"
-        maxLength={CITY_MAX_LENGTH}
-        hint="Optional"
-        leftIcon={<MapPin className="h-4 w-4" />}
-        error={errors.city?.message}
-        {...register('city', optionalCityRules)}
-      />
-
-      <div className={untilThird}>
-        <Textarea
-          label="Address"
-          placeholder="Street, area, city"
-          maxLength={ADDRESS_MAX_LENGTH}
-          leftIcon={<Home className="h-4 w-4" />}
-          error={errors.address?.message}
-          {...register('address', optionalAddressRules)}
-        />
-      </div>
-
-      <div className={three ? fullRow : undefined}>
-        <Textarea
-          label="Notes"
-          placeholder="Regular customer, prefers weekend service..."
-          leftIcon={<StickyNote className="h-4 w-4" />}
-          {...register('notes')}
-        />
-      </div>
+      {whatsappInput}
+      {emailInput}
+      {cityInput}
+      {addressInput}
+      <div className={multi ? 'md:col-span-2 xl:col-span-3' : undefined}>{notesInput}</div>
     </div>
   )
 }

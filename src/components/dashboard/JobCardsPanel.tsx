@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { JobCardStatusBadge, PaymentStatusBadge } from '@/components/common/StatusBadges'
 import type { ComponentProps } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -11,7 +12,6 @@ import {
   ListChecks,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { Badge } from '@/components/ui'
 import { useDashboardPage } from '@/hooks/useDashboardPage'
 import {
   getDashboardNewJobCards,
@@ -19,8 +19,8 @@ import {
   getDashboardUnpaidBills,
 } from '@/services/dashboardService'
 import { monthLabel } from '@/lib/dashboard'
-import { formatServiceDate, jobCardStatusLabel, jobCardStatusTone } from '@/lib/jobCard'
-import { paidBarClass, paidPercent, paymentStatusLabel, paymentStatusTone } from '@/lib/payment'
+import { formatServiceDate } from '@/lib/jobCard'
+import { paidBarClass, paidPercent } from '@/lib/payment'
 import { cn, formatCurrency } from '@/lib/utils'
 import type { DashboardJobCardsPage, DashboardNewJobCard } from '@/types/dashboard'
 import {
@@ -49,9 +49,7 @@ function Money({ jobCard, align = 'left' }: { jobCard: DashboardNewJobCard; alig
         <span className="text-sm font-semibold text-slate-900">
           {formatCurrency(jobCard.totalAmount)}
         </span>
-        <Badge tone={paymentStatusTone(jobCard.paymentStatus)}>
-          {paymentStatusLabel(jobCard.paymentStatus)}
-        </Badge>
+        <PaymentStatusBadge payment={jobCard.paymentStatus} status={jobCard.status} />
       </div>
       <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
         <div
@@ -233,9 +231,7 @@ export function JobCardsPanel({ variant }: { variant: JobCardsPanelVariant }) {
                 </p>
               </td>
               <td className="px-3 py-3">
-                <Badge tone={jobCardStatusTone(jobCard.status)}>
-                  {jobCardStatusLabel(jobCard.status)}
-                </Badge>
+                <JobCardStatusBadge status={jobCard.status} payment={jobCard.paymentStatus} />
               </td>
               <td className="px-3 py-3">
                 <Money jobCard={jobCard} />
@@ -261,9 +257,7 @@ export function JobCardsPanel({ variant }: { variant: JobCardsPanelVariant }) {
                 <div className="min-w-0 space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <JobNumber jobCard={jobCard} />
-                    <Badge tone={jobCardStatusTone(jobCard.status)}>
-                      {jobCardStatusLabel(jobCard.status)}
-                    </Badge>
+                    <JobCardStatusBadge status={jobCard.status} payment={jobCard.paymentStatus} />
                   </div>
                   <p className="truncate text-sm font-semibold text-slate-800">
                     {jobCard.vehicle.vehicleNumber}

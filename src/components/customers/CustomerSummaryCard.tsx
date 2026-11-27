@@ -93,7 +93,7 @@ export function CustomerSummaryCard({
         </div>
 
         <Button
-          variant="primary"
+          variant="outline"
           className="w-full shrink-0 sm:w-auto"
           leftIcon={<Pencil className="h-4 w-4" />}
           onClick={onEdit}

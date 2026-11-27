@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { CalendarDays, CheckCircle2, Clock, CreditCard, Download, MapPin, Phone } from 'lucide-react'
+import { CalendarDays, CheckCircle2, Clock, CreditCard, MapPin, Phone } from 'lucide-react'
 import {
   DEFAULT_PAGE_SIZE,
   FilterCard,
@@ -11,7 +11,7 @@ import {
   SortBar,
 } from '@/components/common'
 import type { Column, SortBarField, SortOrder } from '@/components/common'
-import { Badge, Button, EmptyState, ErrorState, LoadingState } from '@/components/ui'
+import { Badge, EmptyState, ErrorState, LoadingState } from '@/components/ui'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import {
   daysLeftClass,
@@ -21,7 +21,9 @@ import {
   planTone,
 } from '@/lib/adminReport'
 import { formatCount } from '@/lib/dashboard'
-import { datedFileName, downloadExcel } from '@/lib/excel'
+import { downloadReport } from '@/lib/report'
+import type { ReportFormat } from '@/lib/report'
+import { ExportButtons } from '@/components/common/ExportButtons'
 import type { ExportColumn } from '@/lib/excel'
 import { cn, formatDate } from '@/lib/utils'
 import { adminService } from '@/services/adminService'
@@ -175,9 +177,10 @@ export function AdminReports() {
   const counts = report?.counts
   const narrowed = Boolean(search) || Boolean(plan)
 
-  const exportExcel = () =>
-    downloadExcel(
-      datedFileName('active-garages'),
+  const exportList = (format: ReportFormat) =>
+    downloadReport(
+      format,
+      'active-garages',
       {
         title: 'Active Garages',
         subtitle: 'GaragePro Admin — garages live on a subscription right now',
@@ -190,6 +193,7 @@ export function AdminReports() {
       },
       EXPORT_COLUMNS,
       rows,
+      { garageName: 'GaragePilot Admin', ownerName: 'Platform report' },
     )
 
   const columns: Column<GarageReportRow>[] = [
@@ -330,15 +334,7 @@ export function AdminReports() {
           placeholder="Search owner, garage, city, email or mobile..."
           className="lg:flex-1"
         />
-        <Button
-          variant="outline"
-          className="shrink-0"
-          leftIcon={<Download className="h-4 w-4" />}
-          disabled={rows.length === 0}
-          onClick={exportExcel}
-        >
-          Download Excel
-        </Button>
+        <ExportButtons onExport={exportList} disabled={rows.length === 0} />
       </div>
 
 
