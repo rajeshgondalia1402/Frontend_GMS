@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { AlertCircle } from 'lucide-react'
-import { Button, Card, useToast } from '@/components/ui'
+import { AlertCircle, Check } from 'lucide-react'
+import { Button, useToast } from '@/components/ui'
 import { vehicleService } from '@/services/vehicleService'
 import { ApiError } from '@/services/httpClient'
 import {
@@ -18,6 +18,8 @@ import { VehicleFields } from './VehicleFields'
 
 interface VehicleFormCardProps {
   customerId: string
+  /** Shown in the heading, so it is clear whose vehicle this is. */
+  customerName?: string
   /**
    * Fills the form in from a vehicle already on file, so a returning one is
    * not retyped. Remount the form (key on the vehicle id) to seed it again.
@@ -32,14 +34,21 @@ interface VehicleFormCardProps {
   /** Hands the saved row back so the page can list it. */
   onSaved: (vehicle: VehicleRecord) => void
   onCancel: () => void
+  /** Label of the cancel button — "Skip for now" during the new-customer flow. */
+  cancelLabel?: string
+  /** Leaves the heading out where the page already says what the form is for. */
+  hideHeading?: boolean
 }
 
 export function VehicleFormCard({
   customerId,
+  customerName,
   seed,
   editing,
   onSaved,
   onCancel,
+  cancelLabel = 'Cancel',
+  hideHeading = false,
 }: VehicleFormCardProps) {
   const { toast } = useToast()
 
@@ -118,46 +127,56 @@ export function VehicleFormCard({
   const onSubmit = (values: VehicleFormValues) =>
     editing ? update(values, editing) : create(values)
 
+  const title = editing
+    ? `Edit ${editing.vehicleNumber || 'Vehicle'}`
+    : seed
+      ? `Book ${seed.vehicleNumber} in again`
+      : customerName
+        ? `Add vehicle for ${customerName}`
+        : 'Add Vehicle'
+
+  const subtitle = editing
+    ? 'Change what is on file for this vehicle.'
+    : seed
+      ? 'The vehicle details are filled in — just add today’s reading and the work needed.'
+      : 'Enter the number plate, pick the type and note the work needed.'
+
   return (
-    <Card>
-      <h2 className="text-base font-semibold text-slate-900">
-        {editing ? 'Edit Vehicle' : 'Vehicle Details'}
-      </h2>
-      <p className="mt-0.5 text-sm text-slate-500">
-        {editing
-          ? 'Change what is on file for this vehicle.'
-          : 'Add the vehicle this customer is bringing in.'}
-      </p>
+    <div id="vehicle-form" className="scroll-mt-20">
+      <div className={hideHeading ? 'hidden' : 'mb-3'}>
+        <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+        <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>
+      </div>
 
       {error && (
         <div
           role="alert"
-          className="mt-4 flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3"
+          className="mb-4 flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3"
         >
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
           <p className="text-sm font-medium text-red-700">{error}</p>
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-4">
-        <VehicleFields form={form} columns={3} />
+      <form onSubmit={handleSubmit(onSubmit)} noValidate>
+        <VehicleFields form={form} showStatus={Boolean(editing)} />
 
-        <div className="mt-5 flex gap-3 sm:justify-end">
-          <Button
-            type="button"
-            variant="outline"
-            fullWidth
-            className="sm:w-auto sm:flex-none"
-            disabled={saving}
-            onClick={onCancel}
-          >
-            Cancel
-          </Button>
-          <Button type="submit" fullWidth className="sm:w-auto sm:flex-none" loading={saving}>
-            {editing ? 'Update Vehicle' : 'Save Vehicle'}
-          </Button>
+        {/* Stays in reach of the thumb on a phone, above the bottom bar. */}
+        <div className="sticky bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-20 mt-4 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-soft backdrop-blur lg:bottom-4 sm:p-4">
+          <div className="grid grid-cols-[auto_1fr] gap-2 sm:flex sm:justify-end sm:gap-3">
+            <Button type="button" variant="outline" disabled={saving} onClick={onCancel}>
+              {cancelLabel}
+            </Button>
+            <Button
+              type="submit"
+              loading={saving}
+              leftIcon={<Check className="h-4 w-4" />}
+            >
+              {editing ? 'Update Vehicle' : 'Save Vehicle'}
+            </Button>
+          </div>
         </div>
       </form>
-    </Card>
+    </div>
   )
 }

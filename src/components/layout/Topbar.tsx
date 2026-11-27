@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Menu, Search, KeyRound, LogOut, User, Download } from 'lucide-react'
+import { Menu, KeyRound, LogOut, User, Download } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useAdminAuth } from '@/context/AdminAuthContext'
 import { SubscriptionPill } from './SubscriptionPill'
@@ -15,11 +15,10 @@ export type ShellVariant = 'owner' | 'admin'
 interface TopbarProps {
   title: string
   onMenuClick: () => void
-  showSearch?: boolean
   variant?: ShellVariant
 }
 
-export function Topbar({ title, onMenuClick, showSearch = true, variant = 'owner' }: TopbarProps) {
+export function Topbar({ title, onMenuClick, variant = 'owner' }: TopbarProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [passwordOpen, setPasswordOpen] = useState(false)
   const navigate = useNavigate()
@@ -56,16 +55,6 @@ export function Topbar({ title, onMenuClick, showSearch = true, variant = 'owner
       </button>
 
       <h1 className="truncate text-base font-semibold text-slate-900 lg:hidden">{title}</h1>
-
-      {showSearch && (
-        <div className="relative hidden max-w-md flex-1 lg:block">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            placeholder="Search..."
-            className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm placeholder:text-slate-400 focus:border-primary-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-100"
-          />
-        </div>
-      )}
 
       <div className="ml-auto flex items-center gap-2">
         {/* The platform admin has no subscription of its own. */}

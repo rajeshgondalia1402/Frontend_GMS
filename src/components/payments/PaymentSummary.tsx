@@ -1,6 +1,6 @@
-import { Badge } from '@/components/ui'
+import { PaymentStatusBadge } from '@/components/common/StatusBadges'
 import { formatMoney } from '@/lib/jobCard'
-import { paidBarClass, paidPercent, paymentStatusLabel, paymentStatusTone } from '@/lib/payment'
+import { paidBarClass, paidPercent } from '@/lib/payment'
 import { cn } from '@/lib/utils'
 import type { JobCardMoney } from '@/types/payment'
 
@@ -43,9 +43,7 @@ export function PaymentSummary({ money, className }: PaymentSummaryProps) {
             {formatMoney(money.remainingAmount)}
           </p>
         </div>
-        <Badge tone={paymentStatusTone(money.paymentStatus)}>
-          {paymentStatusLabel(money.paymentStatus)}
-        </Badge>
+        <PaymentStatusBadge payment={money.paymentStatus} status={money.status} />
       </div>
 
       <div className="mt-4">

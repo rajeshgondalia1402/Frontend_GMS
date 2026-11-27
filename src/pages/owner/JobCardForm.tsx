@@ -331,6 +331,30 @@ export function JobCardForm() {
     clearError('vehicleNumber')
   }
 
+  /**
+   * Opened from a customer's page ("Create Job Card"): that customer — and the
+   * vehicle, when one was picked — are filled in so the desk goes straight on
+   * to the work. Applied once, on a new card only.
+   */
+  const prefill = isEdit
+    ? undefined
+    : (
+        location.state as {
+          prefill?: {
+            customer: Pick<CustomerRecord, 'id' | 'fullName' | 'mobileNumber'>
+            vehicle?: VehicleWithCustomer
+          }
+        } | null
+      )?.prefill
+  const prefilled = useRef(false)
+  useEffect(() => {
+    if (!prefill || prefilled.current) return
+    prefilled.current = true
+    selectCustomer(prefill.customer as CustomerRecord)
+    if (prefill.vehicle) selectVehicle(prefill.vehicle)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const selectVehicleOption = (option: PickerOption) => {
     const picked = customerVehicles.find((v) => v.id === option.id)
     if (!picked) return

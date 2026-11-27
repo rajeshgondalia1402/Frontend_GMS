@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
+import { JobCardStatusBadge, PaymentStatusBadge } from '@/components/common/StatusBadges'
 import { AlertCircle, CarFront, ChevronRight, FileText, HardHat, RefreshCw } from 'lucide-react'
 import { PaginationBar } from '@/components/common'
-import { Badge, Modal, Skeleton } from '@/components/ui'
+import { Modal, Skeleton } from '@/components/ui'
 import { getDashboardJobCardsMonth } from '@/services/dashboardService'
 import { ApiError } from '@/services/httpClient'
-import { formatServiceDate, jobCardStatusLabel, jobCardStatusTone } from '@/lib/jobCard'
-import { paymentStatusLabel, paymentStatusTone } from '@/lib/payment'
+import { formatServiceDate } from '@/lib/jobCard'
 import { cn, formatCurrency } from '@/lib/utils'
 import type { DashboardJobCardsMonth } from '@/types/dashboard'
 import { openInNewTab } from './ListPanel'
@@ -203,9 +203,7 @@ export function JobCardsMonthModal({ selection, onClose }: JobCardsMonthModalPro
                               <span className="truncate text-sm font-medium text-slate-800">
                                 {vehicle.customer.fullName}
                               </span>
-                              <Badge tone={jobCardStatusTone(jobCard.status)}>
-                                {jobCardStatusLabel(jobCard.status)}
-                              </Badge>
+                              <JobCardStatusBadge status={jobCard.status} payment={jobCard.paymentStatus} />
                             </div>
                             <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-slate-500">
                               <span>
@@ -225,9 +223,7 @@ export function JobCardsMonthModal({ selection, onClose }: JobCardsMonthModalPro
                             <p className="text-sm font-semibold text-slate-900">
                               {formatCurrency(jobCard.totalAmount)}
                             </p>
-                            <Badge tone={paymentStatusTone(jobCard.paymentStatus)}>
-                              {paymentStatusLabel(jobCard.paymentStatus)}
-                            </Badge>
+                            <PaymentStatusBadge payment={jobCard.paymentStatus} status={jobCard.status} />
                           </div>
                           <ChevronRight className="h-4 w-4 shrink-0 text-slate-300 group-hover:text-violet-500" />
                         </button>

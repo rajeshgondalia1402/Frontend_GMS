@@ -164,9 +164,29 @@ function colorOp(color: Rgb, stroke: boolean): string {
  * One document being written out. Draw onto it top-down, call `addPage` when
  * the room runs out, and `blob` when it is finished.
  */
+/**
+ * A JPEG to place on the page, e.g. the logo. `data` is the file's bytes as a
+ * binary string (one char per byte) — JPEG goes into a PDF as-is.
+ */
+export interface PdfImage {
+  data: string
+  /** Size of the picture in pixels. */
+  width: number
+  height: number
+}
+
 export class PdfDocument {
-  readonly width = PAGE_WIDTH
-  readonly height = PAGE_HEIGHT
+  readonly width: number
+  readonly height: number
+
+  /** Pictures used anywhere in the document, each written once. */
+  private readonly images: PdfImage[] = []
+
+  /** A4 portrait by default; `landscape` turns it sideways for wide tables. */
+  constructor(options: { landscape?: boolean } = {}) {
+    this.width = options.landscape ? PAGE_HEIGHT : PAGE_WIDTH
+    this.height = options.landscape ? PAGE_WIDTH : PAGE_HEIGHT
+  }
 
   /** Every page's drawing operators, in order. */
   private readonly pages: string[][] = [[]]
@@ -245,6 +265,18 @@ export class PdfDocument {
     }
   }
 
+  /** Draws a JPEG with its top-left corner at `x`, `y`, stretched to `width` × `height`. */
+  image(img: PdfImage, x: number, y: number, width: number, height: number): void {
+    let index = this.images.indexOf(img)
+    if (index < 0) {
+      this.images.push(img)
+      index = this.images.length - 1
+    }
+    this.current.push(
+      `q ${num(width)} 0 0 ${num(height)} ${num(x)} ${num(this.toPdfY(y + height))} cm /Im${index} Do Q`,
+    )
+  }
+
   /**
    * The text broken into lines that each fit `maxWidth`, breaking on spaces
    * where it can and mid-word where a single word is longer than the column.
@@ -307,13 +339,18 @@ export class PdfDocument {
     // 1 catalog, 2 page tree, 3–5 the fonts, then a page and a content stream
     // for each page of the document.
     const fontId = (weight: FontWeight) => 3 + WEIGHTS.indexOf(weight)
-    const firstPageId = 3 + WEIGHTS.length
+    // Images follow the fonts, then a page and a content stream per page.
+    const imageId = (index: number) => 3 + WEIGHTS.length + index
+    const firstPageId = 3 + WEIGHTS.length + this.images.length
     const pageId = (index: number) => firstPageId + index * 2
     const streamId = (index: number) => pageId(index) + 1
 
     const kids = this.pages.map((_, index) => `${pageId(index)} 0 R`).join(' ')
     const fonts = WEIGHTS.map((weight) => `/${FONT_KEYS[weight]} ${fontId(weight)} 0 R`).join(' ')
-    const resources = `<< /Font << ${fonts} >> >>`
+    const xobjects = this.images.length
+      ? ` /XObject << ${this.images.map((_, i) => `/Im${i} ${imageId(i)} 0 R`).join(' ')} >>`
+      : ''
+    const resources = `<< /Font << ${fonts} >>${xobjects} >>`
 
     objects.push('<< /Type /Catalog /Pages 2 0 R >>')
     objects.push(`<< /Type /Pages /Kids [ ${kids} ] /Count ${pageCount} >>`)
@@ -321,6 +358,17 @@ export class PdfDocument {
     for (const weight of WEIGHTS) {
       objects.push(
         `<< /Type /Font /Subtype /Type1 /BaseFont /${FONT_NAMES[weight]} /Encoding /WinAnsiEncoding >>`,
+      )
+    }
+
+    for (const img of this.images) {
+      objects.push(
+        `<< /Type /XObject /Subtype /Image /Width ${img.width} /Height ${img.height} ` +
+          `/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${img.data.length} >>
+` +
+          `stream
+${img.data}
+endstream`,
       )
     }
 

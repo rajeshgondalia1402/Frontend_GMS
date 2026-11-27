@@ -203,11 +203,11 @@ export const vehicleNumberRules = {
 }
 
 export const vehicleTypeRules = {
-  required: 'Vehicle type is required',
-  validate: (value: string) => ((value ?? '').trim() ? true : 'Vehicle type is required'),
+  required: 'Please choose the vehicle type',
+  validate: (value: string) => ((value ?? '').trim() ? true : 'Please choose the vehicle type'),
 }
 
-export const vehicleDescriptionRules = requiredTextRules('Description', DESCRIPTION_MAX_LENGTH)
+export const vehicleDescriptionRules = requiredTextRules('Work needed', DESCRIPTION_MAX_LENGTH)
 
 /** Optional whole kilometres — the API stores an integer, or nothing at all. */
 export const currentKmRules = {

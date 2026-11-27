@@ -12,3 +12,4 @@ export {
   vehicleMakeModel,
 } from './VehicleFacts'
 export { VehicleMoreDetails } from './VehicleMoreDetails'
+export { VehicleStatusFilter } from './VehicleStatusFilter'

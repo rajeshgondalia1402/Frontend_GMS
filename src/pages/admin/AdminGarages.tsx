@@ -6,7 +6,6 @@ import {
   CalendarDays,
   CheckCircle2,
   ClipboardList,
-  Download,
   MapPin,
   Phone,
   XCircle,
@@ -23,7 +22,7 @@ import {
   SortBar,
 } from '@/components/common'
 import type { Column, FilterCardTone, SortBarField, SortOrder } from '@/components/common'
-import { Badge, Button, EmptyState, ErrorState, LoadingState, Select, WhatsappIcon } from '@/components/ui'
+import { Badge, EmptyState, ErrorState, LoadingState, Select, WhatsappIcon } from '@/components/ui'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { adminService } from '@/services/adminService'
 import { ApiError } from '@/services/httpClient'
@@ -38,7 +37,9 @@ import {
   planTone,
   subscriptionBadge,
 } from '@/lib/adminReport'
-import { datedFileName, downloadExcel } from '@/lib/excel'
+import { downloadReport } from '@/lib/report'
+import type { ReportFormat } from '@/lib/report'
+import { ExportButtons } from '@/components/common/ExportButtons'
 import type { ExportColumn } from '@/lib/excel'
 import { formatCount } from '@/lib/dashboard'
 import { cn, formatDate } from '@/lib/utils'
@@ -303,9 +304,10 @@ export function AdminGarages() {
    * search and filters that are set. Asking for "All" rows first is what
    * downloads every garage.
    */
-  const exportExcel = () =>
-    downloadExcel(
-      datedFileName('garages'),
+  const exportList = (format: ReportFormat) =>
+    downloadReport(
+      format,
+      'garages',
       {
         title: 'Garage List',
         subtitle: 'GaragePro Admin — every registered garage and its subscription',
@@ -320,6 +322,7 @@ export function AdminGarages() {
       },
       EXPORT_COLUMNS,
       rows,
+      { garageName: 'GaragePilot Admin', ownerName: 'Platform report' },
     )
 
   /**
@@ -439,15 +442,7 @@ export function AdminGarages() {
         title="Garage Subscriptions"
         subtitle="Every registered garage and its subscription"
         action={
-          <Button
-            variant="outline"
-            leftIcon={<Download className="h-4 w-4" />}
-            disabled={rows.length === 0}
-            onClick={exportExcel}
-          >
-            <span className="hidden sm:inline">Download Excel</span>
-            <span className="sm:hidden">Excel</span>
-          </Button>
+          <ExportButtons onExport={exportList} disabled={rows.length === 0} />
         }
       />
 

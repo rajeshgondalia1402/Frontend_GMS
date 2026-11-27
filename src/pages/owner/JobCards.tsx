@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { CollectPaymentModal } from '@/components/payments'
+import type { JobCardMoney } from '@/types/payment'
+import { JobCardStatusBadge, PaymentStatusBadge } from '@/components/common/StatusBadges'
 import { useNavigate } from 'react-router-dom'
 import {
   ChevronDown,
-  Download,
   Eye,
   FileText,
   IndianRupee,
@@ -21,7 +23,6 @@ import {
 } from '@/components/common'
 import type { Column, SortBarField, SortOrder } from '@/components/common'
 import {
-  Badge,
   Button,
   EmptyState,
   ErrorState,
@@ -38,12 +39,11 @@ import {
   JOB_CARD_EXPORT_COLUMNS,
   formatMoney,
   formatServiceDate,
-  jobCardStatusLabel,
-  jobCardStatusTone,
   vehicleDisplayName,
 } from '@/lib/jobCard'
-import { paymentStatusLabel, paymentStatusTone } from '@/lib/payment'
-import { datedFileName, downloadExcel } from '@/lib/excel'
+import { downloadReport } from '@/lib/report'
+import type { ReportFormat } from '@/lib/report'
+import { ExportButtons } from '@/components/common/ExportButtons'
 import { downloadInvoice } from '@/lib/invoice'
 import { customerWhatsappNumber, paymentReceiptMessage, whatsappLink } from '@/lib/whatsapp'
 import { JobCardMoreDetails } from '@/components/jobcards'
@@ -300,9 +300,19 @@ export function JobCards() {
     }
   }
 
-  /** Collecting the money is its own screen, whatever state the card is in. */
-  const openPayment = (job: JobCardRecord) =>
-    navigate(`/app/job-cards/${job.id}/payment`, { state: { jobCard: job } })
+  /** The card whose payment popup is open — collect money and see its history in place. */
+  const [collecting, setCollecting] = useState<JobCardRecord | null>(null)
+  const openPayment = (job: JobCardRecord) => setCollecting(job)
+
+  /** A payment changes the card's statuses — show them on its row straight away. */
+  const applyPaymentToRow = (money: JobCardMoney) =>
+    setJobCards((cards) =>
+      cards.map((card) =>
+        card.id === money.id
+          ? { ...card, status: money.status, paymentStatus: money.paymentStatus }
+          : card,
+      ),
+    )
 
   /**
    * Downloads exactly what the list is showing — this page of it, under the
@@ -313,9 +323,10 @@ export function JobCards() {
    * job card register, not the itemised bill. A single card's bill is the
    * Invoice button on its own row.
    */
-  const exportExcel = () =>
-    downloadExcel(
-      datedFileName('job-cards'),
+  const exportList = (format: ReportFormat) =>
+    downloadReport(
+      format,
+      'job-cards',
       {
         title: 'Job Card List',
         subtitle: user?.garageName ?? 'Garage Management System',
@@ -329,6 +340,7 @@ export function JobCards() {
       },
       JOB_CARD_EXPORT_COLUMNS,
       jobCards,
+      { garageName: user?.garageName, ownerName: user?.ownerName, mobileNumber: user?.mobileNumber, city: user?.city, email: user?.email },
     )
 
   const toggleParties = (id: string) =>
@@ -408,16 +420,14 @@ export function JobCards() {
       sortKey: 'status',
       className: 'hidden w-[7rem] xl:table-cell',
       accessor: (job) => (
-        <Badge tone={jobCardStatusTone(job.status)}>{jobCardStatusLabel(job.status)}</Badge>
+        <JobCardStatusBadge status={job.status} payment={job.paymentStatus} />
       ),
     },
     {
       header: 'Payment',
       className: 'w-[8rem]',
       accessor: (job) => (
-        <Badge tone={paymentStatusTone(job.paymentStatus)}>
-          {paymentStatusLabel(job.paymentStatus)}
-        </Badge>
+        <PaymentStatusBadge payment={job.paymentStatus} status={job.status} />
       ),
     },
     {
@@ -496,14 +506,7 @@ export function JobCards() {
           placeholder="Search customer, vehicle number or type..."
           className="sm:flex-1"
         />
-        <Button
-          variant="outline"
-          leftIcon={<Download className="h-4 w-4" />}
-          disabled={jobCards.length === 0}
-          onClick={exportExcel}
-        >
-          Download Excel
-        </Button>
+        <ExportButtons onExport={exportList} disabled={jobCards.length === 0} />
       </div>
 
       {/* The table sorts from its headers; the cards get the same fields here. */}
@@ -563,9 +566,7 @@ export function JobCards() {
                       </span>
                     </div>
                   </div>
-                  <Badge tone={jobCardStatusTone(job.status)}>
-                    {jobCardStatusLabel(job.status)}
-                  </Badge>
+                  <JobCardStatusBadge status={job.status} payment={job.paymentStatus} />
                 </div>
 
                 <p className="mt-2 truncate text-sm text-slate-500">{itemsLine(job)}</p>
@@ -575,9 +576,7 @@ export function JobCards() {
                     <span className="text-lg font-semibold tabular-nums text-slate-900">
                       {formatMoney(job.totalAmount)}
                     </span>
-                    <Badge tone={paymentStatusTone(job.paymentStatus)}>
-                      {paymentStatusLabel(job.paymentStatus)}
-                    </Badge>
+                    <PaymentStatusBadge payment={job.paymentStatus} status={job.status} />
                   </div>
 
                   {/* Invoice + Receipts + View want 289px and a 320px phone's
@@ -650,6 +649,16 @@ export function JobCards() {
           )}
         </>
       )}
+
+      <CollectPaymentModal
+        jobCard={collecting}
+        onClose={() => setCollecting(null)}
+        onChanged={applyPaymentToRow}
+        onAddItems={(job) => {
+          setCollecting(null)
+          navigate(`/app/job-cards/${job.id}/edit`, { state: { jobCard: job } })
+        }}
+      />
     </div>
   )
 }

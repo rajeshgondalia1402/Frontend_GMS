@@ -1,13 +1,27 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { AlertTriangle, ArrowLeft, Car, Plus } from 'lucide-react'
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Car,
+  CheckCircle2,
+  ClipboardPlus,
+  Pencil,
+  Phone,
+  Plus,
+  RotateCcw,
+  UserPlus,
+  Users,
+} from 'lucide-react'
 import { Button, Card, ErrorState, Skeleton } from '@/components/ui'
-import { PageHeader } from '@/components/common'
+import { FlowSteps, PageHeader } from '@/components/common'
 import { CustomerSummaryCard, EditCustomerModal } from '@/components/customers'
 import { VehicleFormCard, VehicleSummaryCard } from '@/components/vehicles'
 import { customerService } from '@/services/customerService'
 import { ApiError } from '@/services/httpClient'
 import { clearActiveCustomer, loadActiveCustomer, saveActiveCustomer } from '@/lib/activeCustomer'
+import { NEW_CUSTOMER_STEPS } from '@/lib/customerForm'
+import { getInitial } from '@/lib/utils'
 import type { CustomerRecord, CustomerWithVehicles } from '@/types/customer'
 import type { VehicleSummary } from '@/types/vehicle'
 
@@ -36,9 +50,50 @@ function CustomerDetailsSkeleton() {
   )
 }
 
+/** What the vehicle form on this page is open for, when opened from the page itself. */
+type LocalForm =
+  | { mode: 'add' }
+  | { mode: 'edit'; vehicle: VehicleSummary }
+  | { mode: 'again'; vehicle: VehicleSummary }
+
+/** The one-line "whose vehicle is this" strip of the new-customer flow. */
+function CustomerStrip({ customer, onEdit }: { customer: CustomerRecord; onEdit: () => void }) {
+  return (
+    <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 sm:p-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-base font-semibold text-emerald-700 ring-1 ring-emerald-200">
+          {getInitial(customer.fullName)}
+        </span>
+        <div className="min-w-0">
+          <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+            <CheckCircle2 className="h-3.5 w-3.5" /> Customer saved
+          </p>
+          <p className="truncate text-sm font-semibold text-slate-900">{customer.fullName}</p>
+          <p className="flex items-center gap-1 text-xs text-slate-500">
+            <Phone className="h-3 w-3" /> {customer.mobileNumber}
+          </p>
+        </div>
+      </div>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="shrink-0"
+        leftIcon={<Pencil className="h-3.5 w-3.5" />}
+        onClick={onEdit}
+      >
+        Edit
+      </Button>
+    </div>
+  )
+}
+
 /**
  * One customer, read-only, with an Edit button and their vehicles — reached
  * both from the View button in the list and straight after adding a customer.
+ *
+ * Reached with `?flow=new` (straight after "Add Customer"), the page becomes
+ * step 2 of a guided flow: just the vehicle form, then a "done" screen whose
+ * buttons lead on to what usually comes next — opening a job card.
  *
  * The details come from `GET /auth/customer/:id`. What the caller handed over
  * — or the copy parked in session storage — only seeds the page so it is never
@@ -54,6 +109,11 @@ export function CustomerDetails() {
    * customer — the back link then points at that tab. */
   const fromVehicles = searchParams.get('from') === 'vehicles'
   const listPath = fromVehicles ? '/app/vehicles' : '/app/customers'
+
+  /** Straight after creating the customer: the guided add-vehicle step. */
+  const flow = searchParams.get('flow') === 'new'
+  const [flowStage, setFlowStage] = useState<'vehicle' | 'done'>('vehicle')
+  const [justSaved, setJustSaved] = useState<VehicleSummary | null>(null)
 
   /**
    * Sent by the two buttons on the Vehicles tab, which both land here on the
@@ -85,19 +145,34 @@ export function CustomerDetails() {
   /** Set when the fetch failed but seeded details are still on screen. */
   const [stale, setStale] = useState(false)
 
-  const [editing, setEditing] = useState(false)
+  const [editingCustomer, setEditingCustomer] = useState(false)
   const [formOpen, setFormOpen] = useState(addMode || editMode)
+  /** Opened from a button on this page rather than from the Vehicles tab. */
+  const [localForm, setLocalForm] = useState<LocalForm | null>(null)
 
   /**
    * The vehicle the form is about. What the Vehicles tab handed over is the
    * full row; on a reload it falls back to the copy the customer fetch embeds,
    * which is enough to fill the form in.
    */
-  const seedVehicle =
+  const urlSeedVehicle =
     handed?.vehicle ?? (seedVehicleId ? vehicles.find((v) => v.id === seedVehicleId) : undefined)
 
+  const seedVehicle = localForm
+    ? localForm.mode === 'add'
+      ? undefined
+      : localForm.vehicle
+    : urlSeedVehicle
+
   /** Editing needs the row itself, so the form waits until it is on hand. */
-  const editTarget = editMode ? seedVehicle : undefined
+  const editTarget = localForm
+    ? localForm.mode === 'edit'
+      ? localForm.vehicle
+      : undefined
+    : editMode
+      ? urlSeedVehicle
+      : undefined
+  const waitingForEditRow = !localForm && editMode && !editTarget
 
   /** Puts the saved row in the list: a new one is appended, an edited one replaces. */
   const applySaved = (saved: VehicleSummary) =>
@@ -132,17 +207,16 @@ export function CustomerDetails() {
   }, [load])
 
   /**
-   * A customer with no vehicle yet — typically one just created — gets the
-   * vehicle form opened for them, since adding the vehicle is the next step
-   * anyway. Decided once, after the first load settles, so Cancel or Save
-   * closes it for good instead of it popping back open.
+   * A customer with no vehicle yet gets the vehicle form opened for them,
+   * since adding the vehicle is the next step anyway. Decided once, after the
+   * first load settles, so Cancel or Save closes it for good.
    */
   const autoOpenDecided = useRef(false)
   useEffect(() => {
-    if (loading || !customer || autoOpenDecided.current) return
+    if (flow || loading || !customer || autoOpenDecided.current) return
     autoOpenDecided.current = true
     if (vehicles.length === 0) setFormOpen(true)
-  }, [loading, customer, vehicles.length])
+  }, [flow, loading, customer, vehicles.length])
 
   // Keeps the parked copy in step with the server and with every edit, so a
   // refresh shows the details the owner last saved.
@@ -150,9 +224,53 @@ export function CustomerDetails() {
     if (customer) saveActiveCustomer(customer)
   }, [customer])
 
-  const finish = () => {
+  // Each step of the flow starts at the top, where its heading is.
+  useEffect(() => {
+    if (flow) window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [flow, flowStage])
+
+  const openForm = (next: LocalForm) => {
+    setLocalForm(next)
+    setFormOpen(true)
+    // The form opens at the top of the page; bring it into view on a phone.
+    requestAnimationFrame(() =>
+      document.getElementById('vehicle-form')?.scrollIntoView({ behavior: 'smooth' }),
+    )
+  }
+
+  const closeForm = () => {
+    if (!localForm && (addMode || editMode)) {
+      navigate(listPath)
+      return
+    }
+    setLocalForm(null)
+    setFormOpen(false)
+  }
+
+  /** On to a new job card, with this customer and vehicle already filled in. */
+  const createJobCard = (vehicle?: VehicleSummary) => {
+    if (!customer) return
     clearActiveCustomer()
-    navigate(listPath)
+    navigate('/app/job-cards/new', {
+      state: {
+        prefill: {
+          customer: {
+            id: customer.id,
+            fullName: customer.fullName,
+            mobileNumber: customer.mobileNumber,
+          },
+          vehicle,
+        },
+      },
+    })
+  }
+
+  /** Leaves the flow for the customer's ordinary details page. */
+  const viewCustomer = () => {
+    // The owner chose to leave the vehicle for later — don't pop the form open.
+    autoOpenDecided.current = true
+    setFlowStage('vehicle')
+    navigate(`/app/customers/${id}`, { replace: true })
   }
 
   const backLink = (
@@ -182,15 +300,150 @@ export function CustomerDetails() {
     )
   }
 
+  const editModal = (
+    <EditCustomerModal
+      open={editingCustomer}
+      customer={customer}
+      onClose={() => setEditingCustomer(false)}
+      onUpdated={setCustomer}
+    />
+  )
+
+  /* ---------------- Guided flow: step 2 (vehicle) and step 3 (done) ---------------- */
+
+  if (flow) {
+    if (flowStage === 'done') {
+      return (
+        <div>
+          <PageHeader title="All done!" subtitle="The customer and their vehicle are saved." />
+          <FlowSteps steps={NEW_CUSTOMER_STEPS} current={2} />
+
+          <Card className="text-center">
+            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 ring-8 ring-emerald-50/60">
+              <CheckCircle2 className="h-9 w-9" />
+            </span>
+            <p className="mt-4 text-lg font-semibold text-slate-900">{customer.fullName}</p>
+            <p className="text-sm text-slate-500">{customer.mobileNumber}</p>
+            {justSaved && (
+              <p className="mx-auto mt-3 inline-flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-semibold tracking-wide text-slate-800">
+                <Car className="h-4 w-4 text-slate-500" />
+                {justSaved.vehicleNumber}
+                {justSaved.vehicleType && (
+                  <span className="font-normal tracking-normal text-slate-500">
+                    · {justSaved.vehicleType}
+                  </span>
+                )}
+              </p>
+            )}
+
+            <p className="mx-auto mt-5 max-w-md text-sm text-slate-600">
+              What would you like to do next?
+            </p>
+
+            <div className="mx-auto mt-4 grid max-w-2xl grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
+              <Button
+                size="lg"
+                className="sm:col-span-2"
+                leftIcon={<ClipboardPlus className="h-5 w-5" />}
+                onClick={() => createJobCard(justSaved ?? undefined)}
+              >
+                Create Job Card for this vehicle
+              </Button>
+              <Button
+                variant="outline"
+                leftIcon={<Plus className="h-4 w-4" />}
+                onClick={() => {
+                  setJustSaved(null)
+                  setFlowStage('vehicle')
+                }}
+              >
+                Add another vehicle
+              </Button>
+              <Button
+                variant="outline"
+                leftIcon={<UserPlus className="h-4 w-4" />}
+                onClick={() => {
+                  clearActiveCustomer()
+                  navigate('/app/customers/new')
+                }}
+              >
+                Add another customer
+              </Button>
+              <Button variant="ghost" leftIcon={<Users className="h-4 w-4" />} onClick={viewCustomer}>
+                View customer details
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  clearActiveCustomer()
+                  navigate('/app/customers')
+                }}
+              >
+                Back to customer list
+              </Button>
+            </div>
+          </Card>
+
+          {editModal}
+        </div>
+      )
+    }
+
+    return (
+      <div>
+        <PageHeader
+          title="Add Vehicle"
+          subtitle="Enter the vehicle this customer brought in and the work it needs."
+        />
+        <FlowSteps steps={NEW_CUSTOMER_STEPS} current={1} />
+
+        <CustomerStrip customer={customer} onEdit={() => setEditingCustomer(true)} />
+
+        {vehicles.length > 0 && (
+          <p className="mb-4 text-sm text-slate-500">
+            Already added:{' '}
+            <span className="font-medium text-slate-700">
+              {vehicles.map((v) => v.vehicleNumber).join(', ')}
+            </span>
+          </p>
+        )}
+
+        <VehicleFormCard
+          key={`flow-${vehicles.length}`}
+          customerId={customer.id}
+          customerName={customer.fullName}
+          hideHeading
+          cancelLabel={vehicles.length > 0 ? 'Finish' : 'Skip, add later'}
+          onSaved={(vehicle) => {
+            applySaved(vehicle)
+            setJustSaved(vehicle)
+            setFlowStage('done')
+          }}
+          onCancel={() => {
+            if (vehicles.length > 0) setFlowStage('done')
+            else viewCustomer()
+          }}
+        />
+
+        {editModal}
+      </div>
+    )
+  }
+
+  /* ---------------- Ordinary details page ---------------- */
+
+  const showForm = formOpen && !waitingForEditRow
+
   return (
     <div>
       {backLink}
 
-      <PageHeader title="Customer Details" subtitle="Their details and the vehicles they bring in." />
+      <PageHeader
+        title={customer.fullName}
+        subtitle="Customer details and the vehicles they bring in."
+      />
 
-      {/* Full width: the details, the vehicles and the vehicle form all lay
-          out in columns on a desktop instead of a single narrow stack. */}
-      <div className="space-y-4">
+      <div className="space-y-5">
         {stale && (
           <div
             role="alert"
@@ -210,84 +463,120 @@ export function CustomerDetails() {
         <CustomerSummaryCard
           customer={customer}
           vehicles={vehicles}
-          onEdit={() => setEditing(true)}
-          footer={
-            !formOpen && (
-              <Button
-                fullWidth
-                className="sm:w-auto"
-                leftIcon={<Plus className="h-4 w-4" />}
-                onClick={() => setFormOpen(true)}
-              >
-                {vehicles.length > 0 ? 'Add Another Vehicle' : 'Add Vehicle'}
-              </Button>
-            )
-          }
+          onEdit={() => setEditingCustomer(true)}
         />
 
-        {/* The form opens straight under the customer, where the button that
-            opened it is — the vehicles already saved stay below it. */}
-        {formOpen && (!editMode || editTarget) && (
+        {showForm && (
           <VehicleFormCard
             // Remounts once the seed vehicle arrives, so the form is filled in.
-            key={seedVehicle?.id ?? 'new'}
+            key={`${localForm?.mode ?? action ?? 'new'}-${seedVehicle?.id ?? 'new'}`}
             customerId={customer.id}
+            customerName={customer.fullName}
             seed={seedVehicle}
             editing={editTarget}
             onSaved={(vehicle) => {
               applySaved(vehicle)
-              if (addMode || editMode) navigate(listPath)
-              else setFormOpen(false)
+              closeForm()
             }}
-            onCancel={() => {
-              if (addMode || editMode) navigate(listPath)
-              else setFormOpen(false)
-            }}
+            onCancel={closeForm}
           />
         )}
 
-        {vehicles.length > 0 && (
-          <div className="space-y-3">
-            <h2 className="text-sm font-semibold text-slate-700">Vehicles ({vehicles.length})</h2>
-            {/* Cards side by side where there is room; each stretches to its row. */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-slate-900">
+              Vehicles <span className="font-normal text-slate-400">({vehicles.length})</span>
+            </h2>
+            {!showForm && vehicles.length > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                leftIcon={<Plus className="h-4 w-4" />}
+                onClick={() => openForm({ mode: 'add' })}
+              >
+                Add Vehicle
+              </Button>
+            )}
+          </div>
+
+          {vehicles.length > 0 ? (
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
               {vehicles.map((vehicle) => (
-                <VehicleSummaryCard key={vehicle.id} vehicle={vehicle} detailed />
+                <VehicleSummaryCard
+                  key={vehicle.id}
+                  vehicle={vehicle}
+                  detailed
+                  actions={
+                    <>
+                      {vehicle.status === 'PENDING' ? (
+                        <Button
+                          size="sm"
+                          className="flex-1"
+                          leftIcon={<ClipboardPlus className="h-4 w-4" />}
+                          onClick={() => createJobCard(vehicle)}
+                        >
+                          Create Job Card
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="flex-1"
+                          leftIcon={<RotateCcw className="h-4 w-4" />}
+                          onClick={() => openForm({ mode: 'again', vehicle })}
+                        >
+                          New Visit
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        leftIcon={<Pencil className="h-3.5 w-3.5" />}
+                        onClick={() => openForm({ mode: 'edit', vehicle })}
+                      >
+                        Edit
+                      </Button>
+                    </>
+                  }
+                />
               ))}
             </div>
+          ) : (
+            !showForm &&
+            !loading && (
+              <Card className="flex flex-col items-center gap-3 border-dashed bg-white/60 py-8 text-center">
+                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                  <Car className="h-6 w-6" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">No vehicle added yet</p>
+                  <p className="mt-0.5 text-sm text-slate-500">
+                    Add the vehicle to start a job card for this customer.
+                  </p>
+                </div>
+                <Button leftIcon={<Plus className="h-4 w-4" />} onClick={() => openForm({ mode: 'add' })}>
+                  Add Vehicle
+                </Button>
+              </Card>
+            )
+          )}
+        </section>
+
+        {/* Phones: the main action stays one tap away at the foot of the page. */}
+        {!showForm && vehicles.length > 0 && (
+          <div className="sm:hidden">
+            <Button
+              fullWidth
+              leftIcon={<Plus className="h-4 w-4" />}
+              onClick={() => openForm({ mode: 'add' })}
+            >
+              Add Another Vehicle
+            </Button>
           </div>
         )}
-
-        {!formOpen &&
-          vehicles.length === 0 &&
-          !loading && (
-            <Card className="flex items-start gap-3 border-dashed bg-white/60">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-400">
-                <Car className="h-5 w-5" />
-              </span>
-              <div>
-                <p className="text-sm font-medium text-slate-900">No vehicle yet</p>
-                <p className="mt-0.5 text-sm text-slate-500">
-                  Use "Add Vehicle" above to record the vehicle for this customer. You can also do
-                  it later.
-                </p>
-              </div>
-            </Card>
-          )}
-
-        <div className="flex pt-1">
-          <Button variant="outline" fullWidth className="sm:w-auto sm:flex-none" onClick={finish}>
-            Done
-          </Button>
-        </div>
       </div>
 
-      <EditCustomerModal
-        open={editing}
-        customer={customer}
-        onClose={() => setEditing(false)}
-        onUpdated={setCustomer}
-      />
+      {editModal}
     </div>
   )
 }

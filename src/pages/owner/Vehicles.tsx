@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CalendarDays, Car, ChevronDown, Download, Eye, Phone, Plus } from 'lucide-react'
+import { CalendarDays, Car, ChevronDown, Eye, Phone, Plus } from 'lucide-react'
 import {
   ActionButton,
   DEFAULT_PAGE_SIZE,
@@ -10,7 +10,7 @@ import {
 } from '@/components/common'
 import type { Column, SortBarField, SortOrder } from '@/components/common'
 import { ResponsiveList, SortBar } from '@/components/common'
-import { Badge, Button, EmptyState, ErrorState, LoadingState, Select } from '@/components/ui'
+import { Badge, EmptyState, ErrorState, LoadingState, Select } from '@/components/ui'
 import { VehicleMoreDetails } from '@/components/vehicles'
 import { useAuth } from '@/context/AuthContext'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
@@ -24,11 +24,15 @@ import {
   periodMonths,
 } from '@/lib/createdPeriod'
 import type { CreatedPeriod } from '@/lib/createdPeriod'
-import { vehicleStatusLabel, vehicleStatusTone } from '@/lib/vehicleStatus'
-import { datedFileName, downloadExcel } from '@/lib/excel'
+import { vehicleStatusLabel } from '@/lib/vehicleStatus'
+import { VehicleStatusBadge } from '@/components/vehicles'
+import { downloadReport } from '@/lib/report'
+import type { ReportFormat } from '@/lib/report'
+import { ExportButtons } from '@/components/common/ExportButtons'
 import type { ExportColumn } from '@/lib/excel'
 import type { Pagination } from '@/types/auth'
-import type { VehicleListParams, VehicleWithCustomer } from '@/types/vehicle'
+import type { VehicleListParams, VehicleStatus, VehicleWithCustomer } from '@/types/vehicle'
+import { VehicleStatusFilter } from '@/components/vehicles/VehicleStatusFilter'
 
 /** The model, falling back to the brand where the model was left blank. */
 function vehicleName(vehicle: VehicleWithCustomer): string {
@@ -144,6 +148,10 @@ export function Vehicles() {
   const search = useDebouncedValue(query.trim(), 350)
   /** "Created in" filter — all time, the current month or the last 2-12 months. */
   const [period, setPeriod] = useState<CreatedPeriod>(ALL_TIME)
+  /** Status filter — '' shows every status. */
+  const [statusFilter, setStatusFilter] = useState<VehicleStatus | ''>('')
+  /** Vehicles per status for the current search and period, for the filter chips. */
+  const [statusCounts, setStatusCounts] = useState<Partial<Record<VehicleStatus, number>>>({})
 
   const [vehicles, setVehicles] = useState<VehicleWithCustomer[]>([])
   const [pagination, setPagination] = useState<Pagination | null>(null)
@@ -166,7 +174,7 @@ export function Vehicles() {
   // Only the order the API is asked for belongs in the key: re-ordering a page
   // in the browser neither refetches it nor sends the reader back to page one.
   const order = listOrder(sort)
-  const queryKey = `${search}|${period}|${limit}|${order.sortBy}:${order.sortOrder}`
+  const queryKey = `${search}|${period}|${statusFilter}|${limit}|${order.sortBy}:${order.sortOrder}`
   const [lastQueryKey, setLastQueryKey] = useState(queryKey)
   if (lastQueryKey !== queryKey) {
     setLastQueryKey(queryKey)
@@ -188,12 +196,14 @@ export function Vehicles() {
         sortOrder: order.sortOrder,
         ...(search ? { search } : {}),
         ...periodMonths(period),
+        ...(statusFilter ? { status: statusFilter } : {}),
       })
 
       if (requestId !== latestRequest.current) return
 
       setVehicles(data.vehicles ?? [])
       setPagination(data.pagination ?? null)
+      setStatusCounts(data.statusCounts ?? {})
     } catch (err) {
       if (requestId !== latestRequest.current) return
 
@@ -203,7 +213,7 @@ export function Vehicles() {
     } finally {
       if (requestId === latestRequest.current) setLoading(false)
     }
-  }, [search, period, page, limit, order.sortBy, order.sortOrder])
+  }, [search, period, statusFilter, page, limit, order.sortBy, order.sortOrder])
 
   // Re-runs whenever the search term, the period, the page, the page size or
   // the API's share of the order changes.
@@ -250,9 +260,10 @@ export function Vehicles() {
    * search term in the box. Asking for "All" rows first is what downloads
    * everything.
    */
-  const exportExcel = () =>
-    downloadExcel(
-      datedFileName('vehicles'),
+  const exportList = (format: ReportFormat) =>
+    downloadReport(
+      format,
+      'vehicles',
       {
         title: 'Vehicle List',
         subtitle: user?.garageName ?? 'Garage Management System',
@@ -267,6 +278,7 @@ export function Vehicles() {
       },
       EXPORT_COLUMNS,
       rows,
+      { garageName: user?.garageName, ownerName: user?.ownerName, mobileNumber: user?.mobileNumber, city: user?.city, email: user?.email },
     )
 
   const isExpanded = (v: VehicleWithCustomer) => expanded.has(v.id)
@@ -338,7 +350,7 @@ export function Vehicles() {
       sortKey: 'status',
       accessor: (v) =>
         v.status ? (
-          <Badge tone={vehicleStatusTone(v.status)}>{vehicleStatusLabel(v.status)}</Badge>
+          <VehicleStatusBadge status={v.status} />
         ) : (
           '—'
         ),
@@ -346,16 +358,19 @@ export function Vehicles() {
     {
       header: 'Actions',
       align: 'right',
-      className: 'w-[6.5rem]',
+      className: 'w-[7rem]',
       accessor: (v) => (
         <ActionButton
-          tone="primary"
+          tone={isCompleted(v) ? 'create' : 'primary'}
+          icon={
+            isCompleted(v) ? <Plus className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />
+          }
           title={
             isCompleted(v)
               ? `Open a new job for ${v.vehicleNumber}`
               : `Open ${v.vehicleNumber}`
           }
-          className="w-[4.25rem]"
+          className="w-[4.75rem]"
           onClick={() => openVehicleForm(v, isCompleted(v) ? 'add' : 'edit')}
         >
           {isCompleted(v) ? 'Add' : 'View'}
@@ -385,15 +400,15 @@ export function Vehicles() {
             onChange={(e) => setPeriod(e.target.value as CreatedPeriod)}
           />
         </div>
-        <Button
-          variant="outline"
-          leftIcon={<Download className="h-4 w-4" />}
-          disabled={rows.length === 0}
-          onClick={exportExcel}
-        >
-          Download Excel
-        </Button>
+        <ExportButtons onExport={exportList} disabled={rows.length === 0} />
       </div>
+
+      <VehicleStatusFilter
+        value={statusFilter}
+        counts={statusCounts}
+        onChange={setStatusFilter}
+        className="mb-4"
+      />
 
       {/* The table sorts from its headers; the cards get the same fields here. */}
       <SortBar
@@ -417,8 +432,10 @@ export function Vehicles() {
           icon={Car}
           title="No vehicles found"
           description={
-            search || period
-              ? 'Try a different search or created date.'
+            statusFilter && !search && !period
+              ? `No ${vehicleStatusLabel(statusFilter)} vehicles right now. Tap "All" to see every vehicle.`
+              : search || period || statusFilter
+              ? 'Try a different search, status or created date.'
               : 'Vehicles are added from a customer, and show up here once they are.'
           }
         />
@@ -447,7 +464,7 @@ export function Vehicles() {
                   </div>
                   <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                     {v.status && (
-                      <Badge tone={vehicleStatusTone(v.status)}>{vehicleStatusLabel(v.status)}</Badge>
+                      <VehicleStatusBadge status={v.status} />
                     )}
                     {v.fuelType && <Badge tone="neutral">{v.fuelType}</Badge>}
                     {expandToggle(v)}
@@ -478,7 +495,7 @@ export function Vehicles() {
                   {isCompleted(v) ? (
                     <ActionButton
                       layout="card"
-                      tone="primary"
+                      tone="create"
                       icon={<Plus className="h-4 w-4" />}
                       onClick={() => openVehicleForm(v, 'add')}
                     >
