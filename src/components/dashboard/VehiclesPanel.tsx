@@ -3,7 +3,6 @@ import type { ComponentProps } from 'react'
 import { Link } from 'react-router-dom'
 import { CarFront, ChevronRight, Clock, Phone, Wrench } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { Badge } from '@/components/ui'
 import { useDashboardPage } from '@/hooks/useDashboardPage'
 import {
   getDashboardInServiceVehicles,
@@ -11,7 +10,7 @@ import {
   getDashboardPendingVehicles,
 } from '@/services/dashboardService'
 import { monthLabel } from '@/lib/dashboard'
-import { vehicleStatusLabel, vehicleStatusTone } from '@/lib/vehicleStatus'
+import { VehicleStatusBadge } from '@/components/vehicles'
 import { cn } from '@/lib/utils'
 import type { DashboardNewVehicle, DashboardVehiclesPage } from '@/types/dashboard'
 import {
@@ -220,9 +219,7 @@ export function VehiclesPanel({ variant }: { variant: VehiclesPanelVariant }) {
                 <JobCards count={vehicle.jobCardCount} />
               </td>
               <td className="px-3 py-3">
-                <Badge tone={vehicleStatusTone(vehicle.status)}>
-                  {vehicleStatusLabel(vehicle.status)}
-                </Badge>
+                <VehicleStatusBadge status={vehicle.status} />
               </td>
               <td className="px-3 py-3">
                 <AddedOn createdAt={vehicle.createdAt} />
@@ -256,9 +253,7 @@ export function VehiclesPanel({ variant }: { variant: VehiclesPanelVariant }) {
                   <AddedOn createdAt={vehicle.createdAt} align="right" />
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <Badge tone={vehicleStatusTone(vehicle.status)}>
-                    {vehicleStatusLabel(vehicle.status)}
-                  </Badge>
+                  <VehicleStatusBadge status={vehicle.status} />
                   <span className="truncate text-xs text-slate-600">
                     {vehicle.customer.fullName} · {vehicle.customer.mobileNumber}
                   </span>

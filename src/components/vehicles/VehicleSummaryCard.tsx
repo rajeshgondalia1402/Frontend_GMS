@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Car, ClipboardList, Clock } from 'lucide-react'
 import { agoLabel, formatDate } from '@/lib/utils'
 import type { VehicleSummary } from '@/types/vehicle'
@@ -8,6 +9,8 @@ interface VehicleSummaryCardProps {
   vehicle: VehicleSummary
   /** Also show the complaint and when the vehicle last came in. */
   detailed?: boolean
+  /** Buttons along the foot of the card, e.g. "Create Job Card" and "Edit". */
+  actions?: ReactNode
 }
 
 /**
@@ -16,7 +19,7 @@ interface VehicleSummaryCardProps {
  * ago. The customer fetch embeds a trimmed-down vehicle, so every fact is shown
  * only when it is there rather than as a dash.
  */
-export function VehicleSummaryCard({ vehicle, detailed = false }: VehicleSummaryCardProps) {
+export function VehicleSummaryCard({ vehicle, detailed = false, actions }: VehicleSummaryCardProps) {
   const makeModel = vehicleMakeModel(vehicle)
   // The type stands in for the make and model when those were not recorded,
   // and is then not repeated as a chip.
@@ -66,6 +69,14 @@ export function VehicleSummaryCard({ vehicle, detailed = false }: VehicleSummary
           Last visit <span className="font-semibold text-slate-700">{lastVisit}</span>
           <span className="text-slate-400">· {formatDate(vehicle.createdAt)}</span>
         </p>
+      )}
+
+      {actions && (
+        <div
+          className={`flex flex-wrap gap-2 border-t border-slate-100 p-3 ${detailed && lastVisit && vehicle.createdAt ? '' : 'mt-auto'}`}
+        >
+          {actions}
+        </div>
       )}
     </div>
   )

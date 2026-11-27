@@ -33,6 +33,9 @@ export const EMPTY_CUSTOMER_FORM: CustomerFormValues = {
   notes: '',
 }
 
+/** The three steps of booking a new customer in, shown across the flow. */
+export const NEW_CUSTOMER_STEPS = ['Customer', 'Vehicle', 'Done']
+
 /** Fields the API can report a validation error against. */
 const CUSTOMER_FORM_FIELDS: string[] = [
   'fullName',

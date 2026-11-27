@@ -97,4 +97,9 @@ export interface VehicleListParams {
 export interface VehicleListData {
   vehicles: VehicleWithCustomer[]
   pagination: Pagination
+  /**
+   * How many vehicles are in each status for the same search and period,
+   * whichever status is being filtered on — for the counts on the filter.
+   */
+  statusCounts?: Partial<Record<VehicleStatus, number>>
 }

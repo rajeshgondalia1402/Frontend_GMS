@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BadgeIndianRupee, ChevronDown, Download, Phone, Plus } from 'lucide-react'
+import { BadgeIndianRupee, ChevronDown, Phone, Plus } from 'lucide-react'
 import {
   ActionButton,
   DEFAULT_PAGE_SIZE,
@@ -30,7 +30,9 @@ import {
   soldCarTitle,
 } from '@/lib/carSold'
 import { downloadCarSaleReceipt } from '@/lib/carSaleReceipt'
-import { datedFileName, downloadExcel } from '@/lib/excel'
+import { downloadReport } from '@/lib/report'
+import type { ReportFormat } from '@/lib/report'
+import { ExportButtons } from '@/components/common/ExportButtons'
 import type { ExportColumn } from '@/lib/excel'
 import { formatDate } from '@/lib/utils'
 import type { Pagination } from '@/types/auth'
@@ -180,7 +182,6 @@ export function CarSold() {
     car: SoldCarRecord
     payment: CarSoldPayment
   } | null>(null)
-  const [exporting, setExporting] = useState(false)
   /** The car whose receipt is being built, so its button can spin. */
   const [receipting, setReceipting] = useState<string | null>(null)
 
@@ -285,11 +286,9 @@ export function CarSold() {
    * Downloads every sold car matching the search, in the order the list is
    * sorted by — not just the page on screen. The API has no maximum page size.
    */
-  const exportExcel = async () => {
+  const exportList = async (format: ReportFormat) => {
     const matching = pagination?.total ?? cars.length
     if (matching === 0) return
-
-    setExporting(true)
     try {
       const data = await carSoldService.listSoldCars({
         page: 1,
@@ -300,8 +299,9 @@ export function CarSold() {
       })
       const rows = data.soldCars ?? []
 
-      downloadExcel(
-        datedFileName('car-sold'),
+      await downloadReport(
+        format,
+        'car-sold',
         {
           title: 'Car Sold List',
           subtitle: user?.garageName ?? 'Garage Management System',
@@ -315,11 +315,10 @@ export function CarSold() {
         },
         EXPORT_COLUMNS,
         rows,
+        { garageName: user?.garageName, ownerName: user?.ownerName, mobileNumber: user?.mobileNumber, city: user?.city, email: user?.email },
       )
     } catch (err) {
       toast(err instanceof ApiError ? err.message : 'Could not download the list.', 'error')
-    } finally {
-      setExporting(false)
     }
   }
 
@@ -536,15 +535,7 @@ export function CarSold() {
           placeholder="Search car number, seller, buyer, company or mobile..."
           className="sm:flex-1"
         />
-        <Button
-          variant="outline"
-          leftIcon={<Download className="h-4 w-4" />}
-          loading={exporting}
-          disabled={loading || cars.length === 0}
-          onClick={() => void exportExcel()}
-        >
-          Download Excel
-        </Button>
+        <ExportButtons onExport={exportList} disabled={loading || cars.length === 0} />
       </div>
 
       {loading ? (

@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
  * paperwork is in the app's own blue, and opening the record itself is the
  * quiet one.
  */
-export type ActionTone = 'primary' | 'money' | 'neutral' | 'danger'
+export type ActionTone = 'primary' | 'money' | 'neutral' | 'danger' | 'create'
 
 /**
  * Where the button is being used. In a table row it is small and holds the
@@ -41,6 +41,9 @@ const TONES: Record<ActionTone, string> = {
     'border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100 focus-visible:ring-emerald-500',
   neutral:
     'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-100 focus-visible:ring-slate-400',
+  /** Solid green — starts something new, so it stands apart from "View". */
+  create:
+    'border-emerald-600 bg-emerald-600 text-white shadow-sm hover:border-emerald-700 hover:bg-emerald-700 focus-visible:ring-emerald-500',
   danger:
     'border-red-200 bg-white text-red-600 hover:border-red-300 hover:bg-red-50 focus-visible:ring-red-500',
 }
