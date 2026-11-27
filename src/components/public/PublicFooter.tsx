@@ -18,6 +18,7 @@ const columns = [
     heading: 'Product',
     links: [
       { label: 'Features', to: '/features' },
+      { label: 'How to Use Guide', to: '/guide' },
       { label: 'Subscription', to: '/subscription' },
       { label: 'Start Free Trial', to: '/register' },
     ],

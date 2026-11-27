@@ -17,6 +17,7 @@ import { BrandMark } from './BrandMark'
 export const publicNav = [
   { label: 'Home', to: '/' },
   { label: 'Features', to: '/features' },
+  { label: 'How to Use', to: '/guide' },
   { label: 'Subscription', to: '/subscription' },
   { label: 'About Us', to: '/about' },
   { label: 'Contact Us', to: '/contact' },
