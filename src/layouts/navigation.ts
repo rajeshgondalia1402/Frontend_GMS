@@ -13,6 +13,7 @@ import {
   CarFront,
   BadgeIndianRupee,
   CheckCircle2,
+  HelpCircle,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -73,6 +74,7 @@ export const ownerNav: NavItem[] = [
     ],
   },
   { label: 'Subscription', to: '/app/subscription', icon: CreditCard },
+  { label: 'How to Use', to: '/guide', icon: HelpCircle },
 ]
 
 export const adminNav: NavItem[] = [

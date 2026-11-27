@@ -11,6 +11,7 @@ import {
   About as PublicAbout,
   Contact as PublicContact,
   Features as PublicFeatures,
+  Guide as PublicGuide,
   Home as PublicHome,
   Subscription as PublicSubscription,
 } from '@/pages/public'
@@ -60,6 +61,7 @@ export const router = createBrowserRouter([
     children: [
       { path: '/', element: <PublicHome /> },
       { path: '/features', element: <PublicFeatures /> },
+      { path: '/guide', element: <PublicGuide /> },
       { path: '/subscription', element: <PublicSubscription /> },
       { path: '/about', element: <PublicAbout /> },
       { path: '/contact', element: <PublicContact /> },
